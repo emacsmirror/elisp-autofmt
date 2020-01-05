@@ -61,6 +61,28 @@ Customization
 TODO
 ----
 
+- Add a configuration file, e.g: ``.elisp-autofmt``
+  which can be used to detect if auto-formatting should be used.
+
+  Allowing auto-formatting to be selectively enabled on a per-project basis.
+- Support conventional ``let`` formatting:
+
+  .. code-block:: elisp
+
+     ;; Support this.
+     (let ((foo 1)
+           (bar 2))
+       *body*)
+
+     ;; As an alternative to this.
+     (let
+       (
+         (foo 1)
+         (bar 2))
+       *body*)
+
+  *Moving away from the current rule of fixed 2 space indentation.*
+
 - Scan the buffer for functions, only writing function data for functions in use.
 - Use the indentation width from Emacs (currently fixed to 2).
 - Support un-escaped character literals.
