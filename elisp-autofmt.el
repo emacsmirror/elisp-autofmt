@@ -54,6 +54,8 @@ Can be slow!"
 
 ;;;###autoload
 (defun elisp-autofmt-region (&optional assume-file-name)
+  "Auto format the current region.
+Optional argument ASSUME-FILE-NAME overrides the file name used for this buffer."
   (interactive
     (if (use-region-p)
       (list (region-beginning) (region-end))
@@ -148,9 +150,9 @@ Can be slow!"
                 (buffer-substring-no-properties (point-min) (point-max)))))
           (cond
             ((stringp status)
-              (error "lisp_fmt-format killed by signal %s%s" status stderr))
+              (error "Command: lisp_fmt-format killed by signal %s%s" status stderr))
             ((not (zerop status))
-              (error "lisp_fmt-format failed with code %d%s" status stderr))
+              (error "Command: lisp_fmt-format failed with code %d%s" status stderr))
             (t
               ;; Include the stdout as a message, useful to check on how the program runs.
               (let
@@ -177,10 +179,13 @@ Can be slow!"
       (kill-buffer temp-buffer))))
 
 ;;;###autoload
-(defun elisp-autofmt-buffer () (elisp-autofmt-region))
+(defun elisp-autofmt-buffer ()
+  "Auto-format the entire buffer."
+  (elisp-autofmt-region))
 
 ;;;###autoload
 (defun elisp-autofmt-save-hook-for-this-buffer ()
+  "Setup an auto-format save hook for this buffer."
   (add-hook 'before-save-hook
     (lambda ()
       (progn
@@ -192,3 +197,5 @@ Can be slow!"
     t))
 
 (provide 'elisp-autofmt)
+
+;;; elisp-autofmt.el ends here
