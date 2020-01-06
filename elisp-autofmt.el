@@ -51,6 +51,7 @@ Can be slow!"
 ;; Run this command to format.
 (setq elisp-autofmt--bin (file-name-sans-extension load-file-name))
 
+;;;###autoload
 (defun elisp-autofmt-region (&optional assume-file-name)
   (interactive
     (if (use-region-p)
@@ -174,8 +175,10 @@ Can be slow!"
     (when (buffer-name temp-buffer)
       (kill-buffer temp-buffer))))
 
+;;;###autoload
 (defun elisp-autofmt-buffer () (elisp-autofmt-region))
 
+;;;###autoload
 (defun elisp-autofmt-save-hook-for-this-buffer ()
   (add-hook 'before-save-hook
     (lambda ()
