@@ -42,12 +42,29 @@ Usage
 
 The save hook can be enabled in the mode hook.
 
+Since it's likely you will work on code-bases that *don't* have auto-formatting enabled,
+this checks for the existence of an ``.elisp-autofmt`` file in the buffers directory (including parent paths).
+
 .. code-block:: elisp
 
    (add-hook 'emacs-lisp-mode-hook
      (lambda ()
        (require 'elisp-autofmt)
        (elisp-autofmt-save-hook-for-this-buffer)))
+
+.. note::
+
+   ``.elisp-autofmt`` will eventually be used for configuration, for now it should be left empty.
+
+
+Functions
+^^^^^^^^^
+
+``(elisp-autofmt-buffer &optional buf)``
+   Auto formats the current buffer (or ``buf``).
+``(elisp-autofmt-save-hook-for-this-buffer &optional force)``
+   Setup auto-formatting for this buffer, optionally you can pass in ``force`` = ``t``
+   to enable auto-formatting even when ``.elisp-autofmt`` isn't found.
 
 
 Customization
@@ -61,10 +78,8 @@ Customization
 TODO
 ----
 
-- Add a configuration file, e.g: ``.elisp-autofmt``
-  which can be used to detect if auto-formatting should be used.
+- Use: ``.elisp-autofmt`` as a configuration file.
 
-  Allowing auto-formatting to be selectively enabled on a per-project basis.
 - Support conventional ``let`` formatting:
 
   .. code-block:: elisp

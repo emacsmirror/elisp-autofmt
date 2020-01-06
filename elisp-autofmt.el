@@ -52,8 +52,8 @@ Can be slow!"
 (defvar elisp-autofmt--bin)
 (setq elisp-autofmt--bin (file-name-sans-extension load-file-name))
 
-;;;###autoload
-(defun elisp-autofmt-region (&optional assume-file-name)
+;; TODO, add support for auto-formatting a sub-region, until this is supported keep this private.
+(defun elisp-autofmt--region (&optional assume-file-name)
   "Auto format the current region.
 Optional argument ASSUME-FILE-NAME overrides the file name used for this buffer."
   (interactive
@@ -179,19 +179,25 @@ Optional argument ASSUME-FILE-NAME overrides the file name used for this buffer.
       (kill-buffer temp-buffer))))
 
 ;;;###autoload
-(defun elisp-autofmt-buffer ()
-  "Auto-format the entire buffer."
-  (elisp-autofmt-region))
+(defun elisp-autofmt-buffer (&optional buf)
+  "Auto-format the entire buffer.
+
+Optional argument BUF the buffer to format, otherwise use the current buffer."
+  (with-current-buffer (or buf (current-buffer)) (elisp-autofmt--region)))
 
 ;;;###autoload
-(defun elisp-autofmt-save-hook-for-this-buffer ()
-  "Setup an auto-format save hook for this buffer."
+(defun elisp-autofmt-save-hook-for-this-buffer (&optional force)
+  "Setup an auto-format save hook for this buffer.
+
+Optional argument FORCE auto-formats the buffer
+even when `.elisp-autofmt' isn't in any of the buffers parent directories."
   (add-hook 'before-save-hook
     (lambda ()
-      (progn
-        (elisp-autofmt-buffer)
-        ;; Continue to save.
-        nil))
+      (let ((cfg (locate-dominating-file (file-name-directory buffer-file-name) ".elisp-autofmt")))
+        (when (or cfg force)
+          (elisp-autofmt-buffer)))
+      ;; Continue to save.
+      nil)
     nil
     ;; Buffer local hook.
     t))
