@@ -49,6 +49,7 @@ Can be slow!"
 ;; Internal variables.
 
 ;; Run this command to format.
+(defvar elisp-autofmt--bin)
 (setq elisp-autofmt--bin (file-name-sans-extension load-file-name))
 
 ;;;###autoload
