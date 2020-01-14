@@ -146,7 +146,6 @@ def apply_rules(defs, node_parent):
                     'add-to-list',
                     'apply',
                     'catch',
-                    'condition-case',
                     'custom-theme-set-faces',
                     'declare',
                     'defadvice',
@@ -197,6 +196,7 @@ def apply_rules(defs, node_parent):
                 node_parent.index_wrap_hint = 2
                 apply_relaxed_wrap(node_parent)
             elif node.data in {
+                    'condition-case',
                     'when',
                     'while',
                     'unless',
