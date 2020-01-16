@@ -159,7 +159,6 @@ def apply_rules(defs, node_parent):
                     'defsubst',
                     'defvar',
                     'defvar-local',
-                    'dolist',
                     'evil-leader/set-key',
                     'global-set-key',
                     'pcase',
@@ -185,6 +184,7 @@ def apply_rules(defs, node_parent):
             elif node.data in {
                     'cl-destructuring-bind',
                     'defcustom',
+                    'defgroup',
                     'define-key',
             }:
                 node_parent.index_wrap_hint = 3
@@ -197,14 +197,16 @@ def apply_rules(defs, node_parent):
                 apply_relaxed_wrap(node_parent)
             elif node.data in {
                     'condition-case',
-                    'when',
-                    'while',
+                    'dolist',
+                    'dotimes',
                     'unless',
                     'use-package',
+                    'when',
+                    'while',
             }:
                 node_parent.index_wrap_hint = 2
                 apply_relaxed_wrap(node_parent)
-            elif node.data in {'progn', 'choice'}:
+            elif node.data == 'progn':
                 node_parent.index_wrap_hint = 1
                 apply_relaxed_wrap(node_parent)
             elif node.data in {
