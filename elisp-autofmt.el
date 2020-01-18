@@ -104,7 +104,12 @@ Optional argument ASSUME-FILE-NAME overrides the file name used for this buffer.
                 ;;
                 )
               ;; (message "%S %s" (fboundp x) (symbol-name x))
-              (let ((arity (condition-case _err (func-arity x) (error nil))))
+              (let
+                (
+                  (arity
+                    (condition-case _err
+                      (func-arity x)
+                      (error nil))))
                 (when arity
                   (let
                     (
