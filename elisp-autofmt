@@ -153,6 +153,8 @@ def apply_rules(defs, node_parent):
         node = node_parent.nodes[0]
         if isinstance(node, NdSymbol):
 
+            node_parent.index_wrap_hint = 1
+
             # -------------------
             # Only wrap if needed
             #
@@ -161,8 +163,16 @@ def apply_rules(defs, node_parent):
             if node.data in {'and', 'or'}:
                 node_parent.index_wrap_hint = 1
             elif node.data in {
+                    'with-auto-compression-mode',
+                    'with-temp-buffer',
+            }:
+                node_parent.index_wrap_hint = 1
+                node_parent.wrap_all_or_nothing_hint = True
+            elif node.data in {
                     'add-hook',
                     'add-to-list',
+                    'advice-add',
+                    'advice-remove',
                     'apply',
                     'catch',
                     'custom-theme-set-faces',
@@ -185,11 +195,17 @@ def apply_rules(defs, node_parent):
                     'pcase-let*',
                     'setcar',
                     'setcdr',
+            }:
+                node_parent.index_wrap_hint = 2
+
+            elif node.data in {
                     'with-current-buffer',
                     'with-demoted-errors',
                     'with-eval-after-load',
+                    'with-syntax-table',
             }:
                 node_parent.index_wrap_hint = 2
+                node_parent.wrap_all_or_nothing_hint = True
 
             elif node.data == 'lambda':
                 if (
