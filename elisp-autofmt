@@ -167,6 +167,7 @@ def apply_rules(defs, node_parent):
                     'setcar',
                     'setcdr',
                     'with-current-buffer',
+                    'with-demoted-errors',
                     'with-eval-after-load',
             }:
                 node_parent.index_wrap_hint = 2
