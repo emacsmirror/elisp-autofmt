@@ -186,8 +186,6 @@ def apply_rules(defs, node_parent):
                     'defparameter',
                     'defstruct',
                     'defsubst',
-                    'defvar',
-                    'defvar-local',
                     'evil-leader/set-key',
                     'global-set-key',
                     'pcase',
@@ -203,6 +201,7 @@ def apply_rules(defs, node_parent):
                     'with-demoted-errors',
                     'with-eval-after-load',
                     'with-syntax-table',
+                    'with-timeout',
             }:
                 node_parent.index_wrap_hint = 2
                 node_parent.wrap_all_or_nothing_hint = True
@@ -222,10 +221,12 @@ def apply_rules(defs, node_parent):
                     'defcustom',
                     'defgroup',
                     'define-key',
+                    'defvar',
+                    'defvar-local',
             }:
                 node_parent.index_wrap_hint = 3
 
-            # -----------------
+            #
             # Wrap these always
             #
             elif node.data in {'if', 'prog1'}:
@@ -246,6 +247,7 @@ def apply_rules(defs, node_parent):
                 node_parent.index_wrap_hint = 1
                 apply_relaxed_wrap(node_parent)
             elif node.data in {
+                    'eval-when-compile',
                     'save-excursion',
                     'save-match-data',
                     'save-restriction',
