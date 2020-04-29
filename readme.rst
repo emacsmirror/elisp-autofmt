@@ -31,10 +31,11 @@ Features
 - Enforces maximum line width (using the fill column).
 - Consistent 2 space indentation.
 - Keeps blank lines.
-- Keeps trailing commends at the end of lines.
+- Keeps trailing comments at the end of lines.
+- Extracts function arguments from locally defined functions.
 - Experimental support for exporting function argument lengths.
 
-  *Currently writes all function informationg making it slow.*
+  *Currently writes all function information making it slow.*
 
 
 Usage
