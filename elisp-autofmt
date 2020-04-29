@@ -747,7 +747,8 @@ class NdSexp(Node):
             if test:
                 # Use only for testing.
                 if node is test_node_terminate:
-                    return
+                    # We could return however this misses trailing parenthesis on the same line.
+                    break
                 if getattr(node, 'test_blacklist', False):
                     continue
 
