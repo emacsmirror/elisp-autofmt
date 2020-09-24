@@ -13,7 +13,9 @@ Projects using this:
 - `hl-block-mode <https://gitlab.com/ideasman42/emacs-hl-block-mode>`__
 - `run-stuff <https://gitlab.com/ideasman42/emacs-run-stuff>`__
 - `scoll-on-drag <https://gitlab.com/ideasman42/emacs-scroll-on-drag>`__
+- `spell-fu <https://gitlab.com/ideasman42/emacs-spell-fu>`__
 - `undo-fu <https://gitlab.com/ideasman42/emacs-undo-fu>`__
+- `undo-fu-session <https://gitlab.com/ideasman42/emacs-undo-fu-session>`__
 
 *Currently my projects, just to give examples of how it works.*
 
