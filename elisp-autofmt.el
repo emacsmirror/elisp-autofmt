@@ -4,7 +4,7 @@
 
 ;; Author: Campbell Barton <ideasman42@gmail.com>
 
-;; URL: https://github.com/ideasman42/emacs-elisp-autofmt
+;; URL: https://gitlab.com/ideasman42/emacs-elisp-autofmt
 ;; Version: 0.1
 ;; Package-Requires: ((emacs "26.2"))
 
@@ -198,7 +198,8 @@ Optional argument FORCE auto-formats the buffer
 even when `.elisp-autofmt' isn't in any of the buffers parent directories."
   (add-hook 'before-save-hook
     (lambda ()
-      (let ((cfg (locate-dominating-file (file-name-directory buffer-file-name) ".elisp-autofmt")))
+      (let
+        ((cfg (locate-dominating-file (file-name-directory buffer-file-name) ".elisp-autofmt")))
         (when (or cfg force)
           (elisp-autofmt-buffer)))
       ;; Continue to save.
