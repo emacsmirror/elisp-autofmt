@@ -313,6 +313,7 @@ def apply_rules(defs, node_parent):
                         apply_relaxed_wrap_when_multiple_args(subnode)
 
             elif node.data in {
+                    'cl-defmethod',
                     'defmacro',
                     'defun',
             }:
