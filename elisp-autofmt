@@ -222,8 +222,6 @@ def apply_rules(defs, node_parent):
                     'evil-leader/set-key',
                     'global-set-key',
                     'pcase',
-                    'pcase-let',
-                    'pcase-let*',
                     'setcar',
                     'setcdr',
             }:
@@ -234,6 +232,7 @@ def apply_rules(defs, node_parent):
                     'with-demoted-errors',
                     'with-eval-after-load',
                     'with-syntax-table',
+                    'with-temp-file',
                     'with-timeout',
             }:
                 node_parent.index_wrap_hint = 2
@@ -292,6 +291,8 @@ def apply_rules(defs, node_parent):
                     'cl-letf*',
                     'let',
                     'let*',
+                    'pcase-let',
+                    'pcase-let*',
             }:
                 # Only wrap with multiple declarations.
                 if isinstance(node_parent.nodes_only_code[1], NdSexp):
