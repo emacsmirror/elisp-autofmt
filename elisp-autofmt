@@ -18,8 +18,24 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
+from __future__ import annotations
+from typing import (
+    Dict,
+    Generator,
+    List,
+    NamedTuple,
+    Optional,
+    TextIO,
+    Tuple,
+)
+from types import (
+    ModuleType,
+)
+
+
 import sys
 import os
+import argparse
 
 
 # ------------------------------------------------------------------------------
@@ -37,21 +53,25 @@ USE_EXTRACT_DEFS = True
 # ------------------------------------------------------------------------------
 # Utilities
 
-def _function_id(num_frames_up):
+
+def _function_id(num_frames_up: int) -> str:
     ''' Create a string naming the function n frames up on the stack.
     '''
     co = sys._getframe(num_frames_up + 1).f_code
     return '%d %s' % (co.co_firstlineno, co.co_name)
 
 
-def execfile(filepath, mod=None):
+def execfile(filepath: str, mod: Optional[ModuleType] = None) -> ModuleType:
     # module name isn't used or added to 'sys.modules'.
     # passing in 'mod' allows re-execution without having to reload.
 
     import importlib.util
+    from importlib.abc import Loader
     mod_spec = importlib.util.spec_from_file_location('__main__', filepath)
     if mod is None:
         mod = importlib.util.module_from_spec(mod_spec)
+    # Make 'mypy' happy.
+    assert isinstance(mod_spec.loader, Loader)
     mod_spec.loader.exec_module(mod)
     return mod
 
@@ -59,7 +79,7 @@ def execfile(filepath, mod=None):
 # ------------------------------------------------------------------------------
 # Formatting Utilities
 
-def apply_comment_force_newline(root):
+def apply_comment_force_newline(root: NdSexp) -> None:
     # Special calculation for lines with comments on same line,
     # don't merge these lines since it would make it seem as if
     # the comment applies to the statements on that line.
@@ -82,7 +102,7 @@ def apply_comment_force_newline(root):
             node_line_start = node
 
 
-def apply_relaxed_wrap(node_parent):
+def apply_relaxed_wrap(node_parent: NdSexp) -> None:
     node_prev = None
     is_multi_line = False
 
@@ -144,12 +164,12 @@ def apply_relaxed_wrap(node_parent):
         node_prev = node
 
 
-def apply_relaxed_wrap_when_multiple_args(node_parent):
+def apply_relaxed_wrap_when_multiple_args(node_parent: NdSexp) -> None:
     if len(node_parent.nodes_only_code) - node_parent.index_wrap_hint > 1:
         apply_relaxed_wrap(node_parent)
 
 
-def parse_local_defs(defs, node_parent):
+def parse_local_defs(defs: Defs, node_parent: NdSexp) -> None:
     # Extract the number of functions from local definitions.
     # Currently only used so we can break the number of arguments at '&rest'
     # since it's nearly always where we have the body of macros which is logically
@@ -179,7 +199,7 @@ def parse_local_defs(defs, node_parent):
             parse_local_defs(defs, node)
 
 
-def apply_rules(defs, node_parent):
+def apply_rules(defs: Defs, node_parent: NdSexp) -> None:
 
     # Optional
     if node_parent.nodes_only_code and node_parent.bracket_open == '(':
@@ -245,7 +265,7 @@ def apply_rules(defs, node_parent):
                 ):
                     node_parent.index_wrap_hint = 3
                 else:
-                   node_parent.index_wrap_hint = 2
+                    node_parent.index_wrap_hint = 2
                 node_parent.wrap_all_or_nothing_hint = True
 
             elif node.data in {
@@ -359,7 +379,7 @@ def apply_rules(defs, node_parent):
     node_parent.flush_newlines_from_nodes()
 
 
-def apply_pre_indent_1(cfg, node_parent, level):
+def apply_pre_indent_1(cfg: FormatConfig, node_parent: NdSexp, level: int) -> None:
 
     # First be relaxed, then again if it fails.
     if node_parent.fmt_check_exceeds_colum_max(cfg, level):
@@ -367,7 +387,7 @@ def apply_pre_indent_1(cfg, node_parent, level):
         node_parent.force_newline = True
 
 
-def apply_pre_indent_2(cfg, node_parent, level):
+def apply_pre_indent_2(cfg: FormatConfig, node_parent: NdSexp, level: int) -> None:
 
     # Wrap items before if absolutely needed, one at a time.
     if node_parent.index_wrap_hint > 0:
@@ -380,9 +400,7 @@ def apply_pre_indent_2(cfg, node_parent, level):
                 node = node_parent.nodes_only_code[i]
                 if not node.force_newline:
                     node.force_newline = True
-                if not node_parent.fmt_check_exceeds_colum_max(
-                        cfg, level, test_node_terminate=node,
-                ):
+                if not node_parent.fmt_check_exceeds_colum_max(cfg, level, test_node_terminate=node,):
                     break
                 i -= 1
 
@@ -393,7 +411,7 @@ def apply_pre_indent_2(cfg, node_parent, level):
         node_parent.test_blacklist = True
 
 
-def apply_pre_indent(cfg, node_parent, level):
+def apply_pre_indent(cfg: FormatConfig, node_parent: NdSexp, level: int) -> None:
     '''
     For lists that will need wrapping even when all parents are wrapped,
     wrap these beforehand.
@@ -422,17 +440,32 @@ def apply_pre_indent(cfg, node_parent, level):
 # Immutable configuration,
 # created from command line arguments.
 
-from collections import namedtuple
-FormatConfig = namedtuple(
-    'FormatConfig',
-    (
-        'use_trailing_parens',
-        'fill_column',
-        'empty_lines',
-        'defs',
-    ),
-)
-del namedtuple
+class FormatConfig(NamedTuple):
+    use_trailing_parens: bool
+    fill_column: int
+    empty_lines: int
+    defs: Defs
+
+
+class Defs:
+    '''
+    Function definition data, hints about when to wrap arguments.
+    '''
+    __slots__ = (
+        'fn_arity',
+        '_is_complete',
+        '_has_local',
+    )
+
+    def __init__(
+            self,
+            *,
+            fn_arity: Dict[str, Tuple[Optional[int], Optional[int]]],
+            is_complete: bool,
+    ):
+        self.fn_arity = fn_arity
+        self._is_complete = is_complete
+        self._has_local: bool = False
 
 
 class WriteCtx:
@@ -443,7 +476,12 @@ class WriteCtx:
         'cfg',
     )
 
-    def __init__(self, cfg):
+    last_node: Optional[Node]
+    is_newline: bool
+    line: int
+    cfg: FormatConfig
+
+    def __init__(self, cfg: FormatConfig):
         self.last_node = None
         self.is_newline = True
         self.line = 0
@@ -456,7 +494,7 @@ class Node:
             (
                 'force_newline',
             )
-            if not TRACE_NEWLINES  else
+            if not TRACE_NEWLINES else
             (
                 '_force_newline',
                 '_force_newline_tracepoint',
@@ -466,13 +504,16 @@ class Node:
         'test_blacklist',
     )
 
+    original_line: int
+    test_blacklist: bool
+
     if TRACE_NEWLINES:
         @property
-        def force_newline(self):
+        def force_newline(self) -> bool:
             return self._force_newline
 
         @force_newline.setter
-        def force_newline(self, value):
+        def force_newline(self, value: bool) -> None:
             assert(value is True or value is False)
             if getattr(self, '_force_newline', None) != value:
                 if value:
@@ -481,6 +522,18 @@ class Node:
                         _function_id(2)
                     )
             self._force_newline = value
+
+    def calc_force_newline(self) -> None:
+        raise Exception('All subclasses must define this')
+
+    def fmt(self,
+            ctx: WriteCtx,
+            fh: TextIO,
+            level: int,
+            *,
+            test: bool = False,
+            ) -> None:
+        raise Exception('All subclasses must define this')
 
 
 class NdSexp(Node):
@@ -494,16 +547,20 @@ class NdSexp(Node):
         'wrap_all_or_nothing_hint',
     )
 
-    def __init__(self, line, nodes=None):
-        self.original_line = line
-        self.prefix = ''
-        self.bracket_open = None
-        self.bracket_close = None
-        self.nodes = nodes or []
-        self.index_wrap_hint = 1
-        self.wrap_all_or_nothing_hint = False
+    bracket_open: str
+    bracket_close: str
 
-    def __repr__(self):
+    def __init__(self, line: int, nodes: Optional[List[Node]] = None):
+        self.original_line = line
+        self.prefix: str = ''
+        # Leave bracket_open, bracket_close unset.
+        # self.bracket_open = ''
+        # self.bracket_close = ''
+        self.nodes = nodes or []
+        self.index_wrap_hint: int = 1
+        self.wrap_all_or_nothing_hint: bool = False
+
+    def __repr__(self) -> str:
         return '{}(line={} prefix=({}) newline={}\n  {}\n)'.format(
             self.__class__.__name__,
             self.original_line,
@@ -512,25 +569,25 @@ class NdSexp(Node):
             '\n  '.join(repr(node) for node in self.nodes),
         )
 
-    def is_multiline(self):
+    def is_multiline(self) -> bool:
         for node in self.iter_nodes_recursive():
             if node.force_newline:
                 return True
         return False
 
-    def iter_nodes_recursive(self):
+    def iter_nodes_recursive(self) -> Generator[Node, None, None]:
         for node in self.nodes:
             yield node
             if isinstance(node, NdSexp):
                 yield from node.iter_nodes_recursive()
 
-    def iter_nodes_recursive_with_parent(self):
+    def iter_nodes_recursive_with_parent(self) -> Generator[Tuple[Node, NdSexp], None, None]:
         for node in self.nodes:
             yield (node, self)
             if isinstance(node, NdSexp):
                 yield from node.iter_nodes_recursive_with_parent()
 
-    def flush_newlines_from_nodes(self):
+    def flush_newlines_from_nodes(self) -> bool:
         changed = False
         for node in self.nodes_only_code:
             if node.force_newline:
@@ -539,7 +596,7 @@ class NdSexp(Node):
                 break
         return changed
 
-    def flush_newlines_from_nodes_recursive(self):
+    def flush_newlines_from_nodes_recursive(self) -> bool:
         changed = False
         for node in self.nodes_only_code:
             if node.force_newline:
@@ -548,7 +605,7 @@ class NdSexp(Node):
                 changed |= node.flush_newlines_from_nodes_recursive()
         return changed
 
-    def calc_force_newline(self):
+    def calc_force_newline(self) -> None:
         force_newline = False
         node_prev = None
         for node in self.nodes:
@@ -559,7 +616,7 @@ class NdSexp(Node):
             node_prev = node
         self.force_newline = force_newline
 
-    def finalize(self, cfg):
+    def finalize(self, cfg: FormatConfig) -> None:
         # Connect: ' (  to '(
         i = len(self.nodes) - 1
         while i > 0:
@@ -602,11 +659,17 @@ class NdSexp(Node):
             if isinstance(node, NdSexp):
                 node.finalize(cfg)
 
-    def fmt_check_exceeds_colum_max(self, cfg, level, *, test_node_terminate=None):
+    def fmt_check_exceeds_colum_max(
+            self,
+            cfg: FormatConfig,
+            level: int,
+            *,
+            test_node_terminate: Optional[Node] = None,
+    ) -> bool:
         from io import StringIO
         _ctx = WriteCtx(cfg)
         _fh = StringIO()
-        self.fmt(_ctx, _fh, level, test=True, test_node_terminate=test_node_terminate)
+        self.fmt_with_terminate_node(_ctx, _fh, level, test=True, test_node_terminate=test_node_terminate)
         _fh.seek(0, os.SEEK_SET)
         data = _fh.read()
         ok = True
@@ -615,7 +678,7 @@ class NdSexp(Node):
                 return True
         return False
 
-    def fmt_pre_wrap(self, ctx, level):
+    def fmt_pre_wrap(self, ctx: WriteCtx, level: int) -> None:
 
         # First handle Sexpr's one at a time, then all of them.
         # not very efficient, but it avoids over wrapping.
@@ -709,7 +772,23 @@ class NdSexp(Node):
 
                 node_prev = node
 
-    def fmt(self, ctx, fh, level, *, test=False, test_node_terminate=None):
+    def fmt(self,
+            ctx: WriteCtx,
+            fh: TextIO,
+            level: int,
+            *,
+            test: bool = False,
+            ) -> None:
+        self.fmt_with_terminate_node(ctx, fh, level, test=test)
+
+    def fmt_with_terminate_node(self,
+                                ctx: WriteCtx,
+                                fh: TextIO,
+                                level: int,
+                                *,
+                                test: bool = False,
+                                test_node_terminate: Optional[Node] = None,
+                                ) -> None:
 
         line_sexpr_prev = ctx.line
 
@@ -721,7 +800,6 @@ class NdSexp(Node):
 
             if self.prefix:
                 fh.write(self.prefix)
-
 
                 if self.is_multiline():
                     fh.write('\n')
@@ -819,7 +897,6 @@ class NdSexp(Node):
             ctx.is_newline = False
 
 
-
 # ------------------------------------------------------------------------------
 # Formatting Utilities
 
@@ -827,21 +904,26 @@ class NdSexp(Node):
 class NdWs(Node):
     __slots__ = ()
 
-    def __init__(self, line):
+    def __init__(self, line: int):
         self.original_line = line
-        pass
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return '{}(line={})'.format(
             self.__class__.__name__,
             self.original_line,
         )
 
-    def calc_force_newline(self):
+    def calc_force_newline(self) -> None:
         # False because this forces it's own newline
         self.force_newline = True
 
-    def fmt(self, ctx, fh, level, test=False):
+    def fmt(
+            self,
+            ctx: WriteCtx,
+            fh: TextIO,
+            level: int,
+            test: bool = False,
+    ) -> None:
         fh.write('\n')
         ctx.line += 1
         ctx.is_newline = True
@@ -853,22 +935,32 @@ class NdComment(Node):
         'is_own_line',
     )
 
-    def __init__(self, line, data, is_own_line):
+    data: str
+    is_own_line: bool
+
+    def __init__(self, line: int, data: str, is_own_line: bool):
         self.original_line = line
         self.data = data
         self.is_own_line = is_own_line
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return '{}(line={} \'{}\')'.format(
             self.__class__.__name__,
             self.original_line,
             self.data,
         )
 
-    def calc_force_newline(self):
+    def calc_force_newline(self) -> None:
         self.force_newline = self.is_own_line
 
-    def fmt(self, ctx, fh, level, *, test=False):
+    def fmt(
+            self,
+            ctx: WriteCtx,
+            fh: TextIO,
+            level: int,
+            *,
+            test: bool = False,
+    ) -> None:
         fh.write(';')
         fh.write(self.data)
         ctx.is_newline = False
@@ -880,25 +972,35 @@ class NdString(Node):
         'lines',
     )
 
-    def __init__(self, line, data):
+    data: str
+    lines: int
+
+    def __init__(self, line: int, data: str):
         self.original_line = line
         self.data = data
         self.lines = self.data.count('\n')
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return '{}(line={} \'{}\')'.format(
             self.__class__.__name__,
             self.original_line,
             self.data,
         )
 
-    def calc_force_newline(self):
+    def calc_force_newline(self) -> None:
         if USE_WRAP_LINES:
             self.force_newline = ((not self.data.startswith('\n')) and self.lines > 0)
         else:
             self.force_newline = False
 
-    def fmt(self, ctx, fh, level, *, test=False):
+    def fmt(
+            self,
+            ctx: WriteCtx,
+            fh: TextIO,
+            level: int,
+            *,
+            test: bool = False,
+    ) -> None:
         fh.write('"')
         fh.write(self.data)
         fh.write('"')
@@ -911,21 +1013,30 @@ class NdSymbol(Node):
         'data',
     )
 
-    def __init__(self, line, data):
+    data: str
+
+    def __init__(self, line: int, data: str):
         self.original_line = line
         self.data = data
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return '{}(line={} \'{}\')'.format(
             self.__class__.__name__,
             self.original_line,
             self.data,
         )
 
-    def calc_force_newline(self):
+    def calc_force_newline(self) -> None:
         self.force_newline = False
 
-    def fmt(self, ctx, fh, level, *, test=False):
+    def fmt(
+            self,
+            ctx: WriteCtx,
+            fh: TextIO,
+            level: int,
+            *,
+            test: bool = False,
+    ) -> None:
         fh.write(self.data)
         ctx.is_newline = False
 
@@ -933,7 +1044,7 @@ class NdSymbol(Node):
 # ------------------------------------------------------------------------------
 # File Parsing
 
-def parse_file(cfg, fh):
+def parse_file(cfg: FormatConfig, fh: TextIO) -> NdSexp:
     from io import StringIO
 
     line = 0
@@ -971,7 +1082,7 @@ def parse_file(cfg, fh):
         elif c == '"':
             data = StringIO()
             is_slash = False
-            while (c:= fh.read(1)):
+            while (c := fh.read(1)):
                 if c == '"' and not is_slash:
                     break
                 data.write(c)
@@ -1067,11 +1178,11 @@ def parse_file(cfg, fh):
 
 
 def format_file(
-        filepath,
-        cfg,
+        filepath: str,
+        cfg: FormatConfig,
         *,
-        use_stdin=False,
-):
+        use_stdin: bool = False,
+) -> None:
     if use_stdin:
         root = parse_file(cfg, sys.stdin)
     else:
@@ -1092,8 +1203,7 @@ def format_file(
 # ------------------------------------------------------------------------------
 # Argument Parsing
 
-def argparse_create():
-    import argparse
+def argparse_create() -> argparse.ArgumentParser:
 
     # When --help or no args are given, print this help
     usage_text = 'Format emacs-lisp.'
@@ -1173,7 +1283,7 @@ def argparse_create():
 # ------------------------------------------------------------------------------
 # Main Function
 
-def main():
+def main() -> None:
     args = argparse_create().parse_args()
 
     if args.use_stdin and len(args.files) != 1:
@@ -1181,14 +1291,11 @@ def main():
         sys.exit(1)
 
     if args.fmt_defs:
-        defs = execfile(args.fmt_defs)
-        defs._is_complete = True
+        defs_data = execfile(args.fmt_defs)
+        defs = Defs(fn_arity=getattr(defs_data, 'fn_arity'), is_complete=True)
+        del defs_data
     else:
-        from types import ModuleType
-        defs = ModuleType('defs')
-        defs.fn_arity = {}
-        defs._is_complete = False
-    defs._has_local = False
+        defs = Defs(fn_arity={}, is_complete=False)
 
     cfg = FormatConfig(
         use_trailing_parens=args.fmt_use_trailing_parens,
