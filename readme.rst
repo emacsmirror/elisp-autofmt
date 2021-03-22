@@ -9,13 +9,21 @@ an Emacs utility to run this tool on saving.
 
 Projects using this:
 
+- `default-font-presets <https://gitlab.com/ideasman42/emacs-default-font-presets>`__
 - `diff-at-point <https://gitlab.com/ideasman42/emacs-diff-at-point>`__
 - `hl-block-mode <https://gitlab.com/ideasman42/emacs-hl-block-mode>`__
+- `mode-line-idle <https://gitlab.com/ideasman42/emacs-mode-line-idle>`__
+- `recomplete <https://gitlab.com/ideasman42/emacs-recomplete>`__
+- `revert-buffer-all <https://gitlab.com/ideasman42/emacs-revert-buffer-all>`__
 - `run-stuff <https://gitlab.com/ideasman42/emacs-run-stuff>`__
-- `scoll-on-drag <https://gitlab.com/ideasman42/emacs-scroll-on-drag>`__
+- `scroll-on-drag <https://gitlab.com/ideasman42/emacs-scroll-on-drag>`__
+- `scroll-on-jump <https://gitlab.com/ideasman42/emacs-scroll-on-jump>`__
+- `spatial-navigate <https://gitlab.com/ideasman42/emacs-spatial-navigate>`__
 - `spell-fu <https://gitlab.com/ideasman42/emacs-spell-fu>`__
 - `undo-fu <https://gitlab.com/ideasman42/emacs-undo-fu>`__
 - `undo-fu-session <https://gitlab.com/ideasman42/emacs-undo-fu-session>`__
+- `utimeclock <https://gitlab.com/ideasman42/emacs-utimeclock>`__
+- `xref-rst <https://gitlab.com/ideasman42/emacs-xref-rst>`__
 
 *Currently my projects, just to give examples of how it works.*
 
