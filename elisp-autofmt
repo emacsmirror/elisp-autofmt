@@ -1093,12 +1093,12 @@ def parse_file(cfg: FormatConfig, fh: TextIO) -> NdSexp:
                 if c == '"' and not is_slash:
                     break
                 data.write(c)
-                if c == '\n':
-                    line += 1
-                elif c == '\\':
+                if c == '\\':
                     is_slash = not is_slash
                 else:
                     is_slash = False
+                    if c == '\n':
+                        line += 1
 
             if not c:
                 raise Exception('Error parsing string at line {}'.format(line))
