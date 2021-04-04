@@ -1066,7 +1066,7 @@ def parse_file(cfg: FormatConfig, fh: TextIO) -> NdSexp:
     sexp_ctx = [root]
     sexp_level = 0
 
-    line_has_contents = True
+    line_has_contents = False
 
     c_peek = None
     while c := c_peek or fh.read(1):
@@ -1187,7 +1187,20 @@ def parse_file(cfg: FormatConfig, fh: TextIO) -> NdSexp:
     if sexp_level != 0:
         raise Exception('Unbalanced parentheses, expected 0, found:', sexp_level)
 
+    # Has newline at file start?
+    # it will disable the settings such as lexical binding.
+    # The intention of re-formatting is not to make any functional changes,
+    # so it's important to add the blank line back.
+    stars_with_bank_line = False
+    if root.nodes:
+        if isinstance(root.nodes[0], NdWs):
+            stars_with_bank_line = True
+
     root.finalize(cfg)
+
+    if stars_with_bank_line:
+        # Add back the blank line.
+        root.nodes.insert(0, NdWs(0))
 
     root.calc_force_newline()
 
