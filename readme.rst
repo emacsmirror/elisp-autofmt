@@ -111,4 +111,3 @@ TODO
 
 - Scan the buffer for functions, only writing function data for functions in use.
 - Use the indentation width from Emacs (currently fixed to 2).
-- Support un-escaped character literals.

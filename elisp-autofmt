@@ -1138,14 +1138,41 @@ def parse_file(cfg: FormatConfig, fh: TextIO) -> NdSexp:
                 if c_peek == '\n':
                     break
                 if not is_slash:
-                    if c_peek in {'(', ')', '[', ']', ';', ' ', '\t'}:
+                    if c_peek in {
+                            '(', ')',
+                            '[', ']',
+                            ';',
+                            ' ', '\t',
+                            # Lisp doesn't require spaces are between symbols and quotes.
+                            '"',
+                    }:
                         break
 
                 c = c_peek
                 c_peek = None
 
             data.seek(0, os.SEEK_SET)
-            _ = NdSymbol(line, data.read())
+            text = data.read()
+
+            # Special support for character literals.
+            if text[0] == '?':
+                if c_peek:
+                    # Always include the next character even if it's normally a delimiting character such as ';', '"'
+                    # (un-escaped literal support, even allowing for `?;` or `?\C-;`).
+                    if (
+                            # Support `? ` and `?;`.
+                            (len(text) == 1) or
+                            # Support `?\C- ` and `?\C-;` and `?\C-\s- `.
+                            (len(text) >= 4 and (
+                                text[-1] == '-' and
+                                text[-2].isalpha() and
+                                text[-3] == '\\')
+                             )
+                    ):
+                        text = text + c_peek
+                        c_peek = None
+
+            _ = NdSymbol(line, text)
             sexp_ctx[sexp_level].nodes.append(_)
             del _, data, is_slash
             line_has_contents = True
