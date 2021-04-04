@@ -1230,15 +1230,20 @@ def format_file(
         *,
         use_stdin: bool = False,
 ) -> None:
+
+    # Needed as files may contain '\r' only, see emacs own:
+    # `lisp/cedet/semantic/grammar-wy.el`
+    newline = '\r\n' if (os.name == 'nt') else '\n'
+
     if use_stdin:
         root = parse_file(cfg, sys.stdin)
     else:
-        with open(filepath, 'r', encoding='utf-8') as fh:
+        with open(filepath, 'r', encoding='utf-8', newline=newline) as fh:
             root = parse_file(cfg, fh)
 
     assert(root.flush_newlines_from_nodes_recursive() == False)
 
-    with open(filepath, 'w', encoding='utf-8') as fh:
+    with open(filepath, 'w', encoding='utf-8', newline=newline) as fh:
         ctx = WriteCtx(cfg)
 
         if USE_WRAP_LINES:
