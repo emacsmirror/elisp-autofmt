@@ -624,7 +624,11 @@ class NdSexp(Node):
             if isinstance(node, NdSexp):
                 node_prev = self.nodes[i - 1]
                 if isinstance(node_prev, NdSymbol):
-                    if not node_prev.data.strip('#,`\''):
+                    if (
+                            not node_prev.data.strip('#,`\'') or
+                            # Some macros use `#foo(a(b(c)))` which need to be connected.
+                            node_prev.data.startswith('#')
+                    ):
                         del self.nodes[i - 1]
                         node.prefix = node_prev.data
                         i -= 1
@@ -802,7 +806,9 @@ class NdSexp(Node):
             if self.prefix:
                 fh.write(self.prefix)
 
-                if self.is_multiline():
+                # A single `#` is used for advanced macros,
+                # we can't put a new-line after them.
+                if (not self.prefix.startswith('#')) and self.is_multiline():
                     fh.write('\n')
 
                     if TRACE_NEWLINES:
