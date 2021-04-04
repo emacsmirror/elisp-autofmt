@@ -781,14 +781,15 @@ class NdSexp(Node):
             ) -> None:
         self.fmt_with_terminate_node(ctx, fh, level, test=test)
 
-    def fmt_with_terminate_node(self,
-                                ctx: WriteCtx,
-                                fh: TextIO,
-                                level: int,
-                                *,
-                                test: bool = False,
-                                test_node_terminate: Optional[Node] = None,
-                                ) -> None:
+    def fmt_with_terminate_node(
+            self,
+            ctx: WriteCtx,
+            fh: TextIO,
+            level: int,
+            *,
+            test: bool = False,
+            test_node_terminate: Optional[Node] = None,
+    ) -> None:
 
         line_sexpr_prev = ctx.line
 
