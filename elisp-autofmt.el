@@ -79,8 +79,7 @@ Optional argument ASSUME-FILE-NAME overrides the file name used for this buffer.
 
     ;; Write a config file.
     (when elisp-autofmt-use-function-defs
-      (with-temp-file
-        temp-file-cfg
+      (with-temp-file temp-file-cfg
         (insert
           ;; Declare singletons.
           "many = object()\n"
