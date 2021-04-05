@@ -76,6 +76,13 @@ def execfile(filepath: str, mod: Optional[ModuleType] = None) -> ModuleType:
     return mod
 
 
+def is_hash_prefix_special_case(text: str) -> bool:
+    return (
+        text.startswith('#') and
+        (not text.startswith('#\''))
+    )
+
+
 # ------------------------------------------------------------------------------
 # Formatting Utilities
 
@@ -627,7 +634,7 @@ class NdSexp(Node):
                     if (
                             not node_prev.data.strip('#,`\'') or
                             # Some macros use `#foo(a(b(c)))` which need to be connected.
-                            node_prev.data.startswith('#')
+                            is_hash_prefix_special_case(node_prev.data)
                     ):
                         del self.nodes[i - 1]
                         node.prefix = node_prev.data
@@ -808,7 +815,7 @@ class NdSexp(Node):
 
                 # A single `#` is used for advanced macros,
                 # we can't put a new-line after them.
-                if (not self.prefix.startswith('#')) and self.is_multiline():
+                if (not is_hash_prefix_special_case(self.prefix)) and self.is_multiline():
                     fh.write('\n')
 
                     if TRACE_NEWLINES:
