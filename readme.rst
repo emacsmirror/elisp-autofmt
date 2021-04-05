@@ -1,6 +1,6 @@
-
+#############
 Emacs AutoFmt
-=============
+#############
 
 This is a utility to auto-format Emacs lisp.
 
@@ -29,14 +29,14 @@ Projects using this:
 
 
 Motivation
-----------
+==========
 
 This tool removes the need to manually format and indent code,
 it can be useful to re-arrange code without the need to manually reformat it.
 
 
 Features
---------
+========
 
 - Reliable, tested with Emacs 28 source (over 1.6 million lines of code),
   formatting all files without making functional changes.
@@ -51,7 +51,7 @@ Features
 
 
 Usage
------
+=====
 
 The save hook can be enabled in the mode hook.
 
@@ -71,7 +71,7 @@ this checks for the existence of an ``.elisp-autofmt`` file in the buffers direc
 
 
 Functions
-^^^^^^^^^
+---------
 
 ``(elisp-autofmt-buffer &optional buf)``
    Auto formats the current buffer (or ``buf``).
@@ -81,7 +81,7 @@ Functions
 
 
 Customization
--------------
+=============
 
 ``elisp-autofmt-empty-line-max``
    The maximum number of empty lines to keep (default ``2``).
@@ -89,7 +89,7 @@ Customization
    When non-nil, use function argument lengths generated from Emacs (default ``nil``).
 
 TODO
-----
+====
 
 - Use: ``.elisp-autofmt`` as a configuration file.
 
