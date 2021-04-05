@@ -38,6 +38,8 @@ it can be useful to re-arrange code without the need to manually reformat it.
 Features
 --------
 
+- Reliable, tested with Emacs 28 source (over 1.6 million lines of code),
+  formatting all files without making functional changes.
 - Enforces maximum line width (using the fill column).
 - Consistent 2 space indentation.
 - Keeps blank lines.
