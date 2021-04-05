@@ -617,8 +617,15 @@ class NdSexp(Node):
         node_prev = None
         for node in self.nodes:
             node.calc_force_newline()
-            if node_prev and isinstance(node_prev, NdComment):
-                node.force_newline = True
+            if not node.force_newline:
+                if node_prev:
+                    if isinstance(node_prev, NdComment):
+                        node.force_newline = True
+                    elif isinstance(node_prev, NdSymbol):
+                        # Always keep trailing back-slashes,
+                        # these are used to define a string literal across multiple lines.
+                        if node_prev.data == '\\' and (node_prev.original_line != node.original_line):
+                            node.force_newline = True
             force_newline |= node.force_newline
             node_prev = node
         self.force_newline = force_newline
