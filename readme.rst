@@ -83,10 +83,13 @@ Functions
 Customization
 =============
 
-``elisp-autofmt-empty-line-max``
-   The maximum number of empty lines to keep (default ``2``).
+``elisp-autofmt-empty-line-max`` (``2``)
+   The maximum number of empty lines to keep.
 ``elisp-autofmt-use-function-defs``
    When non-nil, use function argument lengths generated from Emacs (default ``nil``).
+``elisp-autofmt-python-bin`` (``nil``)
+   Optionally set the Python binary, use when Python is not in your ``PATH``.
+
 
 TODO
 ====

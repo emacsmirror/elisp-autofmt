@@ -46,6 +46,11 @@ Can be slow!"
   :group 'elisp-autofmt
   :type 'boolean)
 
+(defcustom elisp-autofmt-python-bin nil
+  "The Python binary to call when running auto-formatting."
+  :group 'elisp-autofmt
+  :type 'string)
+
 ;; Internal variables.
 
 ;; Run this command to format.
@@ -128,7 +133,7 @@ Optional argument ASSUME-FILE-NAME overrides the file name used for this buffer.
             (status
               (progn
                 (apply #'call-process-region
-                  nil nil "python3" nil
+                  nil nil (or elisp-autofmt-python-bin "python3") nil
                   ;; stdout is a temp buffer, stderr is file.
                   `(,temp-buffer ,temp-file) nil
                   ;; Command line arguments.
