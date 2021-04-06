@@ -50,6 +50,17 @@ TRACE_NEWLINES = False
 # Extract argument count from functions and macros.
 USE_EXTRACT_DEFS = True
 
+
+# ------------------------------------------------------------------------------
+# Exceptions
+
+# Exception for failure to parse the file,
+# show this in the command line without the trace-back
+# since these kinds of errors are not error in the code.
+class FmtException(Exception):
+    pass
+
+
 # ------------------------------------------------------------------------------
 # Utilities
 
@@ -1095,9 +1106,12 @@ def parse_file(cfg: FormatConfig, fh: TextIO) -> NdSexp:
             del _
             line_has_contents = True
         elif c in {')', ']'}:
+            if sexp_level == 0:
+                raise FmtException('additional closing brackets, line {}'.format(line))
             _ = sexp_ctx.pop()
             _.bracket_close = c
-            assert((_.bracket_open + _.bracket_close) in {'()', '[]'})
+            if (_.bracket_open + _.bracket_close) not in {'()', '[]'}:
+                raise FmtException('closing parenthesis line {}, unmatched bracket types'.format(line))
             sexp_level -= 1
             line_has_contents = True
         elif c == '"':
@@ -1115,7 +1129,7 @@ def parse_file(cfg: FormatConfig, fh: TextIO) -> NdSexp:
                         line += 1
 
             if not c:
-                raise Exception('Error parsing string at line {}'.format(line))
+                raise FmtException('parsing string at line {}'.format(line))
 
             data.seek(0, os.SEEK_SET)
             _ = NdString(line, data.read())
@@ -1199,7 +1213,7 @@ def parse_file(cfg: FormatConfig, fh: TextIO) -> NdSexp:
             line_has_contents = True
 
     if sexp_level != 0:
-        raise Exception('Unbalanced parentheses, expected 0, found:', sexp_level)
+        raise FmtException('unbalanced s-expressions at file-end, found {} levels, expected 0'.format(sexp_level))
 
     # Has newline at file start?
     # it will disable the settings such as lexical binding.
@@ -1382,4 +1396,8 @@ def main() -> None:
 
 
 if __name__ == '__main__':
-    main()
+    try:
+        main()
+    except FmtException as ex:
+        sys.stderr.write('Error: {}\n'.format(str(ex)))
+        sys.exit(1)
