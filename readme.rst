@@ -12,6 +12,7 @@ Projects using this:
 - `default-font-presets <https://gitlab.com/ideasman42/emacs-default-font-presets>`__
 - `diff-at-point <https://gitlab.com/ideasman42/emacs-diff-at-point>`__
 - `hl-block-mode <https://gitlab.com/ideasman42/emacs-hl-block-mode>`__
+- `hl-prog-extra <https://gitlab.com/ideasman42/emacs-hl-prog-extra>`__
 - `mode-line-idle <https://gitlab.com/ideasman42/emacs-mode-line-idle>`__
 - `recomplete <https://gitlab.com/ideasman42/emacs-recomplete>`__
 - `revert-buffer-all <https://gitlab.com/ideasman42/emacs-revert-buffer-all>`__
