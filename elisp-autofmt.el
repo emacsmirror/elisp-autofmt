@@ -72,12 +72,12 @@ Optional argument ASSUME-FILE-NAME overrides the file name used for this buffer.
   (let
     (
       (this-buffer (current-buffer))
-      (temp-buffer (generate-new-buffer " *lisp_fmt-format-temp*"))
+      (temp-buffer (generate-new-buffer " *elisp-autofmt-temp*"))
       ;; Use for format output or stderr in the case of failure.
-      (temp-file (make-temp-file "lisp_fmt_format" nil ".el"))
+      (temp-file (make-temp-file "elisp-autofmt" nil ".el"))
       (temp-file-cfg
         (if elisp-autofmt-use-function-defs
-          (make-temp-file "lisp_fmt_defs" nil ".py")
+          (make-temp-file "elisp-autofmt_defs" nil ".py")
           nil))
       ;; Always use ‘utf-8-unix’ and ignore the buffer coding system.
       (default-process-coding-system '(utf-8-unix . utf-8-unix)))
@@ -159,9 +159,9 @@ Optional argument ASSUME-FILE-NAME overrides the file name used for this buffer.
                 (buffer-substring-no-properties (point-min) (point-max)))))
           (cond
             ((stringp status)
-              (error "Command: lisp_fmt-format killed by signal %s%s" status stderr))
+              (error "Command: %S killed by signal %s%s" elisp-autofmt--bin status stderr))
             ((not (zerop status))
-              (error "Command: lisp_fmt-format failed with code %d%s" status stderr))
+              (error "Command: %S failed with code %d%s" elisp-autofmt--bin status stderr))
             (t
               ;; Include the stdout as a message, useful to check on how the program runs.
               (let
