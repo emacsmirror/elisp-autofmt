@@ -20,6 +20,8 @@
 
 from __future__ import annotations
 from typing import (
+    Any,
+    Callable,
     Dict,
     Generator,
     List,
@@ -560,7 +562,7 @@ class Node:
 
     def fmt(self,
             ctx: WriteCtx,
-            fh: TextIO,
+            write_fn: Callable[[str], Any],
             level: int,
             *,
             test: bool = False,
@@ -724,10 +726,10 @@ class NdSexp(Node):
     ) -> bool:
         from io import StringIO
         _ctx = WriteCtx(cfg)
-        _fh = StringIO()
-        self.fmt_with_terminate_node(_ctx, _fh, level, test=True, test_node_terminate=test_node_terminate)
-        _fh.seek(0, os.SEEK_SET)
-        data = _fh.read()
+        _data: List[str] = []
+        self.fmt_with_terminate_node(_ctx, _data.append, level, test=True, test_node_terminate=test_node_terminate)
+        data = "".join(_data)
+        del _data
         ok = True
 
         test_trailing_parens = (
@@ -849,17 +851,17 @@ class NdSexp(Node):
 
     def fmt(self,
             ctx: WriteCtx,
-            fh: TextIO,
+            write_fn: Callable[[str], Any],
             level: int,
             *,
             test: bool = False,
             ) -> None:
-        self.fmt_with_terminate_node(ctx, fh, level, test=test)
+        self.fmt_with_terminate_node(ctx, write_fn, level, test=test)
 
     def fmt_with_terminate_node(
             self,
             ctx: WriteCtx,
-            fh: TextIO,
+            write_fn: Callable[[str], Any],
             level: int,
             *,
             test: bool = False,
@@ -872,27 +874,27 @@ class NdSexp(Node):
 
         if level != -1:
             if ctx.is_newline:
-                fh.write('  ' * level)
+                write_fn('  ' * level)
 
             if self.prefix:
-                fh.write(self.prefix)
+                write_fn(self.prefix)
 
                 # A single `#` is used for advanced macros,
                 # we can't put a new-line after them.
                 if (not is_hash_prefix_special_case(self.prefix)) and self.is_multiline():
-                    fh.write('\n')
+                    write_fn('\n')
 
                     if TRACE_NEWLINES:
                         if self.force_newline:
                             if not test:
-                                fh.write(' $' + self._force_newline_tracepoint)
+                                write_fn(' $' + self._force_newline_tracepoint)
 
                     ctx.line += 1
                     ctx.is_newline = True
-                    fh.write('  ' * level)
+                    write_fn('  ' * level)
                     ctx.is_newline = False
 
-            fh.write(self.bracket_open)
+            write_fn(self.bracket_open)
             ctx.is_newline = False
 
         ctx.last_node = self
@@ -920,7 +922,7 @@ class NdSexp(Node):
                     )
             ):
                 if not ctx.is_newline:
-                    fh.write('\n')
+                    write_fn('\n')
                     ctx.line += 1
                     ctx.is_newline = True
 
@@ -932,9 +934,9 @@ class NdSexp(Node):
                     if TRACE_NEWLINES:
                         if node.force_newline:
                             if not test:
-                                fh.write(' $' + node._force_newline_tracepoint)
+                                write_fn(' $' + node._force_newline_tracepoint)
 
-                    fh.write('  ' * level_next)
+                    write_fn('  ' * level_next)
                     ctx.is_newline = False
                 else:
                     if (
@@ -947,14 +949,14 @@ class NdSexp(Node):
                             #     (;; Comment.
                             (isinstance(node, NdComment) and node.is_own_line is False)
                     ):
-                        fh.write(' ')
+                        write_fn(' ')
 
             if ctx.line_terminate != -1 and (ctx.line != ctx.line_terminate):
                 return
 
             line = ctx.line
 
-            node.fmt(ctx, fh, level_next, test=test)
+            node.fmt(ctx, write_fn, level_next, test=test)
             node_prev_is_multiline = (line != ctx.line)
 
             ctx.last_node = node
@@ -966,19 +968,19 @@ class NdSexp(Node):
 
         if level != -1:
             if ctx.is_newline:
-                fh.write('  ' * level_next)
+                write_fn('  ' * level_next)
                 ctx.is_newline = False
             else:
                 if (
                         (ctx.cfg.use_trailing_parens and ctx.line != line_sexpr_prev) or
                         isinstance(ctx.last_node, NdComment)
                 ):
-                    fh.write('\n')
+                    write_fn('\n')
                     ctx.line += 1
                     ctx.is_newline = True
-                    fh.write('  ' * level_next)
+                    write_fn('  ' * level_next)
                     ctx.is_newline = False
-            fh.write(self.bracket_close)
+            write_fn(self.bracket_close)
             ctx.is_newline = False
 
 
@@ -1005,11 +1007,11 @@ class NdWs(Node):
     def fmt(
             self,
             ctx: WriteCtx,
-            fh: TextIO,
+            write_fn: Callable[[str], Any],
             level: int,
             test: bool = False,
     ) -> None:
-        fh.write('\n')
+        write_fn('\n')
         ctx.line += 1
         ctx.is_newline = True
 
@@ -1041,13 +1043,13 @@ class NdComment(Node):
     def fmt(
             self,
             ctx: WriteCtx,
-            fh: TextIO,
+            write_fn: Callable[[str], Any],
             level: int,
             *,
             test: bool = False,
     ) -> None:
-        fh.write(';')
-        fh.write(self.data)
+        write_fn(';')
+        write_fn(self.data)
         ctx.is_newline = False
 
 
@@ -1081,14 +1083,14 @@ class NdString(Node):
     def fmt(
             self,
             ctx: WriteCtx,
-            fh: TextIO,
+            write_fn: Callable[[str], Any],
             level: int,
             *,
             test: bool = False,
     ) -> None:
-        fh.write('"')
-        fh.write(self.data)
-        fh.write('"')
+        write_fn('"')
+        write_fn(self.data)
+        write_fn('"')
         ctx.is_newline = False
         ctx.line += self.lines
 
@@ -1117,12 +1119,12 @@ class NdSymbol(Node):
     def fmt(
             self,
             ctx: WriteCtx,
-            fh: TextIO,
+            write_fn: Callable[[str], Any],
             level: int,
             *,
             test: bool = False,
     ) -> None:
-        fh.write(self.data)
+        write_fn(self.data)
         ctx.is_newline = False
 
 
@@ -1329,7 +1331,7 @@ def format_file(
 
         if USE_WRAP_LINES:
             root.fmt_pre_wrap(ctx, -1, 0)
-        root.fmt(ctx, fh, -1)
+        root.fmt(ctx, fh.write, -1)
         fh.write('\n')
 
 
