@@ -202,8 +202,7 @@ Optional argument FORCE auto-formats the buffer
 even when `.elisp-autofmt' isn't in any of the buffers parent directories."
   (add-hook 'before-save-hook
     (lambda ()
-      (let
-        ((cfg (locate-dominating-file (file-name-directory buffer-file-name) ".elisp-autofmt")))
+      (let ((cfg (locate-dominating-file (file-name-directory buffer-file-name) ".elisp-autofmt")))
         (when (or cfg force)
           (elisp-autofmt-buffer)))
       ;; Continue to save.
