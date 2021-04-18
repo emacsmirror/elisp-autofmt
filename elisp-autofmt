@@ -397,15 +397,15 @@ def apply_rules(defs: Defs, node_parent: NdSexp) -> None:
     node_parent.flush_newlines_from_nodes()
 
 
-def apply_pre_indent_1(cfg: FormatConfig, node_parent: NdSexp, level: int) -> None:
+def apply_pre_indent_1(cfg: FormatConfig, node_parent: NdSexp, level: int, trailing_parens: int) -> None:
 
     # First be relaxed, then again if it fails.
-    if node_parent.fmt_check_exceeds_colum_max(cfg, level):
+    if node_parent.fmt_check_exceeds_colum_max(cfg, level, trailing_parens):
         apply_relaxed_wrap(node_parent)
         node_parent.force_newline = True
 
 
-def apply_pre_indent_2(cfg: FormatConfig, node_parent: NdSexp, level: int) -> None:
+def apply_pre_indent_2(cfg: FormatConfig, node_parent: NdSexp, level: int, trailing_parens: int) -> None:
 
     # Wrap items before if absolutely needed, one at a time.
     if node_parent.index_wrap_hint > 0:
@@ -413,23 +413,23 @@ def apply_pre_indent_2(cfg: FormatConfig, node_parent: NdSexp, level: int) -> No
         if i >= len(node_parent.nodes_only_code):
             i = len(node_parent.nodes_only_code) - 1
         node = node_parent.nodes_only_code[i]
-        if node_parent.fmt_check_exceeds_colum_max(cfg, level, test_node_terminate=node):
+        if node_parent.fmt_check_exceeds_colum_max(cfg, level, trailing_parens, test_node_terminate=node):
             while i != -1:
                 node = node_parent.nodes_only_code[i]
                 if not node.force_newline:
                     node.force_newline = True
-                if not node_parent.fmt_check_exceeds_colum_max(cfg, level, test_node_terminate=node,):
+                if not node_parent.fmt_check_exceeds_colum_max(cfg, level, trailing_parens, test_node_terminate=node,):
                     break
                 i -= 1
 
     # If after wrapping 'everything', we still overflow,
     # don't use  this for tests in future, it confuses checks
     # causing other lines to wrap because of this node.
-    if node_parent.fmt_check_exceeds_colum_max(cfg, level):
+    if node_parent.fmt_check_exceeds_colum_max(cfg, level, trailing_parens):
         node_parent.test_blacklist = True
 
 
-def apply_pre_indent(cfg: FormatConfig, node_parent: NdSexp, level: int) -> None:
+def apply_pre_indent(cfg: FormatConfig, node_parent: NdSexp, level: int, trailing_parens: int) -> None:
     '''
     For lists that will need wrapping even when all parents are wrapped,
     wrap these beforehand.
@@ -437,14 +437,16 @@ def apply_pre_indent(cfg: FormatConfig, node_parent: NdSexp, level: int) -> None
     if not node_parent.nodes_only_code:
         return
 
+    node_trailing_parens = node_parent.node_last_for_trailing_parens_test()
+
     for node in node_parent.nodes_only_code:
         if isinstance(node, NdSexp):
-            apply_pre_indent(cfg, node, level + 1)
+            apply_pre_indent(cfg, node, level + 1, trailing_parens + 1 if node is node_trailing_parens else 0)
             if node.force_newline:
                 node_parent.force_newline = True
 
-    apply_pre_indent_1(cfg, node_parent, level)
-    apply_pre_indent_2(cfg, node_parent, level)
+    apply_pre_indent_1(cfg, node_parent, level, trailing_parens)
+    apply_pre_indent_2(cfg, node_parent, level, trailing_parens)
 
     # Some blocks don't allow mixed wrapping.
     if node_parent.wrap_all_or_nothing_hint:
@@ -491,18 +493,21 @@ class WriteCtx:
         'last_node',
         'is_newline',
         'line',
+        'line_terminate',
         'cfg',
     )
 
     last_node: Optional[Node]
     is_newline: bool
     line: int
+    line_terminate: int
     cfg: FormatConfig
 
     def __init__(self, cfg: FormatConfig):
         self.last_node = None
         self.is_newline = True
         self.line = 0
+        self.line_terminate = -1
         self.cfg = cfg
 
 
@@ -592,6 +597,16 @@ class NdSexp(Node):
             if node.force_newline:
                 return True
         return False
+
+    def node_last_for_trailing_parens_test(self) -> Optional[Node]:
+        '''
+        Return the node which would have trialing parenthesis written after it or None if it's not a code node
+        since a trailing comment for e.g. will never have parenthesis written directly after it.
+        '''
+        if self.nodes and self.nodes_only_code:
+            if self.nodes[-1] is self.nodes_only_code[-1]:
+                return self.nodes[-1]
+        return None
 
     def iter_nodes_recursive(self) -> Generator[Node, None, None]:
         for node in self.nodes:
@@ -692,6 +707,7 @@ class NdSexp(Node):
             self,
             cfg: FormatConfig,
             level: int,
+            trailing_parens: int,
             *,
             test_node_terminate: Optional[Node] = None,
     ) -> bool:
@@ -702,12 +718,20 @@ class NdSexp(Node):
         _fh.seek(0, os.SEEK_SET)
         data = _fh.read()
         ok = True
-        for line in data.split('\n'):
-            if len(line) > cfg.fill_column:
+
+        test_trailing_parens = (
+            (not cfg.use_trailing_parens) and
+            (_ctx.line_terminate == _ctx.line)
+        )
+        for i, line in enumerate(data.split('\n')):
+            line_length = cfg.fill_column
+            if test_trailing_parens and (_ctx.line_terminate == i):
+                line_length -= trailing_parens
+            if len(line) > line_length:
                 return True
         return False
 
-    def fmt_pre_wrap(self, ctx: WriteCtx, level: int) -> None:
+    def fmt_pre_wrap(self, ctx: WriteCtx, level: int, trailing_parens: int) -> None:
 
         # First handle Sexpr's one at a time, then all of them.
         # not very efficient, but it avoids over wrapping.
@@ -724,7 +748,8 @@ class NdSexp(Node):
                     continue
                 self.nodes_only_code[:] = [nodes_backup[i]]
 
-            if self.fmt_check_exceeds_colum_max(ctx.cfg, level):
+            assert(ctx.line_terminate == -1)
+            if self.fmt_check_exceeds_colum_max(ctx.cfg, level, trailing_parens):
                 if i == len(nodes_backup):
                     apply_relaxed_wrap(self)
                 else:
@@ -734,17 +759,21 @@ class NdSexp(Node):
         for i in range(len(self.nodes_only_code)):
             if nl[i] is False and self.nodes_only_code[i].force_newline is True:
                 self.nodes_only_code[i].force_newline = False
+                assert(ctx.line_terminate == -1)
                 if self.fmt_check_exceeds_colum_max(
                         ctx.cfg,
                         level,
+                        trailing_parens,
                         test_node_terminate=self.nodes_only_code[i],
                 ):
                     self.nodes_only_code[i].force_newline = True
                     break
 
+        node_trailing_parens = self.node_last_for_trailing_parens_test()
+
         for node in self.nodes:
             if isinstance(node, NdSexp):
-                node.fmt_pre_wrap(ctx, level + 1)
+                node.fmt_pre_wrap(ctx, level + 1, trailing_parens + 1 if node is node_trailing_parens else 0)
 
         # Finally, if the node is multi-line, ensure it's also split at the hinted location.
         # Ensures we don't get:
@@ -860,7 +889,8 @@ class NdSexp(Node):
                 # Use only for testing.
                 if node is test_node_terminate:
                     # We could return however this misses trailing parenthesis on the same line.
-                    break
+                    assert(ctx.line_terminate == -1)
+                    ctx.line_terminate = ctx.line
                 if getattr(node, 'test_blacklist', False):
                     continue
 
@@ -902,6 +932,9 @@ class NdSexp(Node):
                     ):
                         fh.write(' ')
 
+            if ctx.line_terminate != -1 and (ctx.line != ctx.line_terminate):
+                return
+
             line = ctx.line
 
             node.fmt(ctx, fh, level_next, test=test)
@@ -910,6 +943,9 @@ class NdSexp(Node):
             ctx.last_node = node
 
             is_first = False
+
+            if ctx.line_terminate != -1 and (ctx.line != ctx.line_terminate):
+                return
 
         if level != -1:
             if ctx.is_newline:
@@ -1243,7 +1279,7 @@ def parse_file(cfg: FormatConfig, fh: TextIO) -> NdSexp:
 
         apply_rules(cfg.defs, root)
 
-        apply_pre_indent(cfg, root, -1)
+        apply_pre_indent(cfg, root, -1, 0)
 
         # All root level nodes get their own line always.
         for node in root.nodes_only_code:
@@ -1275,7 +1311,7 @@ def format_file(
         ctx = WriteCtx(cfg)
 
         if USE_WRAP_LINES:
-            root.fmt_pre_wrap(ctx, -1)
+            root.fmt_pre_wrap(ctx, -1, 0)
         root.fmt(ctx, fh, -1)
         fh.write('\n')
 
