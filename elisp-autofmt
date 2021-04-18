@@ -66,7 +66,8 @@ class FmtException(Exception):
 
 
 def _function_id(num_frames_up: int) -> str:
-    ''' Create a string naming the function n frames up on the stack.
+    '''
+    Create a string naming the function n frames up on the stack.
     '''
     co = sys._getframe(num_frames_up + 1).f_code
     return '%d %s' % (co.co_firstlineno, co.co_name)
