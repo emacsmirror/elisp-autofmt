@@ -122,7 +122,7 @@ def apply_comment_force_newline(root: NdSexp) -> None:
 
 def apply_relaxed_wrap(node_parent: NdSexp) -> None:
     node_prev = None
-    is_multi_line = False
+    force_newline = False
 
     nodes_iter = node_parent.nodes_only_code[node_parent.index_wrap_hint:]
     i_last = len(nodes_iter) - 1
@@ -177,9 +177,12 @@ def apply_relaxed_wrap(node_parent: NdSexp) -> None:
 
         if ok:
             node.force_newline = True
-        is_multi_line |= node.force_newline
+        force_newline |= node.force_newline
 
         node_prev = node
+
+    if force_newline:
+        node_parent.force_newline = True
 
 
 def apply_relaxed_wrap_when_multiple_args(node_parent: NdSexp) -> None:
@@ -408,6 +411,7 @@ def apply_pre_indent_1(cfg: FormatConfig, node_parent: NdSexp, level: int, trail
 def apply_pre_indent_2(cfg: FormatConfig, node_parent: NdSexp, level: int, trailing_parens: int) -> None:
 
     # Wrap items before if absolutely needed, one at a time.
+    force_newline = False
     if node_parent.index_wrap_hint > 0:
         i = node_parent.index_wrap_hint
         if i >= len(node_parent.nodes_only_code):
@@ -418,9 +422,13 @@ def apply_pre_indent_2(cfg: FormatConfig, node_parent: NdSexp, level: int, trail
                 node = node_parent.nodes_only_code[i]
                 if not node.force_newline:
                     node.force_newline = True
+                    force_newline = True
                 if not node_parent.fmt_check_exceeds_colum_max(cfg, level, trailing_parens, test_node_terminate=node,):
                     break
                 i -= 1
+
+    if force_newline:
+        node_parent.force_newline = True
 
     # If after wrapping 'everything', we still overflow,
     # don't use  this for tests in future, it confuses checks
@@ -633,6 +641,8 @@ class NdSexp(Node):
         changed = False
         for node in self.nodes_only_code:
             if node.force_newline:
+                if not self.force_newline:
+                    changed = True
                 self.force_newline = True
             if isinstance(node, NdSexp):
                 changed |= node.flush_newlines_from_nodes_recursive()
@@ -771,9 +781,14 @@ class NdSexp(Node):
 
         node_trailing_parens = self.node_last_for_trailing_parens_test()
 
+        force_newline = False
         for node in self.nodes:
             if isinstance(node, NdSexp):
                 node.fmt_pre_wrap(ctx, level + 1, trailing_parens + 1 if node is node_trailing_parens else 0)
+            force_newline |= node.force_newline
+
+        if force_newline:
+            self.force_newline = True
 
         # Finally, if the node is multi-line, ensure it's also split at the hinted location.
         # Ensures we don't get:
@@ -827,6 +842,7 @@ class NdSexp(Node):
                         #         node_prev_prev.data.startswith(':')
                         # ):
                         node.force_newline = True
+                        self.force_newline = True
 
                 node_prev = node
 
