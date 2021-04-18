@@ -426,8 +426,13 @@ def apply_pre_indent_2(cfg: FormatConfig, node_parent: NdSexp, level: int, trail
                 if not node.force_newline:
                     node.force_newline = True
                     force_newline = True
-                if not node_parent.fmt_check_exceeds_colum_max(cfg, level, trailing_parens, test_node_terminate=node,):
-                    break
+                    if not node_parent.fmt_check_exceeds_colum_max(
+                            cfg,
+                            level,
+                            trailing_parens,
+                            test_node_terminate=node,
+                    ):
+                        break
                 i -= 1
 
     if force_newline:
