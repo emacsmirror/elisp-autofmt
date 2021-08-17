@@ -310,6 +310,7 @@ def apply_rules(defs: Defs, node_parent: NdSexp) -> None:
                 apply_relaxed_wrap(node_parent)
             elif node.data in {
                     'condition-case',
+                    'condition-case-unless-debug',
                     'dolist',
                     'dotimes',
                     'unless',
@@ -565,13 +566,14 @@ class Node:
     def calc_force_newline(self) -> None:
         raise Exception('All subclasses must define this')
 
-    def fmt(self,
+    def fmt(
+            self,
             ctx: WriteCtx,
             write_fn: Callable[[str], Any],
             level: int,
             *,
             test: bool = False,
-            ) -> None:
+    ) -> None:
         raise Exception('All subclasses must define this')
 
 
