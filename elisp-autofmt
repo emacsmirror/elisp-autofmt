@@ -311,6 +311,7 @@ def apply_rules(defs: Defs, node_parent: NdSexp) -> None:
             elif node.data in {
                     'condition-case',
                     'condition-case-unless-debug',
+                    'delete',
                     'dolist',
                     'dotimes',
                     'unless',
