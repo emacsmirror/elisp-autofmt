@@ -19,6 +19,7 @@ Projects using this:
 - `run-stuff <https://gitlab.com/ideasman42/emacs-run-stuff>`__
 - `scroll-on-drag <https://gitlab.com/ideasman42/emacs-scroll-on-drag>`__
 - `scroll-on-jump <https://gitlab.com/ideasman42/emacs-scroll-on-jump>`__
+- `sidecar-locals <gitlab.com/ideasman42/emacs-sidecar-locals>`__
 - `spatial-navigate <https://gitlab.com/ideasman42/emacs-spatial-navigate>`__
 - `spell-fu <https://gitlab.com/ideasman42/emacs-spell-fu>`__
 - `undo-fu <https://gitlab.com/ideasman42/emacs-undo-fu>`__
