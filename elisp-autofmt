@@ -335,10 +335,14 @@ def apply_rules(defs: Defs, node_parent: NdSexp) -> None:
             elif node.data in {
                     'cl-letf',
                     'cl-letf*',
+                    'if-let',
+                    'if-let*',
                     'let',
                     'let*',
                     'pcase-let',
                     'pcase-let*',
+                    'when-let',
+                    'when-let*',
             }:
                 # Only wrap with multiple declarations.
                 if isinstance(node_parent.nodes_only_code[1], NdSexp):
