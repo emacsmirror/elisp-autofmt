@@ -275,6 +275,8 @@ def apply_rules(defs: Defs, node_parent: NdSexp) -> None:
                     'with-current-buffer',
                     'with-demoted-errors',
                     'with-eval-after-load',
+                    'with-selected-frame',
+                    'with-selected-window',
                     'with-syntax-table',
                     'with-temp-file',
                     'with-timeout',
