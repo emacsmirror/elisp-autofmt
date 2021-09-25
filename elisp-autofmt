@@ -262,7 +262,6 @@ def apply_rules(defs: Defs, node_parent: NdSexp) -> None:
                     'define-minor-mode',
                     'defparameter',
                     'defstruct',
-                    'defsubst',
                     'evil-leader/set-key',
                     'global-set-key',
                     'pcase',
@@ -368,6 +367,7 @@ def apply_rules(defs: Defs, node_parent: NdSexp) -> None:
             elif node.data in {
                     'cl-defmethod',
                     'defmacro',
+                    'defsubst',
                     'defun',
             }:
                 if len(node_parent.nodes_only_code) >= 4:
