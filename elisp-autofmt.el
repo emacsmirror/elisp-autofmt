@@ -62,9 +62,11 @@ Can be slow!"
   "Auto format the current region.
 Optional argument ASSUME-FILE-NAME overrides the file name used for this buffer."
   (interactive
-    (if (use-region-p)
-      (list (region-beginning) (region-end))
-      (list (point) (point))))
+    (cond
+      ((use-region-p)
+        (list (region-beginning) (region-end)))
+      (t
+        (list (point) (point)))))
 
   (unless assume-file-name
     (setq assume-file-name buffer-file-name))
@@ -76,9 +78,11 @@ Optional argument ASSUME-FILE-NAME overrides the file name used for this buffer.
       ;; Use for format output or stderr in the case of failure.
       (temp-file (make-temp-file "elisp-autofmt" nil ".el"))
       (temp-file-cfg
-        (if elisp-autofmt-use-function-defs
-          (make-temp-file "elisp-autofmt_defs" nil ".py")
-          nil))
+        (cond
+          (elisp-autofmt-use-function-defs
+            (make-temp-file "elisp-autofmt_defs" nil ".py"))
+          (t
+            nil)))
       ;; Always use ‘utf-8-unix’ and ignore the buffer coding system.
       (default-process-coding-system '(utf-8-unix . utf-8-unix)))
 
