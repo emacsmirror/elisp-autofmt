@@ -34,21 +34,18 @@
 
 ;; Public variables.
 
-(defcustom elisp-autofmt-empty-line-max 2
-  "The maximum number of blank lines to keep."
-  :group 'elisp-autofmt
-  :type 'int)
+(defgroup elisp-autofmt nil "Configure emacs-lisp auto-formatting." :group 'tools)
+
+(defcustom elisp-autofmt-empty-line-max 2 "The maximum number of blank lines to keep." :type 'int)
 
 (defcustom elisp-autofmt-use-function-defs nil
   "When non nil, generate function definitions for the auto-formatter to use.
 
 Can be slow!"
-  :group 'elisp-autofmt
   :type 'boolean)
 
 (defcustom elisp-autofmt-python-bin nil
   "The Python binary to call when running auto-formatting."
-  :group 'elisp-autofmt
   :type 'string)
 
 ;; Internal variables.
