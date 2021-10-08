@@ -82,6 +82,8 @@ def execfile(filepath: str, mod: Optional[ModuleType] = None) -> ModuleType:
     import importlib.util
     from importlib.abc import Loader
     mod_spec = importlib.util.spec_from_file_location('__main__', filepath)
+    if mod_spec is None:
+        raise Exception('unable to load {:s}'.format(filepath))
     if mod is None:
         mod = importlib.util.module_from_spec(mod_spec)
     # Make 'mypy' happy.
@@ -1145,7 +1147,7 @@ class NdSymbol(Node):
 # ------------------------------------------------------------------------------
 # File Parsing
 
-def parse_file(cfg: FormatConfig, fh: TextIO) -> NdSexp:
+def parse_file(cfg: FormatConfig, fh: TextIO) -> Tuple[str, NdSexp]:
     from io import StringIO
 
     line = 0
@@ -1162,7 +1164,20 @@ def parse_file(cfg: FormatConfig, fh: TextIO) -> NdSexp:
 
     line_has_contents = False
 
-    c_peek = None
+    # Special case, a lisp file with a shebang.
+    first_line_unparsed = ""
+    c_peek: Optional[str] = fh.read(1)
+    if c_peek == '#':
+        first_line_chars = [c_peek]
+        c_peek = None
+        while c := fh.read(1):
+            first_line_chars.append(c)
+            if c == '\n':
+                line += 1
+                break
+        first_line_unparsed = "".join(first_line_chars)
+        del first_line_chars
+
     while c := c_peek or fh.read(1):
         c_peek = None
 
@@ -1318,7 +1333,7 @@ def parse_file(cfg: FormatConfig, fh: TextIO) -> NdSexp:
         for node in root.nodes_only_code:
             node.force_newline = True
 
-    return root
+    return first_line_unparsed, root
 
 
 def format_file(
@@ -1333,10 +1348,10 @@ def format_file(
     newline = '\r\n' if (os.name == 'nt') else '\n'
 
     if use_stdin:
-        root = parse_file(cfg, sys.stdin)
+        first_line, root = parse_file(cfg, sys.stdin)
     else:
         with open(filepath, 'r', encoding='utf-8', newline=newline) as fh:
-            root = parse_file(cfg, fh)
+            first_line, root = parse_file(cfg, fh)
 
     assert(root.flush_newlines_from_nodes_recursive() == False)
 
@@ -1345,6 +1360,8 @@ def format_file(
 
         if USE_WRAP_LINES:
             root.fmt_pre_wrap(ctx, -1, 0)
+        if first_line:
+            fh.write(first_line)
         root.fmt(ctx, fh.write, -1)
         fh.write('\n')
 
