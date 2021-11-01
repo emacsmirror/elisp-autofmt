@@ -14,13 +14,14 @@ Projects using this:
 - `hl-block-mode <https://gitlab.com/ideasman42/emacs-hl-block-mode>`__
 - `hl-prog-extra <https://gitlab.com/ideasman42/emacs-hl-prog-extra>`__
 - `idle-highlight-mode <https://gitlab.com/ideasman42/emacs-idle-highlight-mode>`__
+- `magit-commit-mark <https://gitlab.com/ideasman42/emacs-magit-commit-mark>`__
 - `mode-line-idle <https://gitlab.com/ideasman42/emacs-mode-line-idle>`__
 - `recomplete <https://gitlab.com/ideasman42/emacs-recomplete>`__
 - `revert-buffer-all <https://gitlab.com/ideasman42/emacs-revert-buffer-all>`__
 - `run-stuff <https://gitlab.com/ideasman42/emacs-run-stuff>`__
 - `scroll-on-drag <https://gitlab.com/ideasman42/emacs-scroll-on-drag>`__
 - `scroll-on-jump <https://gitlab.com/ideasman42/emacs-scroll-on-jump>`__
-- `sidecar-locals <gitlab.com/ideasman42/emacs-sidecar-locals>`__
+- `sidecar-locals <https://gitlab.com/ideasman42/emacs-sidecar-locals>`__
 - `spatial-navigate <https://gitlab.com/ideasman42/emacs-spatial-navigate>`__
 - `spell-fu <https://gitlab.com/ideasman42/emacs-spell-fu>`__
 - `undo-fu <https://gitlab.com/ideasman42/emacs-undo-fu>`__
