@@ -23,11 +23,11 @@
 
 ;;; Commentary:
 
-;; Interactive scrolling which can be cancelled by pressing escape.
+;; Auto format emacs-lisp code on save.
 
 ;;; Usage
 
-;; (elisp-autofmt-format) ; Auto-format the current buffer.
+;; (elisp-autofmt-buffer) ; Auto-format the current buffer.
 ;;
 
 ;;; Code:
