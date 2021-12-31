@@ -203,7 +203,12 @@ def parse_local_defs(defs: Defs, node_parent: NdSexp) -> None:
     if node_parent.nodes_only_code and node_parent.bracket_open == '(':
         node = node_parent.nodes[0]
         if isinstance(node, NdSymbol):
-            if node.data in {'defun', 'defmacro'}:
+            if node.data in {
+                    'defmacro',
+                    'defsubst',
+                    'defun',
+                    'iter-defun',
+            }:
                 # Sanity check, should never fail.
                 if len(node_parent.nodes) >= 3:
                     node_symbol = node_parent.nodes[1]
@@ -266,7 +271,6 @@ def apply_rules(defs: Defs, node_parent: NdSexp) -> None:
                     'defstruct',
                     'evil-leader/set-key',
                     'global-set-key',
-                    'pcase',
                     'setcar',
                     'setcdr',
             }:
@@ -284,6 +288,13 @@ def apply_rules(defs: Defs, node_parent: NdSexp) -> None:
             }:
                 node_parent.index_wrap_hint = 2
                 node_parent.wrap_all_or_nothing_hint = True
+
+            elif node.data in {
+                    'pcase',
+            }:
+                node_parent.index_wrap_hint = 2
+                for subnode in node_parent.nodes_only_code[node_parent.index_wrap_hint:]:
+                    subnode.force_newline = True
 
             elif node.data == 'lambda':
                 if (
@@ -371,6 +382,7 @@ def apply_rules(defs: Defs, node_parent: NdSexp) -> None:
                     'defmacro',
                     'defsubst',
                     'defun',
+                    'iter-defun',
             }:
                 if len(node_parent.nodes_only_code) >= 4:
                     node_parent.index_wrap_hint = 3
