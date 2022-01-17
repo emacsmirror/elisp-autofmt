@@ -9,8 +9,10 @@ an Emacs utility to run this tool on saving.
 
 Projects using this:
 
-- `default-font-presets <https://gitlab.com/ideasman42/emacs-default-font-presets>`__
+- `bookmark-in-project <https://gitlab.com/ideasman42/emacs-bookmark-in-project>`__
 - `counsel-at-point <https://gitlab.com/ideasman42/emacs-counsel-at-point>`__
+- `default-font-presets <https://gitlab.com/ideasman42/emacs-default-font-presets>`__
+- `diff-ansi <https://gitlab.com/ideasman42/emacs-diff-ansi>`__
 - `diff-at-point <https://gitlab.com/ideasman42/emacs-diff-at-point>`__
 - `doc-show-inline <https://gitlab.com/ideasman42/emacs-doc-show-inline>`__
 - `hl-block-mode <https://gitlab.com/ideasman42/emacs-hl-block-mode>`__
