@@ -11,6 +11,7 @@ Projects using this:
 
 - `bookmark-in-project <https://gitlab.com/ideasman42/emacs-bookmark-in-project>`__
 - `counsel-at-point <https://gitlab.com/ideasman42/emacs-counsel-at-point>`__
+- `cycle-at-point <https://gitlab.com/ideasman42/emacs-cycle-at-point>`__
 - `default-font-presets <https://gitlab.com/ideasman42/emacs-default-font-presets>`__
 - `diff-ansi <https://gitlab.com/ideasman42/emacs-diff-ansi>`__
 - `diff-at-point <https://gitlab.com/ideasman42/emacs-diff-at-point>`__
