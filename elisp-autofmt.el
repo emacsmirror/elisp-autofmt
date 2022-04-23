@@ -1,7 +1,7 @@
 ;;; elisp-autofmt.el --- Emacs lisp auto-format -*- lexical-binding: t -*-
 
 ;; SPDX-License-Identifier: GPL-2.0-or-later
-;; Copyright (C) 2019  Campbell Barton
+;; Copyright (C) 2019-2022  Campbell Barton
 
 ;; Author: Campbell Barton <ideasman42@gmail.com>
 
@@ -42,10 +42,59 @@ Can be slow!"
 (defvar elisp-autofmt--bin)
 (setq elisp-autofmt--bin (file-name-sans-extension load-file-name))
 
-;; TODO, add support for auto-formatting a sub-region, until this is supported keep this private.
-(defun elisp-autofmt--region (&optional assume-file-name)
-  "Auto format the current region.
+
+;; ---------------------------------------------------------------------------
+;; Internal Functions
+
+(defun elisp-autofmt--generate-defs (temp-file-cfg)
+  "Generate a definition list at path TEMP-FILE-CFG."
+  (with-temp-file temp-file-cfg
+    (insert
+      ;; Declare singletons.
+      "many = object()\n"
+      ;; For our purposes this is the same as many.
+      "unevalled = object()\n"
+      ;; Declare it as a variable so it can be imported.
+      "fn_arity = {\n")
+    (mapatoms
+      (lambda (x)
+        (when
+          (and
+            ;; Does x name a function?
+            (fboundp x)
+            ;; Extra check.
+            (or (functionp x) (macrop x))
+            ;; Is it non-interactive?
+            (not (commandp (symbol-function x)))
+            ;; Is it built-in?
+            ;; (symbol-function x)
+            ;; (subrp (symbol-function x))
+            )
+          ;; (message "%S %s" (fboundp x) (symbol-name x))
+          (let
+            (
+              (arity
+                (condition-case _err
+                  (func-arity x)
+                  (error nil))))
+            (when arity
+              (let
+                (
+                  (arity-min (car arity))
+                  (arity-max (cdr arity)))
+                (insert
+                  ;; Key.
+                  "r\"\"\"" (symbol-name x) "\"\"\": "
+                  ;; Value.
+                  (format "(%S, %S),\n" arity-min arity-max))))))))
+    (insert "}")))
+
+(defun elisp-autofmt--region-impl (stdout-buffer stderr-buffer &optional assume-file-name)
+  "Auto format the current region using temporary STDOUT-BUFFER & STDERR-BUFFER.
 Optional argument ASSUME-FILE-NAME overrides the file name used for this buffer."
+
+  ;; TODO, add support for auto-formatting a sub-region,
+  ;; until this is supported keep this private.
   (interactive
     (cond
       ((use-region-p)
@@ -56,125 +105,112 @@ Optional argument ASSUME-FILE-NAME overrides the file name used for this buffer.
   (unless assume-file-name
     (setq assume-file-name buffer-file-name))
 
-  (let
+  (let*
     (
-      (this-buffer (current-buffer))
-      (temp-buffer (generate-new-buffer " *elisp-autofmt-temp*"))
-      ;; Use for format output or stderr in the case of failure.
-      (temp-file (make-temp-file "elisp-autofmt" nil ".el"))
+      (stderr-as-string nil)
+      (sentinel-called nil)
+
       (temp-file-cfg
         (cond
           (elisp-autofmt-use-function-defs
             (make-temp-file "elisp-autofmt_defs" nil ".py"))
           (t
             nil)))
-      ;; Always use ‘utf-8-unix’ and ignore the buffer coding system.
-      (default-process-coding-system '(utf-8-unix . utf-8-unix)))
 
-    ;; Write a config file.
-    (when elisp-autofmt-use-function-defs
-      (with-temp-file temp-file-cfg
-        (insert
-          ;; Declare singletons.
-          "many = object()\n"
-          ;; For our purposes this is the same as many.
-          "unevalled = object()\n"
-          ;; Declare it as a variable so it can be imported.
-          "fn_arity = {\n")
-        (mapatoms
-          (lambda (x)
-            (when
-              (and
-                ;; Does x name a function?
-                (fboundp x)
-                ;; Extra check.
-                (or (functionp x) (macrop x))
-                ;; Is it non-interactive?
-                (not (commandp (symbol-function x)))
-                ;; Is it built-in?
-                ;; (symbol-function x)
-                ;; (subrp (symbol-function x))
-                ;;
-                )
-              ;; (message "%S %s" (fboundp x) (symbol-name x))
-              (let
-                (
-                  (arity
-                    (condition-case _err
-                      (func-arity x)
-                      (error nil))))
-                (when arity
-                  (let
-                    (
-                      (arity-min (car arity))
-                      (arity-max (cdr arity)))
-                    (insert
-                      ;; Key.
-                      "r\"\"\"" (symbol-name x) "\"\"\": "
-                      ;; Value.
-                      (format "(%S, %S),\n" arity-min arity-max))))))))
-        (insert "}")))
+      (command-with-args
+        (append
+          (list
+            (or elisp-autofmt-python-bin "python3")
+            elisp-autofmt--bin
+            ;; No messages.
+            "--quiet"
+            ;; Don't use the file, use the stdin instead.
+            "--stdin"
+            ;; Use the standard outpt.
+            "--stdout"
+            ;; Follow the 'fill-column' setting.
+            (format "--fmt-fill-column=%d" fill-column)
+            (format "--fmt-empty-lines=%d" elisp-autofmt-empty-line-max)
+            ;; Not 0 or 1.
+            "--exit-code=2")
 
-    (condition-case err
-      (unwind-protect
-        (let
-          (
-            (status
-              (progn
-                (apply #'call-process-region
-                  nil nil (or elisp-autofmt-python-bin "python3") nil
-                  ;; stdout is a temp buffer, stderr is file.
-                  `(,temp-buffer ,temp-file) nil
-                  ;; Command line arguments.
-                  `
-                  (,elisp-autofmt--bin
-                    ;; No messages.
-                    "--quiet"
-                    ;; Don't use the file, use the stdin instead.
-                    "--stdin"
-                    ;; Optionally read in definitions.
-                    ,@
-                    (when elisp-autofmt-use-function-defs
-                      '(format "--fmt-defs=%s" temp-file-cfg))
-                    ;; Follow the 'fill-column' setting.
-                    ,(format "--fmt-fill-column=%d" fill-column)
-                    ,(format "--fmt-empty-lines=%d" elisp-autofmt-empty-line-max)
-                    ;; For the init file, use trailing parens.
-                    ,temp-file))))
-            (stderr
-              (with-temp-buffer
-                (unless (zerop (cadr (insert-file-contents temp-file)))
-                  (insert ":\n"))
-                (buffer-substring-no-properties (point-min) (point-max)))))
+          ;; Optionally read in definitions.
           (cond
-            ((stringp status)
-              (error "Command: %S killed by signal %s%s" elisp-autofmt--bin status stderr))
-            ((not (zerop status))
-              (error "Command: %S failed with code %d%s" elisp-autofmt--bin status stderr))
+            (elisp-autofmt-use-function-defs
+              (list (format "--fmt-defs=%s" temp-file-cfg)))
             (t
-              ;; Include the stdout as a message, useful to check on how the program runs.
-              (let
-                (
-                  (stdout
-                    (with-current-buffer temp-buffer
-                      (buffer-substring-no-properties (point-min) (point-max)))))
-                (unless (string-equal stdout "")
-                  (message "%s" stdout)))))
+              (list))))))
 
-          ;; Load the temp file into a temp buffer and replace this-buffers contents.
-          (with-temp-buffer
-            (insert-file-contents temp-file)
-            (let ((temp-buffer (current-buffer)))
-              (with-current-buffer this-buffer (replace-buffer-contents temp-buffer))))))
-      ;; Report error.
-      (error (message "%s" (error-message-string err))))
+    ;; Write a configuration file.
+    (when elisp-autofmt-use-function-defs
+      (setq (elisp-autofmt--generate-defs)))
+
+    (let
+      (
+        (proc
+          (make-process
+            :name "elisp-autofmt"
+            :buffer stdout-buffer
+            :stderr stderr-buffer
+            :connection-type 'pipe
+            :command command-with-args
+            :coding (cons default-buffer-file-coding-system default-buffer-file-coding-system)
+            :sentinel
+            (lambda (_proc _msg)
+              (setq sentinel-called t)
+
+              ;; Assign in the sentinel to prevent "Process .. finished"
+              ;; being written to `stderr-buffer' otherwise it's difficult
+              ;; to know if there was an error or not since an exit value
+              ;; of 2 may be used for invalid arguments as well as to check
+              ;; if the buffer was re-formatted.
+              (unless (zerop (buffer-size stderr-buffer))
+                (with-current-buffer stderr-buffer
+                  (setq stderr-as-string (buffer-string))
+                  (erase-buffer)))))))
+
+      (process-send-region proc (point-min) (point-max))
+      (process-send-eof proc)
+
+      (while (not sentinel-called)
+        (accept-process-output))
+      (set-process-sentinel proc #'ignore)
+
+      (let ((exit-code (process-exit-status proc)))
+        (cond
+          ((or (not (eq exit-code 2)) stderr-as-string)
+            (unless stderr-as-string
+              (message "elisp-autofmt: error output\n%s" stderr-as-string))
+            (message
+              "elisp-autofmt: Command %S failed with exit code %d!"
+              command-with-args
+              exit-code)
+            nil)
+          (t
+            (replace-buffer-contents stdout-buffer)))))
 
     ;; Cleanup.
-    (delete-file temp-file)
     (when elisp-autofmt-use-function-defs
-      (delete-file temp-file-cfg))
-    (when (buffer-name temp-buffer)
-      (kill-buffer temp-buffer))))
+      (delete-file temp-file-cfg))))
+
+(defun elisp-autofmt--region (&optional assume-file-name)
+  "Auto format the current region.
+Optional argument ASSUME-FILE-NAME overrides the file name used for this buffer."
+  (let
+    (
+      (stdout-buffer nil)
+      (stderr-buffer nil)
+      (this-buffer (current-buffer)))
+    (with-temp-buffer
+      (setq stdout-buffer (current-buffer))
+      (with-temp-buffer
+        (setq stderr-buffer (current-buffer))
+        (with-current-buffer this-buffer
+          (elisp-autofmt--region-impl stdout-buffer stderr-buffer assume-file-name))))))
+
+
+;; ---------------------------------------------------------------------------
+;; Public Functions
 
 ;;;###autoload
 (defun elisp-autofmt-buffer (&optional buf)

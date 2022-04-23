@@ -397,7 +397,7 @@ def apply_rules(defs: Defs, node_parent: NdSexp) -> None:
                     node_parent.index_wrap_hint = 1 + arity_min
                 else:
                     if defs._is_complete:
-                        print('Missing:', node.data)
+                        sys.stderr.write('Missing: {:s}\n'.format(node.data))
 
     for node in node_parent.nodes_only_code:
         if isinstance(node, NdSexp):
@@ -1331,11 +1331,29 @@ def parse_file(cfg: FormatConfig, fh: TextIO) -> Tuple[str, NdSexp]:
     return first_line_unparsed, root
 
 
+def write_file(
+        cfg: FormatConfig,
+        fh: TextIO,
+        root: NdSexp,
+        first_line: str,
+) -> None:
+
+    ctx = WriteCtx(cfg)
+
+    if USE_WRAP_LINES:
+        root.fmt_pre_wrap(ctx, -1, 0)
+    if first_line:
+        fh.write(first_line)
+    root.fmt(ctx, fh.write, -1)
+    fh.write('\n')
+
+
 def format_file(
         filepath: str,
         cfg: FormatConfig,
         *,
         use_stdin: bool = False,
+        use_stdout: bool = False,
 ) -> None:
 
     # Needed as files may contain '\r' only, see emacs own:
@@ -1350,19 +1368,16 @@ def format_file(
 
     assert(root.flush_newlines_from_nodes_recursive() == False)
 
-    with open(filepath, 'w', encoding='utf-8', newline=newline) as fh:
-        ctx = WriteCtx(cfg)
-
-        if USE_WRAP_LINES:
-            root.fmt_pre_wrap(ctx, -1, 0)
-        if first_line:
-            fh.write(first_line)
-        root.fmt(ctx, fh.write, -1)
-        fh.write('\n')
+    if use_stdout:
+        write_file(cfg, sys.stdout, root, first_line)
+    else:
+        with open(filepath, 'w', encoding='utf-8', newline=newline) as fh:
+            write_file(cfg, fh, root, first_line)
 
 
 # ------------------------------------------------------------------------------
 # Argument Parsing
+
 
 def argparse_create() -> argparse.ArgumentParser:
 
@@ -1421,7 +1436,7 @@ def argparse_create() -> argparse.ArgumentParser:
         nargs='?',
         type=int,
         required=False,
-        help='Maxumum column width.',
+        help='Maximum column width.',
     )
 
     parser.add_argument(
@@ -1431,6 +1446,25 @@ def argparse_create() -> argparse.ArgumentParser:
         action='store_true',
         required=False,
         help='Use the stdin for file contents instead of the file name passed in.',
+    )
+
+    parser.add_argument(
+        '--stdout',
+        dest='use_stdout',
+        default=False,
+        action='store_true',
+        required=False,
+        help='Use the stdout to output the file contents instead of the file name passed in.',
+    )
+
+    parser.add_argument(
+        '--exit-code',
+        dest='exit_code',
+        default=0,
+        nargs='?',
+        type=int,
+        required=False,
+        help='Exit code to use upon successfully re-formatting',
     )
 
     parser.add_argument(
@@ -1447,8 +1481,19 @@ def argparse_create() -> argparse.ArgumentParser:
 def main() -> None:
     args = argparse_create().parse_args()
 
-    if args.use_stdin and len(args.files) != 1:
-        sys.stderr.write('The \'--stdin\' argument can only output to a single file {!r}\n'.format(args.files))
+    if args.use_stdin and args.use_stdout:
+        if args.files:
+            sys.stderr.write(
+                'The \'--files\' argument cannot be used when both stdin and stdout are used {!r}\n'.format(args.files))
+            sys.exit(1)
+    elif args.use_stdin or args.use_stdout:
+        if len(args.files) != 1:
+            sys.stderr.write(
+                'The \'--stdin\' & \'--stdout\' arguments are limited to a single file {!r}\n'.format(args.files))
+            sys.exit(1)
+    elif not args.files:
+        sys.stderr.write(
+            'No files passed in, pass in files or use both \'--stdin\' & \'--stdout\'\n')
         sys.exit(1)
 
     if args.fmt_defs:
@@ -1465,15 +1510,19 @@ def main() -> None:
         defs=defs,
     )
 
-    for filepath in args.files:
-        if not args.use_quiet:
-            print(filepath)
+    for filepath in (args.files or [""]):
+        # Use the `stderr` to avoid conflicting with `stdout` when it's set.
+        if (not args.use_quiet) and (not args.use_stdout):
+            sys.stdout.write('%s\n' % filepath)
 
         format_file(
             filepath,
             cfg=cfg,
             use_stdin=args.use_stdin,
+            use_stdout=args.use_stdout,
         )
+
+    sys.exit(args.exit_code)
 
 
 if __name__ == '__main__':
