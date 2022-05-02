@@ -31,7 +31,7 @@ Projects using this:
 - `spell-fu <https://gitlab.com/ideasman42/emacs-spell-fu>`__
 - `undo-fu <https://gitlab.com/ideasman42/emacs-undo-fu>`__
 - `undo-fu-session <https://gitlab.com/ideasman42/emacs-undo-fu-session>`__
-- `utimeclock <https://gitlab.com/ideasman42/emacs-utimeclock>`__
+- `utimeclock <https://codeberg.org/ideasman42/emacs-utimeclock>`__
 - `xref-rst <https://gitlab.com/ideasman42/emacs-xref-rst>`__
 
 *Currently my projects, just to give examples of how it works.*
