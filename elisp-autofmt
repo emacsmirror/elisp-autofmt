@@ -201,7 +201,7 @@ def parse_local_defs(defs: Defs, node_parent: NdSexp) -> None:
                         arg_index = -1
                         for i, node_arg in enumerate(node_args.nodes_only_code):
                             if isinstance(node_arg, NdSymbol):
-                                if node_arg.data == '&rest':
+                                if node_arg.data in {'&rest', '&optional'}:
                                     arg_index = i
                                     break
                         if arg_index != -1:
