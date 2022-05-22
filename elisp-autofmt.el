@@ -26,6 +26,18 @@
 
 (defcustom elisp-autofmt-empty-line-max 2 "The maximum number of blank lines to keep." :type 'int)
 
+(defcustom elisp-autofmt-on-save-p 'elisp-autopep8-check-elisp-autofmt-exists
+  "Only reformat on save if this function returns non-nil.
+
+You may wish to choose one of the following options:
+- `always': To always format on save.
+- `elisp-autopep8-check-elisp-autofmt-exists':
+  Only reformat when \"pyproject.toml\" exists.
+
+Otherwise you can set this to a user defined function."
+  :type 'function)
+
+
 (defcustom elisp-autofmt-use-function-defs nil
   "When non nil, generate function definitions for the auto-formatter to use.
 
@@ -208,34 +220,53 @@ Optional argument ASSUME-FILE-NAME overrides the file name used for this buffer.
         (with-current-buffer this-buffer
           (elisp-autofmt--region-impl stdout-buffer stderr-buffer assume-file-name))))))
 
+(defun elisp-autofmt--buffer-impl (buf)
+  "Auto-format the entire buffer BUF."
+  (with-current-buffer buf (elisp-autofmt--region)))
+
+(defun elisp-autofmt--buffer-format-for-save-hook ()
+  ;; Demote errors as this is user configurable, we can't be sure it wont error.
+  (when (with-demoted-errors "elisp-autofmt: Error %S" (funcall elisp-autofmt-on-save-p))
+    (elisp-autofmt-buffer))
+  ;; Continue to save.
+  nil)
+
+(defun elisp-autofmt--enable (&optional force)
+  "Setup an auto-format save hook for this buffer."
+  ;; Buffer local hook.
+  (add-hook 'before-save-hook #'elisp-autofmt--buffer-format-for-save-hook nil t))
+
+(defun elisp-autofmt--disable ()
+  "Disable the hooks associated with `elisp-autofmt-mode'."
+  (remove-hook 'before-save-hook #'elisp-autofmt--buffer-format-for-save-hook t))
+
 
 ;; ---------------------------------------------------------------------------
 ;; Public Functions
 
 ;;;###autoload
-(defun elisp-autofmt-buffer (&optional buf)
-  "Auto-format the entire buffer.
-
-Optional argument BUF the buffer to format, otherwise use the current buffer."
-  (with-current-buffer (or buf (current-buffer)) (elisp-autofmt--region)))
+(defun elisp-autofmt-buffer ()
+  "Auto format the current buffer."
+  (elisp-autofmt--buffer-impl (current-buffer)))
 
 ;;;###autoload
-(defun elisp-autofmt-save-hook-for-this-buffer (&optional force)
-  "Setup an auto-format save hook for this buffer.
+(defun elisp-autopep8-check-elisp-autofmt-exists ()
+  "Return non-nil when `.elisp-autofmt' is found in a parent directory."
+  (let ((cfg (locate-dominating-file (file-name-directory buffer-file-name) ".elisp-autofmt")))
+    (not (null cfg))))
 
-Optional argument FORCE auto-formats the buffer
-even when `.elisp-autofmt' isn't in any of the buffers parent directories."
-  (add-hook 'before-save-hook
-    (lambda ()
-      (let ((cfg (locate-dominating-file (file-name-directory buffer-file-name) ".elisp-autofmt")))
-        (when (or cfg force)
-          (elisp-autofmt-buffer)))
-      ;; Continue to save.
-      nil)
-    nil
-    ;; Buffer local hook.
-    t))
+;;;###autoload
+(define-minor-mode elisp-autofmt-mode
+  "Elisp-AutoFMT minor mode."
+  :global nil
+  :lighter ""
+  :keymap nil
+
+  (cond
+    (elisp-autofmt-mode
+      (elisp-autofmt--enable))
+    (t
+      (elisp-autofmt--disable))))
 
 (provide 'elisp-autofmt)
-
 ;;; elisp-autofmt.el ends here
