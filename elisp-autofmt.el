@@ -5,7 +5,7 @@
 
 ;; Author: Campbell Barton <ideasman42@gmail.com>
 
-;; URL: https://gitlab.com/ideasman42/emacs-elisp-autofmt
+;; URL: https://codeberg.org/ideasman42/emacs-elisp-autofmt
 ;; Version: 0.1
 ;; Package-Requires: ((emacs "26.2"))
 

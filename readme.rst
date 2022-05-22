@@ -109,15 +109,15 @@ This can be installed using ``straight``, example:
 .. code-block:: elisp
 
    (use-package elisp-autofmt
-     :commands (elisp-autofmt-save-hook-for-this-buffer)
-     :hook (emacs-lisp-mode . elisp-autofmt-save-hook-for-this-buffer)
+     :commands (elisp-autofmt-mode)
+     :hook (emacs-lisp-mode . elisp-autofmt-mode)
 
      :straight
      (elisp-autofmt
-       :type git
-       :host gitlab
        :files (:defaults "elisp-autofmt")
-       :repo "ideasman42/emacs-elisp-autofmt"))
+       :host nil
+       :type git
+       :repo "https://codeberg.org/ideasman42/emacs-elisp-autofmt.git"))
 
 
 Limitations
