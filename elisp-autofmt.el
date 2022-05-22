@@ -121,6 +121,12 @@ Optional argument ASSUME-FILE-NAME overrides the file name used for this buffer.
     (
       (stderr-as-string nil)
       (sentinel-called nil)
+      (default-coding
+        (cond
+          ((boundp 'default-buffer-file-coding-system)
+            default-buffer-file-coding-system)
+          (t
+            'utf-8)))
 
       (temp-file-cfg
         (cond
@@ -166,7 +172,7 @@ Optional argument ASSUME-FILE-NAME overrides the file name used for this buffer.
             :stderr stderr-buffer
             :connection-type 'pipe
             :command command-with-args
-            :coding (cons default-buffer-file-coding-system default-buffer-file-coding-system)
+            :coding (cons default-coding default-coding)
             :sentinel
             (lambda (_proc _msg)
               (setq sentinel-called t)
