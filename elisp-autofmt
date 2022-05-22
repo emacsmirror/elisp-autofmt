@@ -186,27 +186,35 @@ def parse_local_defs(defs: Defs, node_parent: NdSexp) -> None:
     if node_parent.nodes_only_code and node_parent.bracket_open == '(':
         node = node_parent.nodes[0]
         if isinstance(node, NdSymbol):
+            symbol_type = None
             if node.data in {
-                    'defmacro',
                     'defsubst',
                     'defun',
                     'iter-defun',
             }:
-                # Sanity check, should never fail.
-                if len(node_parent.nodes) >= 3:
-                    node_symbol = node_parent.nodes[1]
-                    node_args = node_parent.nodes[2]
-                    if isinstance(node_symbol, NdSymbol) and isinstance(node_args, NdSexp):
-                        symbol = node_symbol.data
-                        arg_index = -1
-                        for i, node_arg in enumerate(node_args.nodes_only_code):
-                            if isinstance(node_arg, NdSymbol):
-                                if node_arg.data in {'&rest', '&optional'}:
-                                    arg_index = i
-                                    break
-                        if arg_index != -1:
-                            # The second value is currently unused (max arguments).
-                            defs.fn_arity[symbol] = (arg_index, None)
+                symbol_type = 'func'
+            elif node.data in {
+                    'defmacro',
+            }:
+                symbol_type = 'macro'
+            else:
+                return
+
+            # Sanity check, should never fail.
+            if len(node_parent.nodes) >= 3:
+                node_symbol = node_parent.nodes[1]
+                node_args = node_parent.nodes[2]
+                if isinstance(node_symbol, NdSymbol) and isinstance(node_args, NdSexp):
+                    symbol = node_symbol.data
+                    arg_index = -1
+                    for i, node_arg in enumerate(node_args.nodes_only_code):
+                        if isinstance(node_arg, NdSymbol):
+                            if node_arg.data in {'&rest', '&optional'}:
+                                arg_index = i
+                                break
+                    if arg_index != -1:
+                        # The second value is currently unused (max arguments).
+                        defs.fn_arity[symbol] = (symbol_type, arg_index, None)
 
     for node in node_parent.nodes_only_code:
         if isinstance(node, NdSexp):
@@ -393,13 +401,17 @@ def apply_rules(defs: Defs, node_parent: NdSexp) -> None:
                         i += 1
             else:
                 # First lookup built-in definitions, if they exist.
-                arity_min, arity_max = defs.fn_arity.get(node.data, (None, None))
+                symbol_type, arity_min, arity_max = defs.fn_arity.get(node.data, ("", None, None))
                 if arity_min is not None:
                     # First symbol counts for 1.
                     node_parent.index_wrap_hint = 1 + arity_min
-                else:
-                    if defs._is_complete:
-                        sys.stderr.write('Missing: {:s}\n'.format(node.data))
+                    if arity_max in {"many", "unevalled"} and arity_min != 0:
+                        apply_relaxed_wrap(node_parent)
+                        # apply_relaxed_wrap_when_multiple_args(node_parent)
+
+                # else:
+                #     if defs._is_complete:
+                #         sys.stderr.write('Missing: {:s}\n'.format(node.data))
 
     for node in node_parent.nodes_only_code:
         if isinstance(node, NdSexp):
@@ -503,12 +515,23 @@ class Defs:
     def __init__(
             self,
             *,
-            fn_arity: Dict[str, Tuple[Optional[int], Optional[int]]],
+            fn_arity: Dict[str, Tuple[str, Optional[int], Optional[int]]],
             is_complete: bool,
     ):
         self.fn_arity = fn_arity
         self._is_complete = is_complete
         self._has_local: bool = False
+
+    @staticmethod
+    def from_json_files(fmt_defs):
+        import json
+        functions = {}
+        for filepath in fmt_defs:
+            with open(filepath, 'r', encoding='utf-8') as fh:
+                fh_as_json = json.load(fh)
+                functions.update(fh_as_json['functions'])
+
+        return Defs(fn_arity=functions, is_complete=True)
 
 
 class WriteCtx:
@@ -1393,6 +1416,16 @@ def argparse_create() -> argparse.ArgumentParser:
 
     parser = argparse.ArgumentParser(description=usage_text, epilog=epilog)
 
+
+    parser.add_argument(
+        '--fmt-defs-dir',
+        dest='fmt_defs_dir',
+        metavar='DIR',
+        default='',
+        type=str,
+        required=False,
+        help='Directory used for storing definitions.',
+    )
     parser.add_argument(
         '--fmt-defs',
         dest='fmt_defs',
@@ -1400,7 +1433,10 @@ def argparse_create() -> argparse.ArgumentParser:
         default='',
         type=str,
         required=False,
-        help='Definitions (internal use, this is written by Emacs).',
+        help=(
+            'Definition filenames within "--fmt-defs-dir" '
+            '(internal use, this is written by Emacs).'
+        ),
     )
 
     parser.add_argument(
@@ -1499,9 +1535,10 @@ def main() -> None:
         sys.exit(1)
 
     if args.fmt_defs:
-        defs_data = execfile(args.fmt_defs)
-        defs = Defs(fn_arity=getattr(defs_data, 'fn_arity'), is_complete=True)
-        del defs_data
+        defs = Defs.from_json_files(
+            os.path.join(args.fmt_defs_dir, filename)
+            for filename in args.fmt_defs.split(":")
+        )
     else:
         defs = Defs(fn_arity={}, is_complete=False)
 
