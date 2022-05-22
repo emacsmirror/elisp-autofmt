@@ -101,6 +101,28 @@ Can be slow!"
                   (format "(%S, %S),\n" arity-min arity-max))))))))
     (insert "}")))
 
+(defun elisp-autofmt--replace-buffer-contents-with-fastpath (buf)
+  "Replace buffer contents with BUF, fast-path when undo is disabled.
+
+Useful for fast operation, especially for automated conversion or tests."
+  (let
+    (
+      (is-beg (eq (point) (point-min)))
+      (is-end (eq (point) (point-max))))
+    (cond
+      ((and (eq t buffer-undo-list) (or is-beg is-end))
+        ;; No undo, use a simple method instead of `replace-buffer-contents',
+        ;; which has no benefit unless undo is in use.
+        (erase-buffer)
+        (insert-buffer-substring buf)
+        (cond
+          (is-beg
+            (goto-char (point-min)))
+          (is-end
+            (goto-char (point-max)))))
+      (t
+        (replace-buffer-contents buf)))))
+
 (defun elisp-autofmt--region-impl (stdout-buffer stderr-buffer &optional assume-file-name)
   "Auto format the current region using temporary STDOUT-BUFFER & STDERR-BUFFER.
 Optional argument ASSUME-FILE-NAME overrides the file name used for this buffer."
@@ -205,7 +227,7 @@ Optional argument ASSUME-FILE-NAME overrides the file name used for this buffer.
               exit-code)
             nil)
           (t
-            (replace-buffer-contents stdout-buffer)))))
+            (elisp-autofmt--replace-buffer-contents-with-fastpath stdout-buffer)))))
 
     ;; Cleanup.
     (when elisp-autofmt-use-function-defs
