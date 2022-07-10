@@ -256,6 +256,7 @@ def apply_rules(defs: Defs, node_parent: NdSexp) -> None:
                     'global-set-key',
                     'setcar',
                     'setcdr',
+                    'throw',
             }:
                 node_parent.index_wrap_hint = 2
 
@@ -311,6 +312,7 @@ def apply_rules(defs: Defs, node_parent: NdSexp) -> None:
                     'delete',
                     'dolist',
                     'dotimes',
+                    'pcase-dolist',
                     'unless',
                     'use-package',
                     'when',
