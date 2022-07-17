@@ -462,7 +462,7 @@ Optional argument ASSUME-FILE-NAME overrides the file name used for this buffer.
       (let ((exit-code (process-exit-status proc)))
         (cond
           ((or (not (eq exit-code 2)) stderr-as-string)
-            (unless stderr-as-string
+            (when stderr-as-string
               (message "elisp-autofmt: error output\n%s" stderr-as-string))
             (message
               "elisp-autofmt: Command %S failed with exit code %d!"
