@@ -10,11 +10,14 @@ import os
 
 EMACS_BIN = "emacs"
 VERBOSE = os.environ.get('VERBOSE', False)
-# TEMP_LOCAL = '/tmp/out'
+TEMP_LOCAL = ""
+# TEMP_LOCAL = "/tmp/out"
+
+if TEMP_LOCAL:
+    if not os.path.exists(TEMP_LOCAL):
+        os.mkdirs(TEMP_LOCAL)
 
 BASE_DIR = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
-
-USTOW_DIR = '_ustow'
 
 
 def generate_defs_builtin(output):
@@ -49,7 +52,9 @@ def generate_defs_package(output, package):
 def generate_defs_package_as_json(package):
     import json
     with tempfile.TemporaryDirectory() as d:
-        p = os.path.join(d, "out.json")
+        if TEMP_LOCAL:
+            d = TEMP_LOCAL
+        p = os.path.join(d, package + ".out.json")
         generate_defs_package(p, package)
         with open(p, 'r', encoding='utf-8') as fh:
             return json.load(fh)
@@ -58,7 +63,9 @@ def generate_defs_package_as_json(package):
 def generate_defs_builtin_as_json():
     import json
     with tempfile.TemporaryDirectory() as d:
-        p = os.path.join(d, "out.json")
+        if TEMP_LOCAL:
+            d = TEMP_LOCAL
+        p = os.path.join(d, "emacs.out.json")
         generate_defs_builtin(p)
         with open(p, 'r', encoding='utf-8') as fh:
             return json.load(fh)
