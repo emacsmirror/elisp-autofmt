@@ -384,6 +384,7 @@ Optional argument ASSUME-FILE-NAME overrides the file name used for this buffer.
   (let*
     (
       (stderr-as-string nil)
+      (pipe-err-as-string nil)
       (sentinel-called nil)
       (default-coding
         (cond
@@ -452,8 +453,15 @@ Optional argument ASSUME-FILE-NAME overrides the file name used for this buffer.
                   (setq stderr-as-string (buffer-string))
                   (erase-buffer)))))))
 
-      (process-send-region proc (point-min) (point-max))
-      (process-send-eof proc)
+      (condition-case err
+        (progn
+          (process-send-region proc (point-min) (point-max))
+          (process-send-eof proc))
+        (file-error
+          ;; Formatting exited with an error, closing the `stdin' during execution.
+          ;; Even though the `stderr' will almost always be set,
+          ;; store the error as it may show additional context.
+          (setq pipe-err-as-string (error-message-string err))))
 
       (while (not sentinel-called)
         (accept-process-output))
@@ -461,9 +469,12 @@ Optional argument ASSUME-FILE-NAME overrides the file name used for this buffer.
 
       (let ((exit-code (process-exit-status proc)))
         (cond
-          ((or (not (eq exit-code 2)) stderr-as-string)
+          ((or (not (eq exit-code 2)) stderr-as-string pipe-err-as-string)
+            (when pipe-err-as-string
+              (message "elisp-autofmt: error sending input (%s)" pipe-err-as-string))
             (when stderr-as-string
               (message "elisp-autofmt: error output\n%s" stderr-as-string))
+
             (message
               "elisp-autofmt: Command %S failed with exit code %d!"
               command-with-args
