@@ -83,6 +83,59 @@ Can be slow!"
 
 (defconst elisp-autofmt--this-file load-file-name)
 
+;; ---------------------------------------------------------------------------
+;; Internal Utilities
+
+(defun elisp-autofmt-call-checked (command-with-args)
+  (let
+    (
+      (sentinel-called nil)
+      (this-buffer (current-buffer))
+      (stdout-buffer nil)
+      (stderr-buffer nil)
+      (stderr-as-string nil))
+    (with-temp-buffer
+      (setq stdout-buffer (current-buffer))
+      (with-temp-buffer
+        (setq stderr-buffer (current-buffer))
+        (with-current-buffer this-buffer
+          (let
+            (
+              (proc
+                (make-process
+                  :name "elisp-autofmt-call-checked"
+                  :buffer stdout-buffer
+                  :stderr stderr-buffer
+                  :command command-with-args
+                  :sentinel
+                  (lambda (_proc _msg)
+                    (setq sentinel-called t)
+
+                    (unless (zerop (buffer-size stderr-buffer))
+                      (with-current-buffer stderr-buffer
+                        (setq stderr-as-string (buffer-string))
+                        (erase-buffer)))))))
+
+            (while (not sentinel-called)
+              (accept-process-output))
+            (set-process-sentinel proc #'ignore)
+
+            ;; May be an actual error, may be some warning about newer byte-code,
+            ;; don't consider it fatal.
+            (when stderr-as-string
+              (message "elisp-autofmt: error output\n%s" stderr-as-string))
+
+            (let ((exit-code (process-exit-status proc)))
+              (cond
+                ((not (eq exit-code 0))
+                  (message
+                    "elisp-autofmt: Command %S failed with exit code %d!"
+                    command-with-args
+                    exit-code)
+                  nil)
+                (t
+                  ;; Do nothing.
+                  t)))))))))
 
 ;; ---------------------------------------------------------------------------
 ;; Internal Introspection / Cache Functions
@@ -279,19 +332,15 @@ Call an external Emacs when USE-EXTERNAL-EMACS is non-nil."
                 (cons
                   (concat "ELISP_AUTOFMT_OUTPUT=" filename-cache-name-full)
                   process-environment)))
-            (call-process
-              filename
-              nil
-              nil
-              nil
 
-              ;; args.
-              "--batch"
-              "-l"
-              elisp-autofmt--this-file
-              "--eval"
-              "-f"
-              "elisp-autofmt-gen-builtin-defs")))
+            (elisp-autofmt-call-checked
+              (list
+                filename
+                "--batch"
+                "-l"
+                elisp-autofmt--this-file
+                "--eval"
+                "(elisp-autofmt-gen-builtin-defs)"))))
         (t
           (elisp-autofmt--cache-api-generate-for-builtins filename-cache-name-full))))
     filename-cache-name-only))
