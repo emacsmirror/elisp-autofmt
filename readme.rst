@@ -16,6 +16,7 @@ Projects using this:
 - `diff-ansi <https://codeberg.org/ideasman42/emacs-diff-ansi>`__
 - `diff-at-point <https://codeberg.org/ideasman42/emacs-diff-at-point>`__
 - `doc-show-inline <https://codeberg.org/ideasman42/emacs-doc-show-inline>`__
+- `fancy-compilation <https://codeberg.org/ideasman42/emacs-fancy-compilation>`__
 - `hl-block-mode <https://codeberg.org/ideasman42/emacs-hl-block-mode>`__
 - `hl-prog-extra <https://codeberg.org/ideasman42/emacs-hl-prog-extra>`__
 - `idle-highlight-mode <https://codeberg.org/ideasman42/emacs-idle-highlight-mode>`__
