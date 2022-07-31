@@ -375,6 +375,7 @@ def apply_rules(defs: Defs, node_parent: NdSexp) -> None:
                     'defmacro',
                     'defsubst',
                     'defun',
+                    'ert-deftest',
                     'iter-defun',
             }:
                 if len(node_parent.nodes_only_code) >= 4:
