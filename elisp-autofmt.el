@@ -127,7 +127,7 @@ Can be slow!"
 
             (let ((exit-code (process-exit-status proc)))
               (cond
-                ((not (eq exit-code 0))
+                ((not (zerop exit-code))
                   (message
                     "elisp-autofmt: Command %S failed with exit code %d!"
                     command-with-args
