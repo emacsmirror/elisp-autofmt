@@ -18,6 +18,7 @@ Projects using this:
 - `doc-show-inline <https://codeberg.org/ideasman42/emacs-doc-show-inline>`__
 - `fancy-compilation <https://codeberg.org/ideasman42/emacs-fancy-compilation>`__
 - `hl-block-mode <https://codeberg.org/ideasman42/emacs-hl-block-mode>`__
+- `hl-indent-scope <https://codeberg.org/ideasman42/emacs-hl-indent-scope>`__
 - `hl-prog-extra <https://codeberg.org/ideasman42/emacs-hl-prog-extra>`__
 - `idle-highlight-mode <https://codeberg.org/ideasman42/emacs-idle-highlight-mode>`__
 - `magit-commit-mark <https://codeberg.org/ideasman42/emacs-magit-commit-mark>`__
