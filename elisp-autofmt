@@ -190,6 +190,7 @@ def parse_local_defs(defs: Defs, node_parent: NdSexp) -> None:
             if node.data in {
                     'defsubst',
                     'defun',
+                    'defadvice',
                     'iter-defun',
             }:
                 symbol_type = 'func'
@@ -372,6 +373,7 @@ def apply_rules(defs: Defs, node_parent: NdSexp) -> None:
 
             elif node.data in {
                     'cl-defmethod',
+                    'defadvice',
                     'defmacro',
                     'defsubst',
                     'defun',
