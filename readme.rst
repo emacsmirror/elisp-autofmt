@@ -21,6 +21,7 @@ Projects using this:
 - `hl-indent-scope <https://codeberg.org/ideasman42/emacs-hl-indent-scope>`__
 - `hl-prog-extra <https://codeberg.org/ideasman42/emacs-hl-prog-extra>`__
 - `idle-highlight-mode <https://codeberg.org/ideasman42/emacs-idle-highlight-mode>`__
+- `jit-lock-stealth-progress <https://codeberg.org/ideasman42/emacs-jit-lock-stealth-progress>`__
 - `magit-commit-mark <https://codeberg.org/ideasman42/emacs-magit-commit-mark>`__
 - `mode-line-idle <https://codeberg.org/ideasman42/emacs-mode-line-idle>`__
 - `py-autopep8 <https://codeberg.org/ideasman42/emacs-py-autopep8>`__
