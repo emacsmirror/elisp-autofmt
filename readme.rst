@@ -82,6 +82,11 @@ this checks for the existence of an ``.elisp-autofmt`` file in the buffers direc
 
    ``.elisp-autofmt`` will eventually be used for configuration, for now it should be left empty.
 
+.. hint::
+
+   The first re-format may be slow as there are likely to be a large number of changes to apply.
+   Running again should not have this problem.
+
 
 Functions
 ---------
