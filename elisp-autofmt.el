@@ -78,9 +78,7 @@ Can be slow!"
 ;; Internal variables.
 
 ;; Run this command to format.
-(defvar elisp-autofmt--bin)
-(setq elisp-autofmt--bin (file-name-sans-extension load-file-name))
-
+(defconst elisp-autofmt--bin (file-name-sans-extension load-file-name))
 (defconst elisp-autofmt--this-file load-file-name)
 
 
@@ -296,13 +294,13 @@ When SKIP-REQUIRE is non-nil, the package is not required."
           (insert "}\n")
           (write-region nil nil filepath nil 0))))))
 
-(defun elisp-autofmt-gen-builtin-defs ()
+(defun elisp-autofmt--gen-builtin-defs ()
   "Generate builtin definitions.
 
 Writes outputs to `ELISP_AUTOFMT_OUTPUT'."
   (elisp-autofmt--cache-api-generate-for-builtins (getenv "ELISP_AUTOFMT_OUTPUT")))
 
-(defun elisp-autofmt-gen-package-defs ()
+(defun elisp-autofmt--gen-package-defs ()
   "Generate builtin definitions.
 
 Uses package from environment variable `ELISP_AUTOFMT_PACKAGE'.
@@ -344,7 +342,7 @@ Call an external Emacs when USE-EXTERNAL-EMACS is non-nil."
                 "-l"
                 elisp-autofmt--this-file
                 "--eval"
-                "(elisp-autofmt-gen-builtin-defs)"))))
+                "(elisp-autofmt--gen-builtin-defs)"))))
         (t
           (elisp-autofmt--cache-api-generate-for-builtins filename-cache-name-full))))
     filename-cache-name-only))

@@ -25,7 +25,7 @@ def generate_defs_builtin(output):
         EMACS_BIN,
         "--batch",
         "-l", os.path.join(BASE_DIR, "elisp-autofmt.el"),
-        "-f", "elisp-autofmt-gen-builtin-defs",
+        "-f", "elisp-autofmt--gen-builtin-defs",
     )
     env = os.environ.copy()
     env.update({
@@ -39,7 +39,7 @@ def generate_defs_package(output, package):
         EMACS_BIN,
         "--batch",
         "-l", os.path.join(BASE_DIR, "elisp-autofmt.el"),
-        "-f", "elisp-autofmt-gen-package-defs",
+        "-f", "elisp-autofmt--gen-package-defs",
     )
     env = os.environ.copy()
     env.update({
