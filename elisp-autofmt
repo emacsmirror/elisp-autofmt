@@ -7,11 +7,13 @@ from typing import (
     Callable,
     Dict,
     Generator,
+    Iterable,
     List,
     NamedTuple,
     Optional,
     TextIO,
     Tuple,
+    Union,
 )
 from types import (
     ModuleType,
@@ -518,7 +520,7 @@ class Defs:
     def __init__(
             self,
             *,
-            fn_arity: Dict[str, Tuple[str, Optional[int], Optional[int]]],
+            fn_arity: Dict[str, Tuple[str, Optional[int], Optional[Union[int, str]]]],
             is_complete: bool,
     ):
         self.fn_arity = fn_arity
@@ -526,7 +528,7 @@ class Defs:
         self._has_local: bool = False
 
     @staticmethod
-    def from_json_files(fmt_defs):
+    def from_json_files(fmt_defs: Iterable[str]) -> Defs:
         import json
         functions = {}
         for filepath in fmt_defs:
