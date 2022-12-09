@@ -133,7 +133,7 @@ class SimpleTestBuiltin(MyTestCase):
     def test_check_simple(self):
         data = generate_defs_builtin_as_json()
         self.assertEqual(data['functions']['file-attributes'], ['func', 1, 2])
-        self.assertEqual(data['functions']['isearch-forward'], ['func', 0, 2])
+        self.assertEqual(data['functions']['string-prefix-p'], ['func', 2, 3])
 
 
 def global_setup():
