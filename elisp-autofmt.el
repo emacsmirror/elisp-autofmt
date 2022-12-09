@@ -83,10 +83,14 @@ Can be slow!"
 
 (defconst elisp-autofmt--this-file load-file-name)
 
+
 ;; ---------------------------------------------------------------------------
 ;; Internal Utilities
 
-(defun elisp-autofmt-call-checked (command-with-args)
+(defun elisp-autofmt--call-checked (command-with-args)
+  "Run COMMAND-WITH-ARGS, returning t on success.
+
+Any `stderr' is output a message and is interpreted as failure."
   (let
     (
       (sentinel-called nil)
@@ -103,7 +107,7 @@ Can be slow!"
             (
               (proc
                 (make-process
-                  :name "elisp-autofmt-call-checked"
+                  :name "elisp-autofmt--call-checked"
                   :buffer stdout-buffer
                   :stderr stderr-buffer
                   :command command-with-args
@@ -333,7 +337,7 @@ Call an external Emacs when USE-EXTERNAL-EMACS is non-nil."
                   (concat "ELISP_AUTOFMT_OUTPUT=" filename-cache-name-full)
                   process-environment)))
 
-            (elisp-autofmt-call-checked
+            (elisp-autofmt--call-checked
               (list
                 filename
                 "--batch"
