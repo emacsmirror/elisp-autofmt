@@ -1690,7 +1690,7 @@ def main() -> None:
     if args.fmt_defs:
         defs = Defs.from_json_files(
             os.path.join(args.fmt_defs_dir, filename)
-            for filename in args.fmt_defs.split(":")
+            for filename in args.fmt_defs.split(os.pathsep)
         )
     else:
         defs = Defs(fn_arity={}, is_complete=False)

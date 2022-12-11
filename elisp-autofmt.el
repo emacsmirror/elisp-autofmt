@@ -544,7 +544,7 @@ Optional argument ASSUME-FILE-NAME overrides the file name used for this buffer.
                 (concat
                   "--fmt-defs-dir="
                   (convert-standard-filename (expand-file-name elisp-autofmt-cache-directory)))
-                (concat "--fmt-defs=" (mapconcat 'identity cache-defs ":"))))
+                (concat "--fmt-defs=" (mapconcat 'identity cache-defs path-separator))))
             (t
               (list))))))
 
