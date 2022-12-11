@@ -906,7 +906,7 @@ class NdSexp(Node):
             #        ...)
 
             node_prev = None
-            for node in self.nodes_only_code:
+            for node in self.nodes_only_code[self.index_wrap_hint:]:
                 if not node.force_newline:
                     if (
                             isinstance(node, NdSymbol) and
