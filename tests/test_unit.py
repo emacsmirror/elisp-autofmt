@@ -65,8 +65,8 @@ class MyFullCompareFormat(unittest.TestCase):
 
         diff_output = "\n".join(
             difflib.unified_diff(
-                code_result.splitlines(),
                 code_expect.splitlines(),
+                code_result.splitlines(),
             )
         )
         self.assertEqual("", diff_output)
