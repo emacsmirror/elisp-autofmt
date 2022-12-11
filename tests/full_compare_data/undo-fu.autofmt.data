@@ -288,15 +288,13 @@ Optional argument ARG The number of steps to redo."
               1)))
         (last-command
           (cond
-            (
-              was-undo
+            (was-undo
               ;; Break undo chain, avoid having to press [keyboard-quit].
               'ignore)
             (was-redo
               ;; Checked by the undo function.
               'undo)
-            (
-              (string-equal last-command 'keyboard-quit)
+            ((string-equal last-command 'keyboard-quit)
               ;; This case needs to be explicitly detected.
               ;; If we undo until there is no undo information left,
               ;; then press `keyboard-quit' and redo, it fails without this case.
@@ -377,15 +375,13 @@ Optional argument ARG the number of steps to undo."
         (undo-fu--checkpoint-disable)
         (message "Undo checkpoint ignored!")))
 
-    (
-      let*
+    (let*
       ;; Swap in 'undo' for our own function name.
       ;; Without this undo won't stop once the first undo step is reached.
       (
         (steps (or arg 1))
         (last-command
-          (
-            cond
+          (cond
             ;; Special case, to avoid being locked out of the undo-redo chain.
             ;; Without this, continuously redoing will end up in a state where
             ;; undo & redo fails.

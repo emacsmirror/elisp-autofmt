@@ -448,8 +448,7 @@ save some time by not spending time reading it back."
   (spell-fu--with-message-prefix "Spell-fu generating cache: "
     (condition-case err
       (spell-fu--cache-from-word-list-impl words-file cache-file)
-      (
-        error
+      (error
         ;; Should be rare: if the file is corrupt or cannot be read for any
         ;; reason.
         (progn
@@ -492,8 +491,7 @@ the caller will need to regenerate the cache."
   (spell-fu--with-message-prefix "Spell-fu reading cache: "
     (condition-case err
       (spell-fu--cache-words-load-impl cache-file)
-      (
-        error
+      (error
         ;; Should be rare: if the file is corrupt or cannot be read for any
         ;; reason.
         (progn
@@ -612,8 +610,7 @@ This only checks the text matching face rules."
   (with-syntax-table spell-fu-syntax-table
     (save-match-data ;; For regex search.
       (save-excursion ;; For moving the point.
-        (
-          save-restriction ;; For narrowing.
+        (save-restriction ;; For narrowing.
           ;; Avoid duplicate calls that check if `pos-beg' passes the face test.
           (let
             ((ok-beg (spell-fu--check-faces-at-point pos-beg)))
@@ -771,8 +768,7 @@ when checking the entire buffer for example."
               ;; Warning these values are set in place.
               pos-beg pos-end)
 
-            (
-              when
+            (when
               (condition-case err
                 ;; Needed so the idle timer won't quit mid-spelling.
                 (let ((inhibit-quit nil))
@@ -878,8 +874,7 @@ when checking the entire buffer for example."
         ;; Don't update in the window loop to ensure we always
         ;; update the current buffer in the current context.
         (setq spell-fu--dirty nil))
-      (
-        t
+      (t
         ;; If the timer ran when in another buffer,
         ;; a previous buffer may need a final refresh, ensure this happens.
         (setq spell-fu--dirty-flush-all t)))
@@ -906,8 +901,7 @@ when checking the entire buffer for example."
     (cond
       (is-mode-active
         (spell-fu--idle-handle-pending-ranges))
-      (
-        t ;; Cancel the timer until the current buffer uses this mode again.
+      (t ;; Cancel the timer until the current buffer uses this mode again.
         (spell-fu--time-ensure nil)))))
 
 (defun spell-fu--time-ensure (state)
@@ -1182,8 +1176,7 @@ Return t if the file was updated."
         (let ((word-list nil))
 
           ;; Insert dictionary from aspell.
-          (
-            with-temp-buffer
+          (with-temp-buffer
             ;; Use the pre-configured aspell binary, or call aspell directly.
             (let
               (

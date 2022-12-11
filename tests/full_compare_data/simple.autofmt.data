@@ -737,8 +737,7 @@ A non-nil INTERACTIVE argument means to run the `post-self-insert-hook'."
           auto-fill-function))
       (arg (prefix-numeric-value arg))
       (procsym (make-symbol "newline-postproc")) ;(bug#46326)
-      (
-        postproc
+      (postproc
         ;; Do the rest in post-self-insert-hook, because we want to do it
         ;; *before* other functions on that hook.
         (lambda ()
@@ -1167,8 +1166,7 @@ any other non-digit terminates the character code and is then used as input."))
             unread-command-events
             (list char)
             done t))
-        (
-          (/= (logand translated ?\M-\^@) 0)
+        ((/= (logand translated ?\M-\^@) 0)
           ;; Turn a meta-character into a character with the 0200 bit set.
           (setq
             code
@@ -1232,8 +1230,7 @@ In binary overwrite mode, this function does overwrite, and octal
 digits are interpreted as a character code.  This is intended to be
 useful for editing binary files."
   (interactive "*p")
-  (
-    let*
+  (let*
     (
       (char
         ;; Avoid "obsolete" warnings for translation-table-for-input.
@@ -3033,8 +3030,7 @@ invoking, give a prefix argument to `execute-extended-command'."
             suggest-key-bindings)
           (t
             2)))
-      (
-        when
+      (when
         (and
           extended-command-suggest-shorter
           (not binding)
@@ -3214,8 +3210,7 @@ don't clear it."
             (if (autoloadp final)
               (setq final (autoload-do-load final cmd)))))
         (cond
-          (
-            (arrayp final)
+          ((arrayp final)
             ;; If requested, place the macro in the command history.  For
             ;; other sorts of commands, call-interactively takes care of this.
             (when record-flag
@@ -3225,8 +3220,7 @@ don't clear it."
                 nil
                 t))
             (execute-kbd-macro final prefixarg))
-          (
-            t
+          (t
             ;; Pass `cmd' rather than `final', for the backtrace's sake.
             (prog1 (call-interactively cmd record-flag keys)
               (when
@@ -3623,8 +3617,7 @@ next element of the minibuffer history in the minibuffer."
             (current-column)))))
     (condition-case nil
       (with-no-warnings (next-line arg))
-      (
-        end-of-buffer
+      (end-of-buffer
         ;; Restore old position since `line-move-visual' moves point to
         ;; the end of the line when it fails to go to the next line.
         (goto-char old-point)
@@ -3687,8 +3680,7 @@ previous element of the minibuffer history in the minibuffer."
             (goto-char (minibuffer-prompt-end))
             ;; Otherwise, go to the previous history element
             (signal 'beginning-of-buffer nil))))
-      (
-        beginning-of-buffer
+      (beginning-of-buffer
         ;; Restore old position since `line-move-visual' moves point to
         ;; the beginning of the line when it fails to go to the previous line.
         (goto-char old-point)
@@ -4258,8 +4250,7 @@ Return what remains of the list."
                 "Changes to be undone are outside visible portion of buffer"))
             (put-text-property beg end prop val))
           ;; Element (BEG . END) means range was inserted.
-          (
-            `(,(and beg (pred integerp)) . ,(and end (pred integerp)))
+          (`(,(and beg (pred integerp)) . ,(and end (pred integerp)))
             ;; (and `(,beg . ,end) `(,(pred integerp) . ,(pred integerp)))
             ;; Ideally: `(,(pred integerp beg) . ,(pred integerp end))
             (when (or (> (point-min) beg) (< (point-max) end))
@@ -4869,8 +4860,7 @@ This variable matters only if `undo-ask-before-discard' is non-nil.")
 (setq undo-outer-limit-function 'undo-outer-limit-truncate)
 (defun undo-outer-limit-truncate (size)
   (if undo-ask-before-discard
-    (
-      when
+    (when
       (or
         (null undo-extra-outer-limit)
         (> size undo-extra-outer-limit))
@@ -5158,8 +5148,7 @@ whose `car' is BUFFER."
       (setq shell-command-saved-pos
         (assq-delete-all buf shell-command-saved-pos))
       (when (buffer-live-p buf)
-        (
-          let
+        (let
           (
             (win (car (get-buffer-window-list buf)))
             (pmax (with-current-buffer buf (point-max))))
@@ -5336,8 +5325,7 @@ impose the use of a shell (with its need to quote arguments)."
         command
         output-buffer
         error-buffer)
-      (
-        if
+      (if
         (and
           output-buffer
           (not (string-match "[ \t]*&[ \t]*\\'" command))
@@ -5697,8 +5685,7 @@ characters."
         shell-command-default-error-buffer
         t
         (region-noncontiguous-p))))
-  (
-    let
+  (let
     (
       (error-file
         (if error-buffer
@@ -6253,8 +6240,7 @@ Runs `prefix-command-preserve-state-hook'."
   (let
     (
       (map (make-sparse-keymap))
-      (
-        universal-argument-minus
+      (universal-argument-minus
         ;; For backward compatibility, minus with no modifiers is an ordinary
         ;; command if digits have already been entered.
         `
@@ -6788,8 +6774,7 @@ Supply two arguments, character positions BEG and END indicating the
         (setq this-command 'kill-region))
       (setq deactivate-mark t)
       nil)
-    (
-      (buffer-read-only text-read-only)
+    ((buffer-read-only text-read-only)
       ;; The code above failed because the buffer, or some of the characters
       ;; in the region, are read-only.
       ;; We should beep, in case the user just isn't aware of this.
@@ -9058,8 +9043,7 @@ The value is a floating-point number."
               (set-window-vscroll nil (+ vs dlh) t)))
           ;; If cursor just entered the bottom scroll margin, move forward,
           ;; but also optionally vscroll one line so redisplay won't recenter.
-          (
-            (and vpos (> vpos 0) (= py last-line))
+          ((and vpos (> vpos 0) (= py last-line))
             ;; Don't vscroll if the partially-visible line at window
             ;; bottom is not too tall (a.k.a. "just one more text
             ;; line"): in that case, we do want redisplay to behave
@@ -9193,8 +9177,7 @@ If NOERROR, don't signal an error if we can't move that many lines."
               (setq x-pos (- (window-body-width nil t) 1 x-pos)))
             (setq temporary-goal-column
               (cons (/ (float x-pos) (frame-char-width)) hscroll)))
-          (
-            executing-kbd-macro
+          (executing-kbd-macro
             ;; When we move beyond the first/last character visible in
             ;; the window, posn-at-point will return nil, so we need to
             ;; approximate the goal column as below.
@@ -9520,8 +9503,7 @@ and `current-column' to be able to ignore invisible text."
       line-move-ignore-invisible
       (not (bolp))
       (invisible-p (1- (point))))
-    (
-      let
+    (let
       (
         (normal-location (point))
         (normal-column (current-column)))
@@ -11637,8 +11619,7 @@ back on `completion-list-insert-choice-function' when nil."
       (error "Minibuffer is not active for completion")
       ;; Set buffer so buffer-local choose-completion-string-functions works.
       (set-buffer buffer)
-      (
-        unless
+      (unless
         (run-hook-with-args-until-success
           'choose-completion-string-functions
           ;; The fourth arg used to be `mini-p' but was useless
@@ -11724,8 +11705,7 @@ Called from `temp-buffer-show-hook'."
   (let*
     (
       (mainbuf (current-buffer))
-      (
-        base-dir
+      (base-dir
         ;; FIXME: This is a bad hack.  We try to set the default-directory
         ;; in the *Completions* buffer so that the relative file names
         ;; displayed there can be treated as valid file names, independently

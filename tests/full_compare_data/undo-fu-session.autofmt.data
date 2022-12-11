@@ -602,8 +602,7 @@ Argument PENDING-LIST an `pending-undo-list' compatible list."
           (emacs-pending-undo-list nil)
           (emacs-undo-equiv-table nil))
 
-        (
-          cond
+        (cond
           ;; Simplified linear history (no redo or implicit tree-structure).
           ;; Only store steps reachable by calling `undo-only'.
           (undo-fu-session-linear
@@ -726,8 +725,7 @@ Argument PENDING-LIST an `pending-undo-list' compatible list."
           (setq content-data (read (current-buffer))))))
 
     (when content-data
-      (
-        let*
+      (let*
         ( ;; `emacs-buffer-undo-list' may not exist, nil is OK.
           (emacs-buffer-undo-list
             (undo-fu-session--decode
