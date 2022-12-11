@@ -852,6 +852,7 @@ class NdSexp(Node):
                         test_node_terminate=self.nodes_only_code[i],
                 ):
                     self.nodes_only_code[i].force_newline = True
+                else:
                     break
 
         node_trailing_parens = self.node_last_for_trailing_parens_test()
