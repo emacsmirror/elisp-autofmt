@@ -16,7 +16,7 @@ BASE_DIR = os.path.normpath(os.path.join(THIS_DIR, '..'))
 EMACS_BIN = "emacs"
 
 
-def emacs_elisp_autofmt_as_str(filepath: str) -> str:
+def emacs_elisp_autofmt_file_as_str(filepath: str) -> str:
     """
     Take a path and return a string representing the formatted text.
     """
@@ -61,7 +61,7 @@ class MyFullCompareFormat(unittest.TestCase):
         file_format = os.path.join(THIS_DIR, file_format)
         file_expect = os.path.join(THIS_DIR, file_expect)
 
-        data_result = emacs_elisp_autofmt_as_str(file_format)
+        data_result = emacs_elisp_autofmt_file_as_str(file_format)
         with open(file_expect, 'r', encoding='utf-8') as fh:
             data_expect = fh.read()
 
