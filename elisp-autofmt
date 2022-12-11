@@ -209,8 +209,8 @@ def parse_local_defs(defs: Defs, node_parent: NdSexp) -> None:
                 node_args = node_parent.nodes[2]
                 if isinstance(node_symbol, NdSymbol) and isinstance(node_args, NdSexp):
                     symbol = node_symbol.data
-                    arg_index_min = -1
-                    arg_index_max: Union[int, str] = -1
+                    arg_index_min = 0
+                    arg_index_max: Union[int, str] = 0
                     is_optional = False
                     for i, node_arg in enumerate(node_args.nodes_only_code):
                         if not isinstance(node_arg, NdSymbol):
@@ -226,16 +226,15 @@ def parse_local_defs(defs: Defs, node_parent: NdSexp) -> None:
                             # Count remaining arguments and exit.
                             for j in range(i + 1, len(node_args.nodes_only_code)):
                                 if isinstance(node_args.nodes_only_code[j], NdSymbol):
-                                    arg_index_max += 1
+                                    arg_index_max = j
                             break
 
-                    if arg_index_min != -1:
-                        # The second value is currently unused (max arguments).
-                        defs.fn_arity[symbol] = FnArity(
-                            symbol_type=symbol_type,
-                            nargs_min=arg_index_min,
-                            nargs_max=arg_index_max,
-                        )
+                    # The second value is currently unused (max arguments).
+                    defs.fn_arity[symbol] = FnArity(
+                        symbol_type=symbol_type,
+                        nargs_min=arg_index_min,
+                        nargs_max=arg_index_max,
+                    )
 
     for node in node_parent.nodes_only_code:
         if isinstance(node, NdSexp):
