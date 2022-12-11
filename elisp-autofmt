@@ -436,8 +436,19 @@ def apply_rules(defs: Defs, node_parent: NdSexp) -> None:
                     # May be `FnArity` or a list.
                     symbol_type, nargs_min, nargs_max = fn_data
                     if nargs_min is not None:
-                        # First symbol counts for 1.
-                        node_parent.index_wrap_hint = 1 + nargs_min
+                        # First symbol counts for 1, another since wrapping takes place after this argument.
+                        node_parent.index_wrap_hint = nargs_min + 1
+
+                        # Wrap the first argument, instead of the last argument
+                        # so all arguments are at an equal level as having the last
+                        # argument split from the rest doesn't signify an important difference.
+                        if node_parent.index_wrap_hint >= len(node_parent.nodes_only_code):
+                            node_parent.index_wrap_hint = 1
+
+                        if symbol_type == 'macro':
+                            if nargs_max == 'many':
+                                # So (with ...) macros don't keep the first argument aligned.
+                                node_parent.wrap_all_or_nothing_hint = True
 
                         # TODO: detect a way to wrap macros that expand the remaining body argument.
                         # if nargs_max in {"many", "unevalled"} and nargs_min != 0:

@@ -7614,7 +7614,8 @@ See also `zap-up-to-char'."
   (with-no-warnings
     (if (char-table-p translation-table-for-input)
       (setq char (or (aref translation-table-for-input char) char))))
-  (kill-region (point)
+  (kill-region
+    (point)
     (progn
       (search-forward (char-to-string char) nil nil arg)
       (point))))
@@ -7658,7 +7659,8 @@ you can use this command to copy text from a read-only buffer.
 \(If the variable `kill-read-only-ok' is non-nil, then this won't
 even beep.)"
   (interactive "P")
-  (kill-region (point)
+  (kill-region
+    (point)
     ;; It is better to move point to the other end of the kill
     ;; before killing.  That way, in a read-only buffer, point
     ;; moves across the text that is copied to the kill ring.
@@ -7722,21 +7724,25 @@ If ARG is zero, kill current line but exclude the trailing newline."
       ;; need to use save-excursion to avoid copying the same text
       ;; twice to the kill ring in read-only buffers.
       (save-excursion
-        (kill-region (point)
+        (kill-region
+          (point)
           (progn
             (forward-visible-line 0)
             (point))))
-      (kill-region (point)
+      (kill-region
+        (point)
         (progn
           (end-of-visible-line)
           (point))))
     ((< arg 0)
       (save-excursion
-        (kill-region (point)
+        (kill-region
+          (point)
           (progn
             (end-of-visible-line)
             (point))))
-      (kill-region (point)
+      (kill-region
+        (point)
         (progn
           (forward-visible-line (1+ arg))
           (unless (bobp)
@@ -7744,11 +7750,13 @@ If ARG is zero, kill current line but exclude the trailing newline."
           (point))))
     (t
       (save-excursion
-        (kill-region (point)
+        (kill-region
+          (point)
           (progn
             (forward-visible-line 0)
             (point))))
-      (kill-region (point)
+      (kill-region
+        (point)
         (progn
           (forward-visible-line arg)
           (point))))))
@@ -9718,7 +9726,8 @@ even beep.)"
               word-wrap-by-category
               (aref (char-category-set (following-char)) ?\|)))
           (forward-char))))
-    (kill-region opoint
+    (kill-region
+      opoint
       (if (and kill-whole-line (= (following-char) ?\n))
         (1+ (point))
         (point)))))
@@ -10104,7 +10113,8 @@ it marks the next ARG words after the ones already marked."
   "Kill characters forward until encountering the end of a word.
 With argument ARG, do this that many times."
   (interactive "p")
-  (kill-region (point)
+  (kill-region
+    (point)
     (progn
       (forward-word arg)
       (point))))
