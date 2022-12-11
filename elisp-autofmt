@@ -37,6 +37,9 @@ TRACE_NEWLINES = False
 # Extract argument count from functions and macros.
 USE_EXTRACT_DEFS = True
 
+# Report missing definitions.
+LOG_MISSING_DEFS = None  # '/tmp/out.log'
+
 
 # ------------------------------------------------------------------------------
 # Exceptions
@@ -441,9 +444,10 @@ def apply_rules(defs: Defs, node_parent: NdSexp) -> None:
                         #     apply_relaxed_wrap(node_parent)
                         #     # apply_relaxed_wrap_when_multiple_args(node_parent)
 
-                # else:
-                #     if defs._is_complete:
-                #         sys.stderr.write('Missing: {:s}\n'.format(node.data))
+                else:
+                    if LOG_MISSING_DEFS is not None:
+                        with open(LOG_MISSING_DEFS, 'a', encoding='utf-8') as fh:
+                            fh.write('Missing: {:s}\n'.format(node.data))
 
     for node in node_parent.nodes_only_code:
         if isinstance(node, NdSexp):
