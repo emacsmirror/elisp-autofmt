@@ -39,20 +39,29 @@ Otherwise you can set this to a user defined function."
 
 
 (defcustom elisp-autofmt-use-function-defs nil
-  "When non nil, generate function definitions for the auto-formatter to use.
-
-Can be slow!"
+  "When non nil, generate function definitions for the auto-formatter to use."
   :type 'boolean)
 
 (defcustom elisp-autofmt-python-bin nil
   "The Python binary to call when running auto-formatting."
   :type 'string)
 
-(defcustom elisp-autofmt-cache-packages-default
-  ;; (list "custom" "subr")
-  nil
+(defcustom elisp-autofmt-load-packages-default
+  (list
+    "bindings" ;; For `bound-and-true-p'.
+    "custom" ;; For `defgroup'.
+    "easy-mmode" ;; For `define-globalized-minor-mode'.
+    "subr" ;; For most of elisp's built in functionality.
+    )
   "Packages to load by default (without being explicitly required)."
   :type '(repeat string))
+
+(defvar-local elisp-autofmt-load-packages-local nil
+  "Additional packages/modules to include definitions from.
+This is intended to be set from file or directory locals and is marked safe.")
+
+;;;###autoload
+(put 'elisp-autofmt-load-packages-local 'safe-local-variable #'elisp-autofmt-list-of-strings-p)
 
 (defcustom elisp-autofmt-ignore-autoload-packages
   (list
@@ -175,6 +184,15 @@ Any `stderr' is output a message and is interpreted as failure."
 (defun elisp-autofmt--cache-api-encode-name (filename)
   "Return the cache name in cache-dir from FILENAME."
   (concat (url-hexify-string filename) ".json"))
+
+;; Use a different name for externally generated definitions
+;; because it's possible they contain less/different information.
+;; In this case it's possible that the order of generating different
+;; definitions files could give different results,
+;; so name them differently to avoid confusion.
+(defun elisp-autofmt--cache-api-encode-name-external (filename)
+  "Return the Python cache name in cache-dir from FILENAME."
+  (concat (url-hexify-string filename) ".external.json"))
 
 (defun elisp-autofmt--cache-api-directory-ensure ()
   "Ensure the cache API directory exists."
@@ -380,13 +398,64 @@ When SKIP-REQUIRE is set, don't require the package."
             skip-require))
         filename-cache-name-only))))
 
-(defun elisp-autofmt--cache-api-cache-update ()
+(defun elisp-autofmt--cache-api-ensure-cache-for-filename (filename buffer-directory)
+  "Generate cache for FILENAME for a path in BUFFER-DIRECTORY."
+  (let*
+    (
+      (filename-cache-name-only (elisp-autofmt--cache-api-encode-name-external filename))
+      (filename-cache-name-full
+        (file-name-concat elisp-autofmt-cache-directory filename-cache-name-only)))
+
+    (when
+      (or
+        (not (file-exists-p filename-cache-name-full))
+        (elisp-autofmt--cache-api-file-is-older filename-cache-name-full filename))
+
+      (elisp-autofmt--call-checked
+        (list
+          (or elisp-autofmt-python-bin "python3")
+          elisp-autofmt--bin
+          "--gen-defs"
+          filename
+          (expand-file-name filename-cache-name-full))))))
+
+(defun elisp-autofmt--cache-api-cache-update (buffer-directory)
   "Ensure packages are up to date."
   (elisp-autofmt--cache-api-directory-ensure)
   (let ((cache-files (list)))
     (push (elisp-autofmt--cache-api-ensure-cache-for-emacs t) cache-files)
-    (dolist (package-id elisp-autofmt-cache-packages-default)
-      (push (elisp-autofmt--cache-api-ensure-cache-for-package package-id t) cache-files))
+    (let
+      (
+        (package-list-paths (list))
+        (package-list (list)))
+
+      (let ((packages elisp-autofmt-load-packages-local))
+        (while packages
+          (let ((var (pop packages)))
+            (cond
+              ((string-prefix-p "." var)
+                (push var package-list-paths))
+              (t
+                (push var package-list))))))
+
+      ;; Merge default and any local features into a list.
+      (let ((packages-all (delete-dups (append elisp-autofmt-load-packages-default package-list))))
+        (dolist (package-id packages-all)
+          (cond
+            ((stringp package-id)
+              (push (elisp-autofmt--cache-api-ensure-cache-for-package package-id t) cache-files))
+            (t ;; Unlikely, just helpful hint to users.
+              (message "elisp-autofmt: skipping non-string feature reference %S")))))
+
+      ;; Ensure external definitions.
+      (when package-list-paths
+        (while package-list-paths
+          (let ((var (pop package-list-paths)))
+            (let ((filename (file-name-concat buffer-directory (substring var 1))))
+              (push
+                (elisp-autofmt--cache-api-ensure-cache-for-filename filename buffer-directory)
+                cache-files))))))
+
     cache-files))
 
 
@@ -447,7 +516,7 @@ Optional argument ASSUME-FILE-NAME overrides the file name used for this buffer.
       (cache-defs
         (cond
           (elisp-autofmt-use-function-defs
-            (elisp-autofmt--cache-api-cache-update))
+            (elisp-autofmt--cache-api-cache-update (file-name-directory assume-file-name)))
           (t
             nil)))
 
@@ -582,6 +651,12 @@ Optional argument ASSUME-FILE-NAME overrides the file name used for this buffer.
   "Return non-nil when `.elisp-autofmt' is found in a parent directory."
   (let ((cfg (locate-dominating-file (file-name-directory buffer-file-name) ".elisp-autofmt")))
     (not (null cfg))))
+
+;; Auto load as this is a callback for `safe-local-variable'.
+;;;###autoload
+(defun elisp-autofmt-list-of-strings-p (obj)
+  "Return t when OBJ is a list of strings."
+  (and (listp obj) (not (memq nil (mapcar #'stringp obj)))))
 
 ;;;###autoload
 (define-minor-mode elisp-autofmt-mode
