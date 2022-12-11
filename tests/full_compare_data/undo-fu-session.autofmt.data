@@ -404,13 +404,11 @@ Argument PENDING-LIST an `pending-undo-list' compatible list."
           (condition-case err-2
             (delete-file file)
             (error
-              (message
-                "Undo-Fu-Session error deleting '%s' for '%s'"
+              (message "Undo-Fu-Session error deleting '%s' for '%s'"
                 (error-message-string err-2)
                 file))))))
     (error
-      (message
-        "Undo-Fu-Session error limiting files '%s'"
+      (message "Undo-Fu-Session error limiting files '%s'"
         (error-message-string err-1)))))
 
 
@@ -448,8 +446,7 @@ Argument PENDING-LIST an `pending-undo-list' compatible list."
             (setq count-pending (1+ count-pending))
             (push file-src-full files-to-convert)))))
 
-    (message
-      "Operating on %d file(s) in \"%s\""
+    (message "Operating on %d file(s) in \"%s\""
       count-pending
       undo-fu-session-directory)
     (with-auto-compression-mode
@@ -458,8 +455,7 @@ Argument PENDING-LIST an `pending-undo-list' compatible list."
           (
             (file-dst-full
               (file-name-with-extension file-src-full ext-dst)))
-          (message
-            "File %d of %d: %s"
+          (message "File %d of %d: %s"
             count-complete
             count-pending
             (file-name-nondirectory file-dst-full))
@@ -486,8 +482,7 @@ Argument PENDING-LIST an `pending-undo-list' compatible list."
             (error
               (message "Error: %s" (error-message-string err)))))))
 
-    (message
-      "Completed %d file(s) (size was %s, now %s)"
+    (message "Completed %d file(s) (size was %s, now %s)"
       count-complete
       (file-size-human-readable size-src)
       (file-size-human-readable size-dst))))
@@ -657,8 +652,7 @@ Argument PENDING-LIST an `pending-undo-list' compatible list."
     (condition-case err
       (undo-fu-session--save-impl)
       (error
-        (message
-          "Undo-Fu-Session can not save undo data: %s"
+        (message "Undo-Fu-Session can not save undo data: %s"
           (error-message-string err)))))
   ;; Important to return NIL, to show the file wasn't saved.
   nil)
@@ -768,8 +762,7 @@ Argument PENDING-LIST an `pending-undo-list' compatible list."
     (condition-case err
       (undo-fu-session--recover-impl)
       (error
-        (message
-          "Undo-Fu-Session can not recover undo data: %s"
+        (message "Undo-Fu-Session can not recover undo data: %s"
           (error-message-string err))))))
 
 

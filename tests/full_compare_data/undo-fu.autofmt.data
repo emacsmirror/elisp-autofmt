@@ -104,8 +104,7 @@ Instead, explicitly call `undo-fu-disable-checkpoint'."
               (primitive-undo (or arg 1) ul)))
           (new-pul
             (undo-fu--backport-undo--last-change-was-undo-p new-ul)))
-        (message
-          "Redo%s"
+        (message "Redo%s"
           (if undo-in-region
             " in region"
             ""))

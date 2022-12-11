@@ -777,8 +777,7 @@ when checking the entire buffer for example."
                 (error
                   (progn
                     ;; Keep since this should be very rare.
-                    (message
-                      "Early exit 'spell-fu-mode': %s"
+                    (message "Early exit 'spell-fu-mode': %s"
                       (error-message-string err))
                     ;; Break out of the loop.
                     (setq overlays-in-view nil)
@@ -1061,8 +1060,7 @@ Return t when found, otherwise nil."
         (goto-char point-found)
         t)
       (t
-        (message
-          "Spell-fu: no %s spelling error found"
+        (message "Spell-fu: no %s spelling error found"
           (cond
             ((< dir 0)
               "previous")
@@ -1242,8 +1240,7 @@ Return t if the file was updated."
                           (point-max)
                           (cond
                             (lang
-                              (format
-                                "%s -l %s expand"
+                              (format "%s -l %s expand"
                                 aspell-bin
                                 lang))
                             (t
@@ -1574,8 +1571,7 @@ Argument DICT-FILE is the absolute path to the dictionary."
           (cond
             ((eq action 'add)
               (when word-point
-                (message
-                  "\"%s\" already in the personal dictionary."
+                (message "\"%s\" already in the personal dictionary."
                   word)
                 (throw 'result nil))
 
@@ -1598,8 +1594,7 @@ Argument DICT-FILE is the absolute path to the dictionary."
 
             ((eq action 'remove)
               (unless word-point
-                (message
-                  "\"%s\" not in the personal dictionary."
+                (message "\"%s\" not in the personal dictionary."
                   word)
                 (throw 'result nil))
 
@@ -1641,8 +1636,7 @@ Argument DICT-FILE is the absolute path to the dictionary."
       ;; Set description
       (put
         dict 'description
-        (format
-          "Personal dictionary %s, located at %s"
+        (format "Personal dictionary %s, located at %s"
           name
           dict-file))
       ;; Set update function

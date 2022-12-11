@@ -772,8 +772,7 @@ This is done relative to CURRENT-PROJECT-ROOT or CURRENT-DIR."
         (user-error
           (concat
             "RST usage: "
-            (format
-              "unable to determine a reference type from %S"
+            (format "unable to determine a reference type from %S"
               (substring-no-properties symbol))))))
 
     xrefs))

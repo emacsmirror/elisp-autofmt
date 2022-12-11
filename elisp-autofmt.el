@@ -130,8 +130,7 @@ Any `stderr' is output a message and is interpreted as failure."
             (let ((exit-code (process-exit-status proc)))
               (cond
                 ((not (zerop exit-code))
-                  (message
-                    "elisp-autofmt: Command %S failed with exit code %d!"
+                  (message "elisp-autofmt: Command %S failed with exit code %d!"
                     command-with-args
                     exit-code)
                   nil)
@@ -526,8 +525,7 @@ Optional argument ASSUME-FILE-NAME overrides the file name used for this buffer.
             (when stderr-as-string
               (message "elisp-autofmt: error output\n%s" stderr-as-string))
 
-            (message
-              "elisp-autofmt: Command %S failed with exit code %d!"
+            (message "elisp-autofmt: Command %S failed with exit code %d!"
               command-with-args
               exit-code)
             nil)

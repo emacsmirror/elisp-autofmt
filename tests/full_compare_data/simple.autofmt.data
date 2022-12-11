@@ -430,8 +430,7 @@ To control which errors are matched, customize the variable
             (or
               next-error-verbose
               (not (eq prev next-error-last-buffer)))
-            (message
-              "%s locus from %s"
+            (message "%s locus from %s"
               (cond
                 (reset
                   "First")
@@ -1866,8 +1865,7 @@ Note that on changing from non-nil to nil, the former contents of
       ;; Read the argument, offering that number (if any) as default.
       (list
         (read-number
-          (format
-            "Goto%s line%s: "
+          (format "Goto%s line%s: "
             (if (buffer-narrowed-p)
               (if relative
                 " relative"
@@ -2011,8 +2009,7 @@ from Lisp."
                 (point-max)))
             "")))
       (if (use-region-p)
-        (message
-          "%s%s"
+        (message "%s%s"
           (count-words--format
             "Region"
             (region-beginning)
@@ -2033,8 +2030,7 @@ from Lisp."
       (lines (count-lines start end))
       (words (count-words start end))
       (chars (- end start)))
-    (format
-      "%s has %d line%s, %d word%s, and %d character%s"
+    (format "%s has %d line%s, %d word%s, and %d character%s"
       str
       lines
       (if (= lines 1)
@@ -2066,8 +2062,7 @@ from Lisp."
       (save-excursion
         (save-restriction
           (widen)
-          (message
-            "line %d (narrowed line %d)"
+          (message "line %d (narrowed line %d)"
             (+ n (line-number-at-pos start) -1)
             n))))))
 
@@ -2192,8 +2187,7 @@ in *Help* buffer.  See also the command `describe-char'."
       (col (current-column)))
     (if (= pos end)
       (if (or (/= beg 1) (/= end (1+ total)))
-        (message
-          "point=%d of %d (%d%%) <%d-%d> column=%d%s"
+        (message "point=%d of %d (%d%%) <%d-%d> column=%d%s"
           pos
           total
           percent
@@ -2201,8 +2195,7 @@ in *Help* buffer.  See also the command `describe-char'."
           end
           col
           hscroll)
-        (message
-          "point=%d of %d (EOB) column=%d%s"
+        (message "point=%d of %d (EOB) column=%d%s"
           pos
           total
           col
@@ -2224,8 +2217,7 @@ in *Help* buffer.  See also the command `describe-char'."
               'binary)))
         (if (eq (char-charset char) 'eight-bit)
           (setq encoding-msg
-            (format
-              "(%d, #o%o, #x%x%s, raw-byte)"
+            (format "(%d, #o%o, #x%x%s, raw-byte)"
               char
               char
               char
@@ -2256,8 +2248,7 @@ in *Help* buffer.  See also the command `describe-char'."
           (setq encoding-msg
             (if display-prop
               (if (not (stringp display-prop))
-                (format
-                  "(%d, #o%o, #x%x%s, part of display \"%s\")"
+                (format "(%d, #o%o, #x%x%s, part of display \"%s\")"
                   char
                   char
                   char
@@ -2272,8 +2263,7 @@ in *Help* buffer.  See also the command `describe-char'."
                   under-display
                   display-prop))
               (if encoded
-                (format
-                  "(%d, #o%o, #x%x%s, file %s)"
+                (format "(%d, #o%o, #x%x%s, file %s)"
                   char
                   char
                   char
@@ -2281,8 +2271,7 @@ in *Help* buffer.  See also the command `describe-char'."
                   (if (> (length encoded) 1)
                     "..."
                     (encoded-string-description encoded coding)))
-                (format
-                  "(%d, #o%o, #x%x%s)"
+                (format "(%d, #o%o, #x%x%s)"
                   char
                   char
                   char
@@ -2305,8 +2294,7 @@ in *Help* buffer.  See also the command `describe-char'."
             end
             col
             hscroll)
-          (message
-            "Char: %s%s %s point=%d of %d (%d%%) column=%d%s"
+          (message "Char: %s%s %s point=%d of %d (%d%%) column=%d%s"
             (if enable-multibyte-characters
               (if (< char 128)
                 (single-key-description char)
@@ -2793,8 +2781,7 @@ This function uses the `read-extended-command-predicate' user option."
                 (condition-case-unless-debug err
                   (funcall read-extended-command-predicate sym buffer)
                   (error
-                    (message
-                      "read-extended-command-predicate: %s: %s"
+                    (message "read-extended-command-predicate: %s: %s"
                       sym
                       (error-message-string err))))))))
         t nil 'extended-command-history))))
@@ -3229,8 +3216,7 @@ don't clear it."
                   (get cmd 'byte-obsolete-info)
                   (not (get cmd 'command-execute-obsolete-warned)))
                 (put cmd 'command-execute-obsolete-warned t)
-                (message
-                  "%s"
+                (message "%s"
                   (macroexp--obsolete-warning
                     cmd
                     (get cmd 'byte-obsolete-info)
@@ -3919,8 +3905,7 @@ the minibuffer contents."
     ;; If we know from where the error was signaled, show it in
     ;; *Messages*.
     (let ((inhibit-message t))
-      (message
-        "%s%s"
+      (message "%s%s"
         (if caller
           (format "%s: " caller)
           "")
@@ -4047,8 +4032,7 @@ as an argument limits undo to changes within the current region."
       (or
         (eq (selected-window) (minibuffer-window))
         (setq message
-          (format
-            "%s%s"
+          (format "%s%s"
             (if (or undo-no-redo (not equiv))
               "Undo"
               "Redo")
@@ -4167,8 +4151,7 @@ Interactively, ARG is the prefix numeric argument and defaults to 1."
                 (setq ul (cdr ul)))
               (primitive-undo (or arg 1) ul)))
           (new-pul (undo--last-change-was-undo-p new-ul)))
-        (message
-          "Redo%s"
+        (message "Redo%s"
           (if undo-in-region
             " in region"
             ""))
@@ -5444,8 +5427,7 @@ impose the use of a shell (with its need to quote arguments)."
                         (and
                           (natnump async-shell-command-width)
                           (list
-                            (format
-                              "COLUMNS=%d"
+                            (format "COLUMNS=%d"
                               async-shell-command-width)))
                         (comint-term-environment) process-environment)))
                   (setq proc
@@ -5502,8 +5484,7 @@ Also see the `async-shell-command-buffer' variable."
           (downcase action))))
     (unless
       (yes-or-no-p
-        (format
-          "A command is running in the default buffer.  %s? "
+        (format "A command is running in the default buffer.  %s? "
           action))
       (user-error "Shell command in progress"))))
 
@@ -5599,8 +5580,7 @@ and are used only if a pop-up buffer is displayed."
 (defun shell-command-sentinel (process signal)
   (when (memq (process-status process) '(exit signal))
     (shell-command-set-point-after-cmd (process-buffer process))
-    (message
-      "%s: %s."
+    (message "%s: %s."
       (car (cdr (cdr (process-command process))))
       (substring signal 0 -1))))
 
@@ -5850,11 +5830,9 @@ characters."
                           0
                           (file-attribute-size
                             (file-attributes error-file))))
-                      (format
-                        "some error output%s"
+                      (format "some error output%s"
                         (if shell-command-default-error-buffer
-                          (format
-                            " to the \"%s\" buffer"
+                          (format " to the \"%s\" buffer"
                             shell-command-default-error-buffer)
                           ""))
                       "no output")))
@@ -5862,12 +5840,10 @@ characters."
                   ((null exit-status)
                     (message "(Shell command failed with error)"))
                   ((equal 0 exit-status)
-                    (message
-                      "(Shell command succeeded with %s)"
+                    (message "(Shell command succeeded with %s)"
                       output))
                   ((stringp exit-status)
-                    (message
-                      "(Shell command killed by signal %s)"
+                    (message "(Shell command killed by signal %s)"
                       exit-status))
                   (t
                     (message
@@ -6101,26 +6077,21 @@ Also, delete any process that is exited or signaled."
               (if (memq type '(network serial pipe))
                 (let ((contact (process-contact p t t)))
                   (if (eq type 'network)
-                    (format
-                      "(%s %s)"
+                    (format "(%s %s)"
                       (if (plist-get contact :type)
                         "datagram"
                         "network")
                       (if (plist-get contact :server)
-                        (format
-                          "server on %s"
+                        (format "server on %s"
                           (if (plist-get contact :host)
-                            (format
-                              "%s:%s"
+                            (format "%s:%s"
                               (plist-get contact :host)
                               (plist-get contact :service))
                             (plist-get contact :local)))
-                        (format
-                          "connection to %s:%s"
+                        (format "connection to %s:%s"
                           (plist-get contact :host)
                           (plist-get contact :service))))
-                    (format
-                      "(serial port %s%s)"
+                    (format "(serial port %s%s)"
                       (or (plist-get contact :port) "?")
                       (let ((speed (plist-get contact :speed)))
                         (if speed
@@ -6905,13 +6876,11 @@ of this sample text; it defaults to 40."
       (let ((len (min (abs (- mark point)) (or message-len 40))))
         (if (< point mark)
           ;; Don't say "killed" or "saved"; that is misleading.
-          (message
-            "Copied text until \"%s\""
+          (message "Copied text until \"%s\""
             ;; Don't show newlines literally
             (query-replace-descr
               (buffer-substring-no-properties (- mark len) mark)))
-          (message
-            "Copied text from \"%s\""
+          (message "Copied text from \"%s\""
             (query-replace-descr
               (buffer-substring-no-properties
                 mark (+ mark len)))))))))
@@ -9660,8 +9629,7 @@ This is a buffer-local setting."
     ;;(message (substitute-command-keys
     ;;"Goal column %d (use \\[set-goal-column] with an arg to unset it)")
     ;;goal-column)
-    (message
-      "%s"
+    (message "%s"
       (concat
         (format "Goal column %d " goal-column)
         (substitute-command-keys
@@ -10491,8 +10459,7 @@ non-nil."
           (if (eq buffer (window-buffer window))
             (set-window-hscroll window 0)))
         nil t)))
-  (message
-    "Truncate long lines %s%s"
+  (message "Truncate long lines %s%s"
     (if truncate-lines
       "enabled"
       "disabled")
@@ -10514,8 +10481,7 @@ if long lines are truncated."
       (not word-wrap)
       (> (prefix-numeric-value arg) 0)))
   (force-mode-line-update)
-  (message
-    "Word wrapping %s"
+  (message "Word wrapping %s"
     (if word-wrap
       "enabled"
       "disabled")))
@@ -11224,8 +11190,8 @@ makes it easier to edit it."
         (prop (get var 'variable-interactive))
         (obsolete (car (get var 'byte-obsolete-variable)))
         (prompt
-          (format
-            "Set %s %s to value: " var
+          (format "Set %s %s to value: "
+            var
             (cond
               ((local-variable-p var)
                 "(buffer-local)")
@@ -12258,8 +12224,7 @@ See also `normal-erase-is-backspace'."
           (keyboard-translate ?\C-? ?\C-?))))
 
     (if (called-interactively-p 'interactive)
-      (message
-        "Delete key deletes %s"
+      (message "Delete key deletes %s"
         (if (eq 1 (terminal-parameter nil 'normal-erase-is-backspace))
           "forward"
           "backward")))))
@@ -12484,8 +12449,7 @@ contains the list of implementations currently supported for this command."
                 (cdr (assoc-string val ,varalt-sym))))))
         (if ,varimp-sym
           (call-interactively ,varimp-sym)
-          (message
-            "%s"
+          (message "%s"
             ,
             (format-message
               "No implementation selected for command `%s'"

@@ -319,6 +319,12 @@ def apply_rules(defs: Defs, node_parent: NdSexp) -> None:
                 node_parent.wrap_all_or_nothing_hint = True
 
             elif node.data in {
+                    "format",
+                    "message",
+            }:
+                node_parent.index_wrap_hint = 2
+
+            elif node.data in {
                     'cl-destructuring-bind',
                     'defcustom',
                     'defgroup',
