@@ -15,6 +15,9 @@ BASE_DIR = os.path.normpath(os.path.join(THIS_DIR, '..'))
 
 EMACS_BIN = "emacs"
 
+# Re-format the test data, use this when an intentional change in formatting has been made.
+UPDATE_TEST_DATA = False
+
 
 def emacs_elisp_autofmt_file_as_str(filepath: str) -> str:
     """
@@ -64,6 +67,11 @@ class MyFullCompareFormat(unittest.TestCase):
         data_result = emacs_elisp_autofmt_file_as_str(file_format)
         with open(file_expect, 'r', encoding='utf-8') as fh:
             data_expect = fh.read()
+
+        if UPDATE_TEST_DATA:
+            with open(file_expect, 'w', encoding='utf-8') as fh:
+                fh.write(data_result)
+            data_expect = data_result
 
         diff_output = "\n".join(
             difflib.unified_diff(
