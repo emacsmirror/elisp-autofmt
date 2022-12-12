@@ -189,14 +189,12 @@ Notes:
 
 (defun spell-fu--cache-file (dict)
   "Return the location of the cache file with dictionary DICT."
-  (expand-file-name
-    (format "words_%s.el.data" (symbol-name dict))
+  (expand-file-name (format "words_%s.el.data" (symbol-name dict))
     spell-fu-directory))
 
 (defun spell-fu--words-file (dict)
   "Return the location of the word-list with dictionary DICT."
-  (expand-file-name
-    (format "words_%s.txt" (symbol-name dict))
+  (expand-file-name (format "words_%s.txt" (symbol-name dict))
     spell-fu-directory))
 
 (defun spell-fu--refresh-cache-table-list ()
@@ -372,9 +370,7 @@ Argument POS return faces at this point."
 
 (defun spell-fu--next-faces-prop-change (pos limit)
   "Return the next face change from POS restricted by LIMIT."
-  (next-single-property-change
-    pos
-    'read-face-name
+  (next-single-property-change pos 'read-face-name
     nil
     (next-single-property-change pos 'face nil limit)))
 
@@ -663,8 +659,7 @@ This only checks the text matching face rules."
                   (narrow-to-region pos-beg point-end-iter)
                   (goto-char pos-beg)
                   (while
-                    (re-search-forward
-                      spell-fu-word-regexp
+                    (re-search-forward spell-fu-word-regexp
                       point-end-iter
                       t)
                     (let
@@ -1189,8 +1184,7 @@ Return t if the file was updated."
                 ((string-equal dict-name "default")
                   (condition-case err
                     (progn
-                      (call-process
-                        aspell-bin
+                      (call-process aspell-bin
                         nil
                         t
                         nil
@@ -1206,8 +1200,7 @@ Return t if the file was updated."
                 (t
                   (condition-case err
                     (progn
-                      (call-process
-                        aspell-bin
+                      (call-process aspell-bin
                         nil
                         t
                         nil
@@ -1225,8 +1218,7 @@ Return t if the file was updated."
               ;; Check whether the dictionary has affixes, expand if necessary.
               (when updated
                 (when
-                  (re-search-backward
-                    "^[[:alpha:]]*/[[:alnum:]]*$"
+                  (re-search-backward "^[[:alpha:]]*/[[:alnum:]]*$"
                     nil
                     t)
                   (let
@@ -1748,15 +1740,14 @@ Argument DICT-FILE is the absolute path to the dictionary."
         (cond
           ((functionp global-spell-fu-ignore-buffer)
             (not
-              (funcall
-                global-spell-fu-ignore-buffer (current-buffer))))
+              (funcall global-spell-fu-ignore-buffer
+                (current-buffer))))
           (t
             nil))))
     (spell-fu-mode 1)))
 
 ;;;###autoload
-(define-globalized-minor-mode
-  global-spell-fu-mode
+(define-globalized-minor-mode global-spell-fu-mode
   spell-fu-mode
   spell-fu--mode-turn-on)
 

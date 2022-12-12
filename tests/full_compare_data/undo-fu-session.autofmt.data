@@ -505,8 +505,7 @@ Argument PENDING-LIST an `pending-undo-list' compatible list."
 (defun undo-fu-session--make-file-name (filename)
   "Take the path FILENAME and return a name base on this."
   (concat
-    (file-name-concat
-      undo-fu-session-directory
+    (file-name-concat undo-fu-session-directory
       (url-hexify-string
         (convert-standard-filename (expand-file-name filename))))
     (undo-fu-session--file-name-ext)))
@@ -698,8 +697,7 @@ Argument PENDING-LIST an `pending-undo-list' compatible list."
           ;; This way users may find out why undo didn't load if they need,
           ;; without distracting them with noisy info.
           (unless
-            (=
-              (buffer-size buffer)
+            (= (buffer-size buffer)
               (cdr (assoc 'buffer-size content-header)))
             (undo-fu-session--message-without-echo
               "Undo-Fu-Session discarding: file length mismatch for %S"
@@ -847,8 +845,7 @@ Argument PENDING-LIST an `pending-undo-list' compatible list."
       (undo-fu-session--mode-disable))))
 
 ;;;###autoload
-(define-globalized-minor-mode
-  global-undo-fu-session-mode
+(define-globalized-minor-mode global-undo-fu-session-mode
   undo-fu-session-mode
   undo-fu-session--mode-turn-on)
 

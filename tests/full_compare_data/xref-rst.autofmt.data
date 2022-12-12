@@ -240,8 +240,8 @@ Return the blank text representing the indentation or nil if none is found."
 (defun xref-rst--dirs-recursive (root)
   "Recursively scan ROOT for RST files."
   (let ((rst-file-match-regex (xref-rst--file-match-regex)))
-    (directory-files-recursively
-      root rst-file-match-regex nil
+    (directory-files-recursively root rst-file-match-regex
+      nil
       ;; Ignore hidden directories too.
       (lambda (dir)
         (not
@@ -353,8 +353,7 @@ Return the blank text representing the indentation or nil if none is found."
           (insert-file-contents rst-file-iter)
           (goto-char (point-min))
           (while
-            (re-search-forward
-              xref-rst--regex-glossary-directive
+            (re-search-forward xref-rst--regex-glossary-directive
               nil
               t)
             ;; Indent then term.
@@ -452,16 +451,14 @@ This is done relative to CURRENT-PROJECT-ROOT or CURRENT-DIR."
       (rst-filepath-no-ext
         (cond
           ((string-equal "/" (substring rst-role-data 0 1))
-            (file-name-concat
-              current-project-root
+            (file-name-concat current-project-root
               (substring rst-role-data 1)))
           (t
             (file-name-concat current-dir rst-role-data))))
       (rst-file-part (file-name-nondirectory rst-role-data))
       (rst-dir-part (file-name-directory rst-filepath-no-ext))
       (rst-files-test
-        (directory-files
-          rst-dir-part
+        (directory-files rst-dir-part
           t
           (concat "^" (regexp-quote rst-file-part))))
       (rst-filepath-found
@@ -822,8 +819,7 @@ This is built from SYMBOL, FILE, LINE, COL and a raw LINE-TEXT result."
             (t
               (string-trim (thing-at-point 'line t)))))))
 
-    (propertize
-      symbol
+    (propertize symbol
       'xref-rst-context
       (cons (current-buffer) (point)))))
 
@@ -851,11 +847,11 @@ This is built from SYMBOL, FILE, LINE, COL and a raw LINE-TEXT result."
 
   (cond
     (xref-rst-mode
-      (add-hook 'xref-backend-functions
-        #'xref-rst-xref-backend nil t))
+      (add-hook 'xref-backend-functions #'xref-rst-xref-backend
+        nil t))
     (t
-      (remove-hook
-        'xref-backend-functions #'xref-rst-xref-backend t))))
+      (remove-hook 'xref-backend-functions #'xref-rst-xref-backend
+        t))))
 
 (provide 'xref-rst)
 

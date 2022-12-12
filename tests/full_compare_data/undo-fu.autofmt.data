@@ -270,8 +270,7 @@ Optional argument ARG The number of steps to redo."
 
     (when undo-fu--respect
       (when (null was-undo-or-redo)
-        (user-error
-          "Redo without undo step (%s to ignore)"
+        (user-error "Redo without undo step (%s to ignore)"
           (substitute-command-keys
             (format "\\[%s]" (symbol-name undo-fu-quit-command))))))
 

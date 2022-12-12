@@ -237,6 +237,7 @@ def parse_local_defs(defs: Defs, node_parent: NdSexp) -> None:
                         symbol_type=symbol_type,
                         nargs_min=arg_index_min,
                         nargs_max=arg_index_max,
+                        hints=None,
                     )
 
     for node in node_parent.nodes_only_code:
@@ -253,65 +254,7 @@ def apply_rules(defs: Defs, node_parent: NdSexp) -> None:
 
             node_parent.index_wrap_hint = 1
 
-            # -------------------
-            # Only wrap if needed
-            #
-            # Don't wrap, these may fit on one line.
-            #
-            if node.data in {'and', 'or'}:
-                node_parent.index_wrap_hint = 1
-            elif node.data in {
-                    'with-auto-compression-mode',
-                    'with-temp-buffer',
-            }:
-                node_parent.index_wrap_hint = 1
-                node_parent.wrap_all_or_nothing_hint = True
-            elif node.data in {
-                    'add-hook',
-                    'add-to-list',
-                    'advice-add',
-                    'advice-remove',
-                    'apply',
-                    'catch',
-                    'custom-theme-set-faces',
-                    'declare',
-                    'defadvice',
-                    'defalias',
-                    'defclass',
-                    'defconst',
-                    'defface',
-                    'define-minor-mode',
-                    'defparameter',
-                    'defstruct',
-                    'evil-leader/set-key',
-                    'global-set-key',
-                    'setcar',
-                    'setcdr',
-                    'throw',
-            }:
-                node_parent.index_wrap_hint = 2
-
-            elif node.data in {
-                    'with-current-buffer',
-                    'with-demoted-errors',
-                    'with-eval-after-load',
-                    'with-selected-frame',
-                    'with-selected-window',
-                    'with-syntax-table',
-                    'with-temp-file',
-                    'with-timeout',
-            }:
-                node_parent.index_wrap_hint = 2
-                node_parent.wrap_all_or_nothing_hint = True
-
-            elif node.data in {
-                    'pcase',
-            }:
-                node_parent.index_wrap_hint = 2
-                for subnode in node_parent.nodes_only_code[node_parent.index_wrap_hint:]:
-                    subnode.force_newline = True
-
-            elif node.data == 'lambda':
+            if node.data == 'lambda':
                 if (
                         len(node_parent.nodes_only_code) >= 3 and
                         isinstance(node_parent.nodes_only_code[2], NdString)
@@ -321,53 +264,6 @@ def apply_rules(defs: Defs, node_parent: NdSexp) -> None:
                     node_parent.index_wrap_hint = 2
                 node_parent.wrap_all_or_nothing_hint = True
 
-            elif node.data in {
-                    "format",
-                    "message",
-            }:
-                node_parent.index_wrap_hint = 2
-
-            elif node.data in {
-                    'cl-destructuring-bind',
-                    'defcustom',
-                    'defgroup',
-                    'define-key',
-                    'defvar',
-                    'defvar-local',
-            }:
-                node_parent.index_wrap_hint = 3
-
-            #
-            # Wrap these always
-            #
-            elif node.data in {'if', 'prog1'}:
-                node_parent.index_wrap_hint = 2
-                apply_relaxed_wrap(node_parent)
-            elif node.data in {
-                    'condition-case',
-                    'condition-case-unless-debug',
-                    'delete',
-                    'dolist',
-                    'dotimes',
-                    'pcase-dolist',
-                    'unless',
-                    'use-package',
-                    'when',
-                    'while',
-            }:
-                node_parent.index_wrap_hint = 2
-                apply_relaxed_wrap(node_parent)
-            elif node.data == 'progn':
-                node_parent.index_wrap_hint = 1
-                apply_relaxed_wrap(node_parent)
-            elif node.data in {
-                    'eval-when-compile',
-                    'save-excursion',
-                    'save-match-data',
-                    'save-restriction',
-                    'save-window-excursion',
-            }:
-                apply_relaxed_wrap_when_multiple_args(node_parent)
             elif node.data in {
                     'cl-letf',
                     'cl-letf*',
@@ -408,6 +304,7 @@ def apply_rules(defs: Defs, node_parent: NdSexp) -> None:
                     'ert-deftest',
                     'iter-defun',
             }:
+                node_parent.hints = {'break_point': 'overflow'}
                 if len(node_parent.nodes_only_code) >= 4:
                     node_parent.index_wrap_hint = 3
                     if isinstance(node_parent.nodes_only_code[3], NdString):
@@ -434,7 +331,7 @@ def apply_rules(defs: Defs, node_parent: NdSexp) -> None:
                 # First lookup built-in definitions, if they exist.
                 if (fn_data := defs.fn_arity.get(node.data)) is not None:
                     # May be `FnArity` or a list.
-                    symbol_type, nargs_min, nargs_max = fn_data
+                    symbol_type, nargs_min, nargs_max, hints = fn_data
                     if nargs_min is not None:
                         # First symbol counts for 1, another since wrapping takes place after this argument.
                         node_parent.index_wrap_hint = nargs_min + 1
@@ -442,8 +339,9 @@ def apply_rules(defs: Defs, node_parent: NdSexp) -> None:
                         # Wrap the first argument, instead of the last argument
                         # so all arguments are at an equal level as having the last
                         # argument split from the rest doesn't signify an important difference.
-                        if node_parent.index_wrap_hint >= len(node_parent.nodes_only_code):
-                            node_parent.index_wrap_hint = 1
+                        if symbol_type != 'macro':
+                            if node_parent.index_wrap_hint >= len(node_parent.nodes_only_code):
+                                node_parent.index_wrap_hint = 1
 
                         if symbol_type == 'macro':
                             if nargs_max == 'many':
@@ -451,10 +349,24 @@ def apply_rules(defs: Defs, node_parent: NdSexp) -> None:
                                 node_parent.wrap_all_or_nothing_hint = True
 
                         # TODO: detect a way to wrap macros that expand the remaining body argument.
-                        # if nargs_max in {"many", "unevalled"} and nargs_min != 0:
+                        # if nargs_max in {'many', 'unevalled'} and nargs_min != 0:
                         #     apply_relaxed_wrap(node_parent)
                         #     # apply_relaxed_wrap_when_multiple_args(node_parent)
+                    if hints is not None:
+                        if (val := hints.get('break')) is not None:
+                            if val == 'always':
+                                apply_relaxed_wrap(node_parent)
+                            elif val == 'multi':
+                                apply_relaxed_wrap_when_multiple_args(node_parent)
+                            # elif val == 'to_wrap':  # Default
+                            #     pass
+                            else:
+                                # TODO: warn about unknown `break`.
+                                pass
 
+                            # with open('/tmp/out.log', 'a', encoding='utf-8') as fh:
+                            #     fh.write('Missing: {:s} {:s} {:s}\n'.format(node.data, repr(fn_data), str(node_parent.index_wrap_hint)))
+                        node_parent.hints = hints
                 else:
                     if LOG_MISSING_DEFS is not None:
                         with open(LOG_MISSING_DEFS, 'a', encoding='utf-8') as fh:
@@ -512,6 +424,19 @@ def apply_pre_indent_2(cfg: FormatConfig, node_parent: NdSexp, level: int, trail
                                 trailing_parens,
                                 test_node_terminate=node,
                         ):
+                            # Imply 'node_parent.wrap_all_or_nothing_hint', even when not set.
+                            hints = node_parent.hints
+                            if hints is not None and hints.get('break_point') == 'overflow':
+                                pass
+                            else:
+                                # TODO: warn about unknown break_point.
+
+                                # When the break was added before `node_parent.index_wrap_hint`,
+                                # wrap everything so there are no breaks added in random locations
+                                # that might seems significant.
+                                if i < node_parent.index_wrap_hint:
+                                    for j in range(1, i):
+                                        node_parent.nodes_only_code[j].force_newline = True
                             break
                     i -= 1
 
@@ -570,6 +495,8 @@ class FnArity(NamedTuple):
     nargs_min: int
     # Maximum number of arguments, or strings: `many`, `unevalled`.
     nargs_max: Union[int, str]
+    # Optional additional hints.
+    hints: Optional[Dict[str, str]]
 
 
 class Defs:
@@ -686,6 +613,7 @@ class NdSexp(Node):
         'nodes_only_code',
         'index_wrap_hint',
         'wrap_all_or_nothing_hint',
+        'hints',
     )
 
     bracket_open: str
@@ -700,6 +628,7 @@ class NdSexp(Node):
         self.nodes = nodes or []
         self.index_wrap_hint: int = 1
         self.wrap_all_or_nothing_hint: bool = False
+        self.hints: Optional[Dict[str, str]] = None
 
     def __repr__(self) -> str:
         return '{}(line={} prefix=({}) newline={}\n  {}\n)'.format(

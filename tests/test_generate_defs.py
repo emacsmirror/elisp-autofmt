@@ -104,36 +104,36 @@ class MyTestCase(unittest.TestCase):
 class SimpleTestBuiltinPackage_SubrX(MyTestCase):
     def test_check_simple(self):
         data = generate_defs_package_as_json("subr-x")
-        self.assertEqual(data['functions']['string-join'], ['func', 1, 2])
-        self.assertEqual(data['functions']['named-let'], ['macro', 2, 'many'])
+        self.assertEqual(data['functions']['string-join'], ['func', 1, 2, {}])
+        self.assertEqual(data['functions']['named-let'], ['macro', 2, 'many', {}])
 
 
 class SimpleTestBuiltinPackage_Subr(MyTestCase):
     def test_check_simple(self):
         data = generate_defs_package_as_json("subr")
-        self.assertEqual(data['functions']['with-syntax-table'], ['macro', 1, 'many'])
-        self.assertEqual(data['functions']['defvar-local'], ['macro', 2, 3])
+        self.assertEqual(data['functions']['with-syntax-table'], ['macro', 1, 'many', {}])
+        self.assertEqual(data['functions']['defvar-local'], ['macro', 2, 3, {}])
 
 
 class SimpleTestBuiltinPackage_Simple(MyTestCase):
     def test_check_simple(self):
         data = generate_defs_package_as_json("simple")
-        self.assertEqual(data['functions']['backward-word'], ['func', 0, 1])
-        self.assertEqual(data['functions']['shell-command-on-region'], ['func', 3, 8])
+        self.assertEqual(data['functions']['backward-word'], ['func', 0, 1, {}])
+        self.assertEqual(data['functions']['shell-command-on-region'], ['func', 3, 8, {}])
 
 
 class SimpleTestBuiltinPackage_File(MyTestCase):
     def test_check_simple(self):
         data = generate_defs_package_as_json("files")
-        self.assertEqual(data['functions']['directory-abbrev-make-regexp'], ['func', 1, 1])
-        self.assertEqual(data['functions']['insert-directory-safely'], ['func', 2, 4])
+        self.assertEqual(data['functions']['directory-abbrev-make-regexp'], ['func', 1, 1, {}])
+        self.assertEqual(data['functions']['insert-directory-safely'], ['func', 2, 4, {}])
 
 
 class SimpleTestBuiltin(MyTestCase):
     def test_check_simple(self):
         data = generate_defs_builtin_as_json()
-        self.assertEqual(data['functions']['file-attributes'], ['func', 1, 2])
-        self.assertEqual(data['functions']['string-prefix-p'], ['func', 2, 3])
+        self.assertEqual(data['functions']['file-attributes'], ['func', 1, 2, {}])
+        self.assertEqual(data['functions']['string-prefix-p'], ['func', 2, 3, {}])
 
 
 def global_setup():

@@ -37,12 +37,11 @@ You may wish to choose one of the following options:
 Otherwise you can set this to a user defined function."
   :type 'function)
 
-
-(defcustom elisp-autofmt-use-function-defs nil
+(defcustom elisp-autofmt-use-function-defs t
   "When non nil, generate function definitions for the auto-formatter to use."
   :type 'boolean)
 
-(defcustom elisp-autofmt-use-default-override-defs nil
+(defcustom elisp-autofmt-use-default-override-defs t
   "When non nil, generate function definitions for the auto-formatter to use."
   :type 'boolean)
 
@@ -54,8 +53,11 @@ Otherwise you can set this to a user defined function."
   (list
     "bindings" ;; For `bound-and-true-p'.
     "custom" ;; For `defgroup'.
+    "pcase" ;; For `pcase-let'.
+    "cus-face" ;; For `custom-theme-set-faces'.
     "easy-mmode" ;; For `define-globalized-minor-mode'.
-    "subr" ;; For most of elisp's built in functionality.
+    "simple" ;; For many built-in functions, e.g. `shell-command-on-region'.
+    "subr" ;; For most of EMACS-lisp built in functionality.
     )
   "Packages to load by default (without being explicitly required)."
   :type '(repeat string))
@@ -102,6 +104,7 @@ This is intended to be set from file or directory locals and is marked safe.")
   "Run COMMAND-WITH-ARGS, returning t on success.
 
 Any `stderr' is output a message and is interpreted as failure."
+  ;; (printf "CMD: %S\n" (mapconcat 'identity command-with-args " "))
   (let
     (
       (sentinel-called nil)
@@ -215,7 +218,8 @@ Any `stderr' is output a message and is interpreted as failure."
     (elisp-autofmt--cache-api-val-as-str (car arity))
     ", "
     (elisp-autofmt--cache-api-val-as-str (cdr arity))
-    "],\n"))
+    ;; Dictionary for additional hints.
+    ", {}],\n"))
 
 (defun elisp-autofmt--fn-type (sym-id)
   "Return the type of function SYM-ID or nil."
@@ -550,8 +554,7 @@ Optional argument ASSUME-FILE-NAME overrides the file name used for this buffer.
                   (convert-standard-filename (expand-file-name elisp-autofmt-cache-directory)))
                 (concat
                   "--fmt-defs="
-                  (mapconcat
-                    'identity
+                  (mapconcat 'identity
                     (append
                       ;; May be nil (skipped).
                       cache-defs
@@ -564,7 +567,7 @@ Optional argument ASSUME-FILE-NAME overrides the file name used for this buffer.
                     path-separator))))
             (t
               (list))))))
-
+    ;; (printf "CMD: %S\n" (mapconcat 'identity command-with-args " "))
     (let
       (
         (proc
