@@ -1653,10 +1653,11 @@ def main_generate_defs() -> bool:
             for key, val in defs.fn_arity.items():
                 if is_first:
                     fh.write(',\n')
-                symbol_type, nargs_min, nargs_max = val
+                # Generated hints are always empty.
+                symbol_type, nargs_min, nargs_max, _hints = val
                 nargs_min_str = str(nargs_min) if isinstance(nargs_min, int) else '"{:s}"'.format(nargs_min)
                 nargs_max_str = str(nargs_max) if isinstance(nargs_max, int) else '"{:s}"'.format(nargs_max)
-                fh.write('"{:s}": ["{:s}", {:s}, {:s}, \{\}]'.format(
+                fh.write('"{:s}": ["{:s}", {:s}, {:s}, {{}}]'.format(
                     key, symbol_type, nargs_min_str, nargs_max_str,
                 ))
                 is_first = True
