@@ -820,7 +820,6 @@ class NdSexp(Node):
             *,
             test_node_terminate: Optional[Node] = None,
     ) -> bool:
-        from io import StringIO
         _ctx = WriteCtx(cfg)
         _data: List[str] = []
         self.fmt_with_terminate_node(_ctx, _data.append, level, test=True, test_node_terminate=test_node_terminate)
@@ -828,16 +827,46 @@ class NdSexp(Node):
         del _data
         ok = True
 
-        test_trailing_parens = (
-            (not cfg.use_trailing_parens) and
-            (_ctx.line_terminate == _ctx.line)
-        )
-        for i, line in enumerate(data.split('\n')):
-            line_length = cfg.fill_column
-            if test_trailing_parens and (_ctx.line_terminate == i):
-                line_length -= trailing_parens
-            if len(line) > line_length:
-                return True
+        fill_column = cfg.fill_column
+        line_terminate = _ctx.line_terminate
+
+        # Step over `\n` characters instead of data.split('\n')
+        # so multiple characters are handled separately.
+        line_step = 0
+        i = 0
+
+        if (not cfg.use_trailing_parens) and (_ctx.line_terminate == _ctx.line):
+            while line_step != -1:
+                line_step_next = data.find('\n', line_step)
+                if line_step_next == -1:
+                    line_length = len(data) - line_step
+                    line_step = -1
+                else:
+                    line_length = line_step_next - line_step
+                    line_step = line_step_next + 1
+
+                if line_terminate == i:
+                    if line_length > fill_column - trailing_parens:
+                        return True
+                    return False
+                else:
+                    if line_length > fill_column:
+                        return True
+                i += 1
+        else:
+            while line_step != -1:
+                line_step_next = data.find('\n', line_step)
+                if line_step_next == -1:
+                    line_length = len(data) - line_step
+                    line_step = -1
+                else:
+                    line_length = line_step_next - line_step
+                    line_step = line_step_next + 1
+
+                if line_length > fill_column:
+                    return True
+                i += 1
+
         return False
 
     def fmt_pre_wrap(self, ctx: WriteCtx, level: int, trailing_parens: int) -> None:
