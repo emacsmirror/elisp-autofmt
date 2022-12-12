@@ -42,6 +42,10 @@ Otherwise you can set this to a user defined function."
   "When non nil, generate function definitions for the auto-formatter to use."
   :type 'boolean)
 
+(defcustom elisp-autofmt-use-default-override-defs nil
+  "When non nil, generate function definitions for the auto-formatter to use."
+  :type 'boolean)
+
 (defcustom elisp-autofmt-python-bin nil
   "The Python binary to call when running auto-formatting."
   :type 'string)
@@ -539,12 +543,25 @@ Optional argument ASSUME-FILE-NAME overrides the file name used for this buffer.
 
           ;; Optionally read in definitions.
           (cond
-            (elisp-autofmt-use-function-defs
+            ((or elisp-autofmt-use-function-defs elisp-autofmt-use-default-override-defs)
               (list
                 (concat
                   "--fmt-defs-dir="
                   (convert-standard-filename (expand-file-name elisp-autofmt-cache-directory)))
-                (concat "--fmt-defs=" (mapconcat 'identity cache-defs path-separator))))
+                (concat
+                  "--fmt-defs="
+                  (mapconcat
+                    'identity
+                    (append
+                      ;; May be nil (skipped).
+                      cache-defs
+                      ;; Optionally
+                      (cond
+                        (elisp-autofmt-use-default-override-defs
+                          (list (concat elisp-autofmt--bin ".overrides.json")))
+                        (t
+                          (list))))
+                    path-separator))))
             (t
               (list))))))
 

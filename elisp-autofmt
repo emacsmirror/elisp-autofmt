@@ -1529,12 +1529,14 @@ def argparse_create() -> argparse.ArgumentParser:
     parser.add_argument(
         '--fmt-defs',
         dest='fmt_defs',
-        metavar='FILE',
+        metavar='FILES',
         default='',
         type=str,
         required=False,
         help=(
-            'Definition filenames within "--fmt-defs-dir" '
+            'Definition filenames within "--fmt-defs-dir" when only a filename is specified, '
+            'otherwise absolute paths are used. '
+            'split by PATH_SEPARATOR. '
             '(internal use, this is written by Emacs).'
         ),
     )
@@ -1689,7 +1691,7 @@ def main() -> None:
 
     if args.fmt_defs:
         defs = Defs.from_json_files(
-            os.path.join(args.fmt_defs_dir, filename)
+            os.path.join(args.fmt_defs_dir, filename) if (os.sep not in filename) else filename
             for filename in args.fmt_defs.split(os.pathsep)
         )
     else:
