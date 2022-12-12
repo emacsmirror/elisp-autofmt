@@ -834,7 +834,7 @@ class NdSexp(Node):
         _ctx = WriteCtx(cfg)
         _data: List[str] = []
         self.fmt_with_terminate_node(_ctx, _data.append, level, test=True, test_node_terminate=test_node_terminate)
-        data = "".join(_data)
+        data = ''.join(_data)
         del _data
         ok = True
 
@@ -1273,7 +1273,7 @@ def parse_file(cfg: FormatConfig, fh: TextIO) -> Tuple[str, NdSexp]:
 
     line = 0
 
-    # Fake top level s-expression to poppulate.
+    # Fake top level s-expression to populate.
     root = NdSexp(line)
     # Unused, set to avoid issues with checks later.
     root.bracket_open = '('
@@ -1286,7 +1286,7 @@ def parse_file(cfg: FormatConfig, fh: TextIO) -> Tuple[str, NdSexp]:
     line_has_contents = False
 
     # Special case, a lisp file with a shebang.
-    first_line_unparsed = ""
+    first_line_unparsed = ''
     c_peek: Optional[str] = fh.read(1)
     if c_peek == '#':
         first_line_chars = [c_peek]
@@ -1296,7 +1296,7 @@ def parse_file(cfg: FormatConfig, fh: TextIO) -> Tuple[str, NdSexp]:
             if c == '\n':
                 line += 1
                 break
-        first_line_unparsed = "".join(first_line_chars)
+        first_line_unparsed = ''.join(first_line_chars)
         del first_line_chars
 
     while c := c_peek or fh.read(1):
@@ -1621,7 +1621,7 @@ def argparse_create() -> argparse.ArgumentParser:
 
 def main_generate_defs() -> bool:
     try:
-        i = sys.argv.index("--gen-defs")
+        i = sys.argv.index('--gen-defs')
     except ValueError:
         return False
 
@@ -1641,28 +1641,28 @@ def main_generate_defs() -> bool:
         file_input = args_rest.pop(0)
         file_output = args_rest.pop(0)
 
-        with open(file_input, "r", encoding='utf-8') as fh:
+        with open(file_input, 'r', encoding='utf-8') as fh:
             _, root = parse_file(cfg, fh)
 
             parse_local_defs(cfg.defs, root)
 
-        with open(file_output, "w", encoding='utf-8') as fh:
-            fh.write("{\n")
-            fh.write("\"functions\": {\n")
+        with open(file_output, 'w', encoding='utf-8') as fh:
+            fh.write('{\n')
+            fh.write('"functions": {\n')
             is_first = False
             for key, val in defs.fn_arity.items():
                 if is_first:
-                    fh.write(",\n")
+                    fh.write(',\n')
                 symbol_type, nargs_min, nargs_max = val
                 nargs_min_str = str(nargs_min) if isinstance(nargs_min, int) else '"{:s}"'.format(nargs_min)
                 nargs_max_str = str(nargs_max) if isinstance(nargs_max, int) else '"{:s}"'.format(nargs_max)
-                fh.write('"{:s}": ["{:s}", {:s}, {:s}]'.format(
+                fh.write('"{:s}": ["{:s}", {:s}, {:s}, \{\}]'.format(
                     key, symbol_type, nargs_min_str, nargs_max_str,
                 ))
                 is_first = True
-            fh.write("")
-            fh.write("}\n")  # "functions".
-            fh.write("}\n")
+            fh.write('')
+            fh.write('}\n')  # 'functions'.
+            fh.write('}\n')
 
     return True
 
@@ -1704,7 +1704,7 @@ def main() -> None:
         defs=defs,
     )
 
-    for filepath in (args.files or [""]):
+    for filepath in (args.files or ['']):
         # Use the `stderr` to avoid conflicting with `stdout` when it's set.
         if (not args.use_quiet) and (not args.use_stdout):
             sys.stdout.write('%s\n' % filepath)
