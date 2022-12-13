@@ -103,10 +103,34 @@ Customization
 
 ``elisp-autofmt-empty-line-max`` (``2``)
    The maximum number of empty lines to keep.
-``elisp-autofmt-use-function-defs`` (``t``)
-   When non-nil, use function information generated from Emacs.
 ``elisp-autofmt-python-bin`` (``nil``)
    Optionally set the Python binary, use when Python is not in your ``PATH``.
+
+
+Customization (API Definitions)
+-------------------------------
+
+``elisp-autofmt-use-function-defs`` (``t``)
+   When non-nil, use function information generated from Emacs.
+``elisp-autofmt-use-default-override-defs`` (``t``)
+   When non-nil, use a preset list of opinionated overrides that adjust the behavior of common functions & macros.
+``elisp-autofmt-load-packages-local``
+   A list of strings representing:
+
+   - Packages to load definitions from (e.g. ``ert``, ``abbrev``).
+   - Paths relative to the current file (any string starting with a ``.``),
+     e.g. ``"./multi-file-package.el"``.
+
+     Referencing local paths is needed so multi-file packages can be aware of definitions stored elsewhere.
+
+   This variable is marked as *safe* so it can be defined in file/directory locals.
+   This example shows it's use in file locals.
+
+   .. code-block:: elisp
+
+      ;; Local variables:
+      ;; elisp-autofmt-load-packages-local: ("ert" "./my-relative-file.el")
+      ;; end:
 
 
 Installation
@@ -122,7 +146,7 @@ This can be installed using ``straight``, example:
 
      :straight
      (elisp-autofmt
-       :files (:defaults "elisp-autofmt")
+       :files (:defaults "elisp-autofmt" "elisp-autofmt.overrides.json")
        :host nil
        :type git
        :repo "https://codeberg.org/ideasman42/emacs-elisp-autofmt.git"))
@@ -157,5 +181,4 @@ TODO
 
   *Moving away from the current rule of fixed 2 space indentation.*
 
-- Scan the buffer for functions, only writing function data for functions in use.
 - Use the indentation width from Emacs (currently fixed to 2).

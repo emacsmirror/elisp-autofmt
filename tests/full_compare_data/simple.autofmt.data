@@ -649,8 +649,7 @@ Other major modes are defined by comparison with this one."
 
 ;; Special major modes to view specially formatted data rather than files.
 
-(defvar-keymap
-  special-mode-map
+(defvar-keymap special-mode-map
   :suppress
   t
   "q"
@@ -1942,8 +1941,7 @@ The line number is relative to the accessible portion of the narrowed
 buffer.  The argument BUFFER is the same as in the function `goto-line'."
   (declare (interactive-only forward-line))
   (interactive (goto-line-read-args t))
-  (with-suppressed-warnings
-    ((interactive-only goto-line))
+  (with-suppressed-warnings ((interactive-only goto-line))
     (goto-line line buffer t)))
 
 (defun count-words-region (start end &optional arg)
@@ -3083,9 +3081,7 @@ maps."
     ((interactive-only execute-extended-command))
     (execute-extended-command prefixarg command-name typed)))
 
-(cl-defgeneric
-  function-documentation
-  (function)
+(cl-defgeneric function-documentation (function)
   "Extract the raw docstring info from FUNCTION.
 FUNCTION is expected to be a function value rather than, say, a mere symbol.
 This is intended to be specialized via `cl-defmethod' but not called directly:
@@ -3126,9 +3122,7 @@ function as needed."
   (oclosure--accessor-docstring function)) ;; FIXME: η-reduce!
 
 ;; This should be in `oclosure.el' but that file is loaded before `cl-generic'.
-(cl-defgeneric
-  oclosure-interactive-form
-  (_function)
+(cl-defgeneric oclosure-interactive-form (_function)
   "Return the interactive form of FUNCTION or nil if none.
 This is called by `interactive-form' when invoked on OClosures.
 It should return either nil or a two-element list of the form (interactive FORM)
@@ -5423,8 +5417,7 @@ impose the use of a shell (with its need to quote arguments)."
                   ;; Use disposable named advice so that the buffer is
                   ;; displayed at most once per process lifetime.
                   (let ((nonce (make-symbol "nonce")))
-                    (add-function
-                      :before (process-filter proc)
+                    (add-function :before (process-filter proc)
                       (lambda (proc _string)
                         (let ((buf (process-buffer proc)))
                           (when (buffer-live-p buf)
@@ -7333,7 +7326,8 @@ variable to determine how strings should be escaped."
                       (goto-char (point-min))
                       (forward-line 1)
                       (point)))
-                  (point-max) nil t)
+                  (point-max)
+                  nil t)
                 (buffer-string))))
           (t
             string)))

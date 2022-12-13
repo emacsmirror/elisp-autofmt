@@ -49,19 +49,6 @@ Otherwise you can set this to a user defined function."
   "The Python binary to call when running auto-formatting."
   :type 'string)
 
-(defcustom elisp-autofmt-load-packages-default
-  (list
-    "bindings" ;; For `bound-and-true-p'.
-    "custom" ;; For `defgroup'.
-    "pcase" ;; For `pcase-let'.
-    "cus-face" ;; For `custom-theme-set-faces'.
-    "easy-mmode" ;; For `define-globalized-minor-mode'.
-    "simple" ;; For many built-in functions, e.g. `shell-command-on-region'.
-    "subr" ;; For most of EMACS-lisp built in functionality.
-    )
-  "Packages to load by default (without being explicitly required)."
-  :type '(repeat string))
-
 (defvar-local elisp-autofmt-load-packages-local nil
   "Additional packages/modules to include definitions from.
 This is intended to be set from file or directory locals and is marked safe.")
@@ -81,7 +68,7 @@ This is intended to be set from file or directory locals and is marked safe.")
     "mh-tool-bar"
     "nnimap"
     "vcard")
-  "Packages to load by default (without being explicitly required)."
+  "Exclude these packages from inclusion in API definition lists."
   :type '(repeat string))
 
 (defcustom elisp-autofmt-cache-directory
@@ -95,6 +82,15 @@ This is intended to be set from file or directory locals and is marked safe.")
 ;; Run this command to format.
 (defconst elisp-autofmt--bin (file-name-sans-extension load-file-name))
 (defconst elisp-autofmt--this-file load-file-name)
+
+;; Include these in the default emacs-binary API list.
+;; Only use this for:
+;; - Common packages so users don't have to manually list them.
+;; - Packages that are not loaded by default.
+(defconst elisp-autofmt--packages-default
+  (list
+    ;; For `pcase' & `pcase-let'.
+    'pcase))
 
 
 ;; ---------------------------------------------------------------------------
@@ -206,11 +202,11 @@ Any `stderr' is output a message and is interpreted as failure."
   (unless (file-directory-p elisp-autofmt-cache-directory)
     (make-directory elisp-autofmt-cache-directory t)))
 
-(defun elisp-autofmt--cache-api-insert-function-to-file (sym-id sym-ty arity)
-  "Insert JSON data from SYM-ID, SYM-TY and ARITY."
+(defun elisp-autofmt--cache-api-insert-function-to-file (sym-name sym-ty arity)
+  "Insert JSON data from SYM-NAME, SYM-TY and ARITY."
   ;; `arity' is an argument because built-in functions use different logic.
 
-  (insert "\"" (string-replace "\\" "\\\\" (symbol-name sym-id)) "\": ")
+  (insert "\"" (string-replace "\\" "\\\\" sym-name) "\": ")
   (insert
     "["
     (concat "\"" (symbol-name sym-ty) "\"")
@@ -232,6 +228,23 @@ Any `stderr' is output a message and is interpreted as failure."
       'special)
     (t
       nil)))
+
+(defun elisp-autofmt--fn-defs-insert (defs include-private)
+  "Insert all function from DEFS into the current buffer.
+When INCLUDE-PRIVATE is nil, exclude functions with \"--\" in their names."
+  (while defs
+    (let ((n (pop defs)))
+      (when (consp n)
+        (pcase-let ((`(,_sym-ty-xx . ,sym-id) n))
+          (let ((sym-ty (elisp-autofmt--fn-type sym-id)))
+            (when sym-ty
+              (let ((sym-name (symbol-name sym-id)))
+                ;; Ignore "--" separators as this is a convention for private names.
+                (when (or include-private (null (string-match-p "--" sym-name)))
+                  (elisp-autofmt--cache-api-insert-function-to-file
+                    sym-name
+                    sym-ty
+                    (func-arity sym-id)))))))))))
 
 (defun elisp-autofmt--cache-api-generate-for-builtins (filepath)
   "Generate API cache for built-in output at FILEPATH."
@@ -266,14 +279,32 @@ Any `stderr' is output a message and is interpreted as failure."
                   (when t
                     ;; (eq file 'C-source)
                     (elisp-autofmt--cache-api-insert-function-to-file
-                      sym-id sym-ty
+                      (symbol-name sym-id) sym-ty
                       (cond
                         ((subrp sym-fn)
                           (subr-arity sym-fn))
                         (t
                           (func-arity sym-id)))))))))))
+
+      ;; Inline built-in packages:
+      ;; This avoids the hassles of having to hand maintain a list of built-in packages.
+      ;; While the result is much larger, it avoids a lot of knit-picking over what
+      ;; should/shouldn't be included. Just include everything loaded as part of Emacs
+      ;; (in batch mode), and script can manually include other packages they depend on.
+
+      ;; Load some additional packages.
+      (dolist (package-id elisp-autofmt--packages-default)
+        (require package-id))
+
+      (let ((item-list load-history))
+        (while item-list
+          (let ((item (pop item-list)))
+            (let ((defs (cdr item)))
+              (elisp-autofmt--fn-defs-insert defs nil)))))
+
       ;; Remove trailing comma (tsk).
       (delete-region (max block-beg (- (point) 2)) (max block-beg (- (point) 1))))
+
     (insert "}\n") ;; "functions".
     (insert "}\n")
     (write-region nil nil filepath nil 0)))
@@ -302,17 +333,7 @@ When SKIP-REQUIRE is non-nil, the package is not required."
         (insert "\"functions\": {\n")
         (let ((block-beg (point)))
           (let ((defs (file-loadhist-lookup package-id)))
-            (while defs
-              (let ((n (pop defs)))
-                (when (consp n)
-                  (pcase-let ((`(,_sym-ty-xx . ,sym-id) n))
-                    (let ((sym-ty (elisp-autofmt--fn-type sym-id)))
-                      (when sym-ty
-                        (elisp-autofmt--cache-api-insert-function-to-file
-                          sym-id
-                          sym-ty
-                          (func-arity sym-id))))))))
-            ;; )
+            (elisp-autofmt--fn-defs-insert defs t)
             ;; Remove trailing comma (tsk).
             (delete-region (max block-beg (- (point) 2)) (max block-beg (- (point) 1))))
           (insert "}\n") ;; "functions".
@@ -406,29 +427,29 @@ When SKIP-REQUIRE is set, don't require the package."
             skip-require))
         filename-cache-name-only))))
 
-(defun elisp-autofmt--cache-api-ensure-cache-for-filename (filename buffer-directory)
-  "Generate cache for FILENAME for a path in BUFFER-DIRECTORY."
+(defun elisp-autofmt--cache-api-ensure-cache-for-filepath (filepath)
+  "Generate cache for FILEPATH."
   (let*
     (
-      (filename-cache-name-only (elisp-autofmt--cache-api-encode-name-external filename))
+      (filename-cache-name-only (elisp-autofmt--cache-api-encode-name-external filepath))
       (filename-cache-name-full
         (file-name-concat elisp-autofmt-cache-directory filename-cache-name-only)))
 
     (when
       (or
         (not (file-exists-p filename-cache-name-full))
-        (elisp-autofmt--cache-api-file-is-older filename-cache-name-full filename))
+        (elisp-autofmt--cache-api-file-is-older filename-cache-name-full filepath))
 
       (elisp-autofmt--call-checked
         (list
           (or elisp-autofmt-python-bin "python3")
           elisp-autofmt--bin
           "--gen-defs"
-          filename
+          filepath
           (expand-file-name filename-cache-name-full))))))
 
 (defun elisp-autofmt--cache-api-cache-update (buffer-directory)
-  "Ensure packages are up to date."
+  "Ensure packages are up to date for `current-buffer' in BUFFER-DIRECTORY."
   (elisp-autofmt--cache-api-directory-ensure)
   (let ((cache-files (list)))
     (push (elisp-autofmt--cache-api-ensure-cache-for-emacs t) cache-files)
@@ -447,22 +468,20 @@ When SKIP-REQUIRE is set, don't require the package."
                 (push var package-list))))))
 
       ;; Merge default and any local features into a list.
-      (let ((packages-all (delete-dups (append elisp-autofmt-load-packages-default package-list))))
+      (let ((packages-all (delete-dups package-list)))
         (dolist (package-id packages-all)
           (cond
             ((stringp package-id)
               (push (elisp-autofmt--cache-api-ensure-cache-for-package package-id t) cache-files))
             (t ;; Unlikely, just helpful hint to users.
-              (message "elisp-autofmt: skipping non-string feature reference %S")))))
+              (message "elisp-autofmt: skipping non-string feature reference %S" package-id)))))
 
       ;; Ensure external definitions.
       (when package-list-paths
         (while package-list-paths
           (let ((var (pop package-list-paths)))
             (let ((filename (file-name-concat buffer-directory (substring var 1))))
-              (push
-                (elisp-autofmt--cache-api-ensure-cache-for-filename filename buffer-directory)
-                cache-files))))))
+              (push (elisp-autofmt--cache-api-ensure-cache-for-filepath filename) cache-files))))))
 
     cache-files))
 
