@@ -1,6 +1,6 @@
 ;;; elisp-autofmt.el --- Emacs lisp auto-format -*- lexical-binding: t -*-
 
-;; SPDX-License-Identifier: GPL-2.0-or-later
+;; SPDX-License-Identifier: GPL-3.0-or-later
 ;; Copyright (C) 2019-2022  Campbell Barton
 
 ;; Author: Campbell Barton <ideasman42@gmail.com>
