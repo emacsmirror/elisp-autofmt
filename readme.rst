@@ -57,10 +57,8 @@ Features
 - Consistent 2 space indentation.
 - Keeps blank lines.
 - Keeps trailing comments at the end of lines.
-- Extracts function arguments from locally defined functions.
-- Experimental support for exporting function argument lengths.
-
-  *Currently writes all function information making it slow.*
+- Extracts function arguments from locally defined functions,
+  with support for including definitions from external files.
 
 
 Usage
@@ -82,10 +80,11 @@ this checks for the existence of an ``.elisp-autofmt`` file in the buffers direc
 
    ``.elisp-autofmt`` will eventually be used for configuration, for now it should be left empty.
 
-.. hint::
+Performance
+-----------
 
-   The first re-format may be slow as there are likely to be a large number of changes to apply.
-   Running again should not have this problem.
+The first re-format may be slow as there are likely to be a large number of changes be applied back into Emacs.
+Running again is typically fast enough to be enabled on save without noticeable interruption.
 
 
 Functions
