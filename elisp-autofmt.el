@@ -32,7 +32,7 @@
 You may wish to choose one of the following options:
 - `always': To always format on save.
 - `elisp-autofmt-check-elisp-autofmt-exists':
-  Only reformat when \"pyproject.toml\" exists.
+  Only reformat when \".elisp-autofmt\" exists.
 
 Otherwise you can set this to a user defined function."
   :type 'function)
@@ -42,7 +42,7 @@ Otherwise you can set this to a user defined function."
   :type 'boolean)
 
 (defcustom elisp-autofmt-use-default-override-defs t
-  "When non nil, generate function definitions for the auto-formatter to use."
+  "When non nil, enable overrides that make some opinionated changes to some macros behavior."
   :type 'boolean)
 
 (defcustom elisp-autofmt-python-bin nil
