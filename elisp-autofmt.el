@@ -517,12 +517,13 @@ Optional argument ASSUME-FILE-NAME overrides the file name used for this buffer.
 
   ;; TODO, add support for auto-formatting a sub-region,
   ;; until this is supported keep this private.
-  (interactive
-    (cond
-      ((use-region-p)
-        (list (region-beginning) (region-end)))
-      (t
-        (list (point) (point)))))
+
+  ;; (interactive
+  ;;   (cond
+  ;;     ((use-region-p)
+  ;;       (list (region-beginning) (region-end)))
+  ;;     (t
+  ;;       (list (point) (point)))))
 
   (unless assume-file-name
     (setq assume-file-name buffer-file-name))
@@ -683,6 +684,7 @@ Optional argument ASSUME-FILE-NAME overrides the file name used for this buffer.
 ;;;###autoload
 (defun elisp-autofmt-buffer ()
   "Auto format the current buffer."
+  (interactive)
   (elisp-autofmt--buffer-impl (current-buffer)))
 
 ;;;###autoload
