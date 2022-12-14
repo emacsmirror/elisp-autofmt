@@ -20,11 +20,15 @@
 
 ;;; Code:
 
-;; Public variables.
 
-(defgroup elisp-autofmt nil "Configure emacs-lisp auto-formatting." :group 'tools)
+;; ---------------------------------------------------------------------------
+;; Public Custom Variables
 
-(defcustom elisp-autofmt-empty-line-max 2 "The maximum number of blank lines to keep." :type 'int)
+(defgroup elisp-autofmt nil "Configure emacs-lisp auto-formatting behavior." :group 'tools)
+
+(defcustom elisp-autofmt-empty-line-max 2
+  "The maximum number of blank lines to preserve."
+  :type 'int)
 
 (defcustom elisp-autofmt-on-save-p 'elisp-autofmt-check-elisp-autofmt-exists
   "Only reformat on save if this function returns non-nil.
@@ -46,15 +50,8 @@ Otherwise you can set this to a user defined function."
   :type 'boolean)
 
 (defcustom elisp-autofmt-python-bin nil
-  "The Python binary to call when running auto-formatting."
+  "The Python binary to call to run the auto-formatting utility."
   :type 'string)
-
-(defvar-local elisp-autofmt-load-packages-local nil
-  "Additional packages/modules to include definitions from.
-This is intended to be set from file or directory locals and is marked safe.")
-
-;;;###autoload
-(put 'elisp-autofmt-load-packages-local 'safe-local-variable #'elisp-autofmt-list-of-strings-p)
 
 (defcustom elisp-autofmt-ignore-autoload-packages
   (list
@@ -77,7 +74,26 @@ This is intended to be set from file or directory locals and is marked safe.")
   :type 'string)
 
 
-;; Internal variables.
+;; ---------------------------------------------------------------------------
+;; Public Variables
+
+(defvar-local elisp-autofmt-load-packages-local nil
+  "Additional packages/modules to include definitions from.
+
+Each entry may be:
+- A package identifier which will be loaded
+  which isn't loaded by default on Emacs startup.
+- A buffer relative path (beginning with a \".\"),
+  which is intended to support sharing definitions for multi-file packages.
+
+This is intended to be set from file or directory locals and is marked safe.")
+
+;;;###autoload
+(put 'elisp-autofmt-load-packages-local 'safe-local-variable #'elisp-autofmt-list-of-strings-p)
+
+
+;; ---------------------------------------------------------------------------
+;; Internal Variables
 
 ;; Run this command to format.
 (defconst elisp-autofmt--bin (file-name-sans-extension load-file-name))

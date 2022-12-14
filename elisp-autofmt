@@ -489,7 +489,7 @@ class FormatConfig(NamedTuple):
 
 
 class FnArity(NamedTuple):
-    # Type in: ``.
+    # Type in: [`macro`, `func`, `special`].
     symbol_type: str
     # Minimum number of arguments.
     nargs_min: int
