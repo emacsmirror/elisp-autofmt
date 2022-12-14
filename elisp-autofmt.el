@@ -360,17 +360,25 @@ When SKIP-REQUIRE is non-nil, the package is not required."
   "Generate builtin definitions.
 
 Writes outputs to `ELISP_AUTOFMT_OUTPUT'."
-  (elisp-autofmt--cache-api-generate-for-builtins (getenv "ELISP_AUTOFMT_OUTPUT")))
+  (let ((output-path (getenv "ELISP_AUTOFMT_OUTPUT")))
+    (unless output-path
+      (error "elisp-autofmt: $ELISP_AUTOFMT_OUTPUT was not set for built-ins!"))
+    (elisp-autofmt--cache-api-generate-for-builtins output-path)))
 
 (defun elisp-autofmt--gen-package-defs ()
   "Generate builtin definitions.
 
 Uses package from environment variable `ELISP_AUTOFMT_PACKAGE'.
 Writes outputs to environment variable `ELISP_AUTOFMT_OUTPUT'."
-  (elisp-autofmt--cache-api-generate-for-package
-    (getenv "ELISP_AUTOFMT_OUTPUT")
-    (getenv "ELISP_AUTOFMT_PACKAGE")
-    nil))
+  (let
+    (
+      (output-path (getenv "ELISP_AUTOFMT_OUTPUT"))
+      (package-id (getenv "ELISP_AUTOFMT_PACKAGE")))
+    (unless output-path
+      (error "elisp-autofmt: $ELISP_AUTOFMT_OUTPUT was not set for package!"))
+    (unless output-path
+      (error "elisp-autofmt: $ELISP_AUTOFMT_PACKAGE was not set for package!"))
+    (elisp-autofmt--cache-api-generate-for-package output-path package-id nil)))
 
 (defun elisp-autofmt--cache-api-ensure-cache-for-emacs (use-external-emacs)
   "Ensure cache exists.
