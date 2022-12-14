@@ -46,7 +46,7 @@ Otherwise you can set this to a user defined function."
   :type 'boolean)
 
 (defcustom elisp-autofmt-use-default-override-defs t
-  "When non nil, enable overrides that make some opinionated changes to some macros behavior."
+  "When non nil, make opinionated changes to how line breaks are handled."
   :type 'boolean)
 
 (defcustom elisp-autofmt-python-bin nil
