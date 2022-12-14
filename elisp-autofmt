@@ -339,14 +339,20 @@ def apply_rules(defs: Defs, node_parent: NdSexp) -> None:
                         # Wrap the first argument, instead of the last argument
                         # so all arguments are at an equal level as having the last
                         # argument split from the rest doesn't signify an important difference.
-                        if symbol_type != 'macro':
+                        if symbol_type == 'func':
                             if node_parent.index_wrap_hint >= len(node_parent.nodes_only_code):
                                 node_parent.index_wrap_hint = 1
-
-                        if symbol_type == 'macro':
+                        elif symbol_type == 'macro':
                             if nargs_max == 'many':
                                 # So (with ...) macros don't keep the first argument aligned.
                                 node_parent.wrap_all_or_nothing_hint = True
+                        elif symbol_type == 'special':
+                            # Used for special forms `unwind-protect`, `progn` .. etc.
+                            node_parent.wrap_all_or_nothing_hint = True
+                            if hints is None:
+                                hints = {}
+                            if 'break' not in hints:
+                                hints['break'] = 'always'
 
                         # TODO: detect a way to wrap macros that expand the remaining body argument.
                         # if nargs_max in {'many', 'unevalled'} and nargs_min != 0:
@@ -526,8 +532,26 @@ class Defs:
         functions = {}
         for filepath in fmt_defs:
             with open(filepath, 'r', encoding='utf-8') as fh:
-                fh_as_json = json.load(fh)
-                functions.update(fh_as_json['functions'])
+                try:
+                    fh_as_json = json.load(fh)
+                except Exception as ex:
+                    sys.stderr.write('JSON definition: error ({:s}) parsing {!r}!\n'.format(str(ex), filepath))
+                    continue
+
+                functions_from_json = fh_as_json.get('functions')
+                if functions_from_json is None:
+                    continue
+
+                if type(functions_from_json) is not dict:
+                    sys.stderr.write(
+                        'JSON definition: "functions" entry is a {!r}, expected a dict in {!r}!\n'.format(
+                            type(functions_from_json).__name__,
+                            filepath,
+                        )
+                    )
+                    continue
+
+                functions.update(functions_from_json)
 
         return Defs(fn_arity=functions, is_complete=True)
 
