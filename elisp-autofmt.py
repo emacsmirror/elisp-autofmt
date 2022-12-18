@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-or-later
 
+'''
+Emacs lisp auto formatter.
+'''
+
 from __future__ import annotations
 from typing import (
     Any,
@@ -45,10 +49,9 @@ LOG_MISSING_DEFS = None  # '/tmp/out.log'
 # Exceptions
 
 # Exception for failure to parse the file,
-# show this in the command line without the trace-back
-# since these kinds of errors are not error in the code.
+# show this in the command line wite.
 class FmtException(Exception):
-    pass
+    '''An exception raised for malformed files, where formatting cannot complete.'''
 
 
 # ------------------------------------------------------------------------------
@@ -371,7 +374,10 @@ def apply_rules(defs: Defs, node_parent: NdSexp) -> None:
                                 pass
 
                             # with open('/tmp/out.log', 'a', encoding='utf-8') as fh:
-                            #     fh.write('Missing: {:s} {:s} {:s}\n'.format(node.data, repr(fn_data), str(node_parent.index_wrap_hint)))
+                            #     fh.write(
+                            #         'Missing: {:s} {:s} {:s}\n'.format(
+                            #             node.data, repr(fn_data), str(
+                            #                 node_parent.index_wrap_hint)))
                         node_parent.hints = hints
                 else:
                     if LOG_MISSING_DEFS is not None:
@@ -488,6 +494,7 @@ def apply_pre_indent(cfg: FormatConfig, node_parent: NdSexp, level: int, trailin
 # created from command line arguments.
 
 class FormatConfig(NamedTuple):
+    '''Configuration options relating to how the file should be formatted.'''
     use_trailing_parens: bool
     fill_column: int
     empty_lines: int
@@ -495,6 +502,7 @@ class FormatConfig(NamedTuple):
 
 
 class FnArity(NamedTuple):
+    '''Data associated with a function.'''
     # Type in: [`macro`, `func`, `special`].
     symbol_type: str
     # Minimum number of arguments.
@@ -557,6 +565,7 @@ class Defs:
 
 
 class WriteCtx:
+    '''Track context while writing.'''
     __slots__ = (
         'last_node',
         'is_newline',
@@ -580,6 +589,7 @@ class WriteCtx:
 
 
 class Node:
+    '''Base class for all kinds of Lisp elements.'''
     __slots__ = (
         *(
             (
@@ -629,6 +639,7 @@ class Node:
 
 
 class NdSexp(Node):
+    '''Represents S-expressions (lists with curved or square brackets).'''
     __slots__ = (
         'prefix',
         'bracket_open',
@@ -1079,6 +1090,7 @@ class NdSexp(Node):
 
 # Currently this always represents a blank line.
 class NdWs(Node):
+    '''This represents white-space to be kept in the output.'''
     __slots__ = ()
 
     def __init__(self, line: int):
@@ -1107,6 +1119,7 @@ class NdWs(Node):
 
 
 class NdComment(Node):
+    '''Code-comment.'''
     __slots__ = (
         'data',
         'is_own_line',
@@ -1144,6 +1157,7 @@ class NdComment(Node):
 
 
 class NdString(Node):
+    '''A string literal.'''
     __slots__ = (
         'data',
         'lines',
@@ -1186,6 +1200,7 @@ class NdString(Node):
 
 
 class NdSymbol(Node):
+    '''This represents any identifier that isn't an S-expression, string, comment or white-space.'''
     __slots__ = (
         'data',
     )
