@@ -6,9 +6,15 @@ import subprocess
 import tempfile
 import unittest
 
+from typing import (
+    Tuple,
+)
+
+# import unittest.util
+# unittest.util._MAX_LENGTH = 1000000
+
 # When investigating problems, set this
-TEMP_DIR_OVERRIDE = "/tmp/out"
-# TEMP_DIR_OVERRIDE = ""
+TEMP_DIR_OVERRIDE = ""
 
 THIS_DIR = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__))))
 BASE_DIR = os.path.normpath(os.path.join(THIS_DIR, '..'))
@@ -16,7 +22,10 @@ BASE_DIR = os.path.normpath(os.path.join(THIS_DIR, '..'))
 EMACS_BIN = "emacs"
 
 
-def emacs_elisp_autofmt_str_as_str(input_str: str, fill_column: int) -> str:
+def emacs_elisp_autofmt_str_as_str(
+        input_str: str,
+        fill_column: int,
+) -> Tuple[str, bytes, bytes]:
     """
     Take a path and return a string representing the formatted text.
     """
@@ -43,26 +52,23 @@ def emacs_elisp_autofmt_str_as_str(input_str: str, fill_column: int) -> str:
             ),
         )
 
-        subprocess.check_call(cmd)
+        completed_proc = subprocess.run(cmd, check=True, capture_output=True)
         with open(filepath_temp, 'r', encoding='utf-8') as fh:
-            return fh.read()
+            return (fh.read(), completed_proc.stdout, completed_proc.stderr)
 
 
-class MyFullCompareFormat(unittest.TestCase):
-    """
-    Sub-classes must have a ``code_format`` & ``code_expect`` property.
-    """
-
+class ELispAutoFormat(unittest.TestCase):
     def compare(
             self, code_format: str,
             code_expect: str,
+            stdout_expect: bytes = b'',
+            stderr_expect: bytes = b'',
             fill_column: int = 79,
     ) -> None:
         self.maxDiff = None
 
         import difflib
-        code_result = emacs_elisp_autofmt_str_as_str(code_format, fill_column)
-
+        code_result, stdout, stderr = emacs_elisp_autofmt_str_as_str(code_format, fill_column)
         diff_output = "\n".join(
             difflib.unified_diff(
                 code_expect.splitlines(),
@@ -70,6 +76,14 @@ class MyFullCompareFormat(unittest.TestCase):
             )
         )
         self.assertEqual("", diff_output)
+        self.assertEqual(stdout, stdout_expect)
+        self.assertEqual(stderr, stderr_expect)
+
+
+class CompareFormat(ELispAutoFormat):
+    """
+    Sub-classes must have a ``code_format`` & ``code_expect`` property.
+    """
 
     def test_if_simple(self) -> None:
         self.compare(
@@ -92,6 +106,33 @@ class MyFullCompareFormat(unittest.TestCase):
             code_expect=(
                 "(defvar 'test\n"
                 "  8)\n"
+            ),
+            fill_column=14,
+        )
+
+
+class CompareFormatExpectError(ELispAutoFormat):
+
+    def test_unbalanced_open(self) -> None:
+        self.compare(
+            code_format="(\n",
+            code_expect="(\n",
+            stderr_expect=(
+                b'elisp-autofmt: error code 1, output\n'
+                b'Error: unbalanced S-expressions at file-end, found 1 levels, expected 0\n'
+                b'\n'
+            ),
+            fill_column=14,
+        )
+
+    def test_unbalanced_quote(self) -> None:
+        self.compare(
+            code_format="\"\n",
+            code_expect="\"\n",
+            stderr_expect=(
+                b'elisp-autofmt: error code 1, output\n'
+                b'Error: parsing string at line 1\n'
+                b'\n'
             ),
             fill_column=14,
         )

@@ -1226,13 +1226,13 @@ def parse_file(cfg: FormatConfig, fh: TextIO) -> Tuple[str, NdSexp]:
 
     line = 0
 
-    # Fake top level s-expression to populate.
+    # Fake top level S-expression to populate.
     root = NdSexp(line)
     # Unused, set to avoid issues with checks later.
     root.bracket_open = '('
     root.bracket_close = ')'
 
-    # Current s-expressions.
+    # Current S-expressions.
     sexp_ctx = [root]
     sexp_level = 0
 
@@ -1371,7 +1371,7 @@ def parse_file(cfg: FormatConfig, fh: TextIO) -> Tuple[str, NdSexp]:
             line_has_contents = True
 
     if sexp_level != 0:
-        raise FmtException('unbalanced s-expressions at file-end, found {} levels, expected 0'.format(sexp_level))
+        raise FmtException('unbalanced S-expressions at file-end, found {} levels, expected 0'.format(sexp_level))
 
     # Has newline at file start?
     # it will disable the settings such as lexical binding.
