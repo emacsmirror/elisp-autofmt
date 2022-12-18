@@ -122,7 +122,39 @@ class CompareFormatExpectError(ELispAutoFormat):
                 b'Error: unbalanced S-expressions at file-end, found 1 levels, expected 0\n'
                 b'\n'
             ),
-            fill_column=14,
+        )
+
+    def test_unbalanced_close(self) -> None:
+        self.compare(
+            code_format=")\n",
+            code_expect=")\n",
+            stderr_expect=(
+                b'elisp-autofmt: error code 1, output\n'
+                b'Error: additional closing brackets, line 0\n'
+                b'\n'
+            ),
+        )
+
+    def test_unbalanced_types_parens(self) -> None:
+        self.compare(
+            code_format="(]\n",
+            code_expect="(]\n",
+            stderr_expect=(
+                b'elisp-autofmt: error code 1, output\n'
+                b'Error: closing bracket "]" line 0, unmatched bracket types, expected "]"\n'
+                b'\n'
+            ),
+        )
+
+    def test_unbalanced_types_vector(self) -> None:
+        self.compare(
+            code_format="[)\n",
+            code_expect="[)\n",
+            stderr_expect=(
+                b'elisp-autofmt: error code 1, output\n'
+                b'Error: closing bracket ")" line 0, unmatched bracket types, expected ")"\n'
+                b'\n'
+            ),
         )
 
     def test_unbalanced_quote(self) -> None:
@@ -134,7 +166,6 @@ class CompareFormatExpectError(ELispAutoFormat):
                 b'Error: parsing string at line 1\n'
                 b'\n'
             ),
-            fill_column=14,
         )
 
 
