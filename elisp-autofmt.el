@@ -91,6 +91,8 @@ This is intended to be set from file or directory locals and is marked safe.")
 ;;;###autoload
 (put 'elisp-autofmt-load-packages-local 'safe-local-variable #'elisp-autofmt-list-of-strings-p)
 
+(defvar-local elisp-autofmt-extra-debug-info nil "Show additional debug information.")
+
 
 ;; ---------------------------------------------------------------------------
 ;; Internal Variables
@@ -655,13 +657,16 @@ Optional argument ASSUME-FILE-NAME overrides the file name used for this buffer.
         (cond
           ((or (not (eq exit-code 2)) stderr-as-string pipe-err-as-string)
             (when pipe-err-as-string
-              (message "elisp-autofmt: error sending input (%s)" pipe-err-as-string))
+              (message "elisp-autofmt: error code %d, sending input (%s)"
+                exit-code
+                pipe-err-as-string))
             (when stderr-as-string
-              (message "elisp-autofmt: error output\n%s" stderr-as-string))
+              (message "elisp-autofmt: error code %d, output\n%s" exit-code stderr-as-string))
 
-            (message "elisp-autofmt: Command %S failed with exit code %d!"
-              command-with-args
-              exit-code)
+            (when elisp-autofmt-extra-debug-info
+              (message "elisp-autofmt: Command %S failed with exit code %d!"
+                command-with-args
+                exit-code))
             nil)
           (t
             (elisp-autofmt--replace-buffer-contents-with-fastpath stdout-buffer)))))))
