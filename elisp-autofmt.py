@@ -1319,9 +1319,8 @@ def parse_file(cfg: FormatConfig, fh: TextIO) -> Tuple[str, NdSexp]:
             if not c:
                 raise FmtException('parsing string at line {}'.format(line))
 
-            _ = NdString(line, data.getvalue())
-            sexp_ctx[sexp_level].nodes.append(_)
-            del _, data, is_slash, c
+            sexp_ctx[sexp_level].nodes.append(NdString(line, data.getvalue()))
+            del data, is_slash, c
             line_has_contents = True
         elif c == ';':
             data = StringIO()
@@ -1331,9 +1330,8 @@ def parse_file(cfg: FormatConfig, fh: TextIO) -> Tuple[str, NdSexp]:
                 data.write(c)
 
             is_own_line = not line_has_contents
-            _ = NdComment(line, data.getvalue(), is_own_line)
-            sexp_ctx[sexp_level].nodes.append(_)
-            del _, data, is_own_line
+            sexp_ctx[sexp_level].nodes.append(NdComment(line, data.getvalue(), is_own_line))
+            del data, is_own_line
             line_has_contents = True
         elif c == '\n':
             line += 1
@@ -1393,9 +1391,8 @@ def parse_file(cfg: FormatConfig, fh: TextIO) -> Tuple[str, NdSexp]:
                         text = text + c_peek
                         c_peek = None
 
-            _ = NdSymbol(line, text)
-            sexp_ctx[sexp_level].nodes.append(_)
-            del _, is_slash
+            sexp_ctx[sexp_level].nodes.append(NdSymbol(line, text))
+            del is_slash
             line_has_contents = True
 
     if sexp_level != 0:
