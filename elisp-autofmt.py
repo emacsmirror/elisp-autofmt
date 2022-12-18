@@ -191,7 +191,7 @@ def parse_local_defs(defs: Defs, node_parent: NdSexp) -> None:
     # Currently only used so we can break the number of arguments at '&rest'
     # since it's nearly always where we have the body of macros which is logically
     # where we want to break.
-    if node_parent.nodes_only_code and node_parent.bracket_open == '(':
+    if node_parent.nodes_only_code and node_parent.brackets == '()':
         node = node_parent.nodes[0]
         if isinstance(node, NdSymbol):
             symbol_type = None
@@ -250,7 +250,7 @@ def parse_local_defs(defs: Defs, node_parent: NdSexp) -> None:
 def apply_rules(defs: Defs, node_parent: NdSexp) -> None:
 
     # Optional
-    if node_parent.nodes_only_code and node_parent.bracket_open == '(':
+    if node_parent.nodes_only_code and node_parent.brackets == '()':
         node = node_parent.nodes[0]
         if isinstance(node, NdSymbol):
 
@@ -650,8 +650,7 @@ class NdSexp(Node):
     '''Represents S-expressions (lists with curved or square brackets).'''
     __slots__ = (
         'prefix',
-        'bracket_open',
-        'bracket_close',
+        'brackets',
         'nodes',
         'nodes_only_code',
         'index_wrap_hint',
@@ -659,15 +658,10 @@ class NdSexp(Node):
         'hints',
     )
 
-    bracket_open: str
-    bracket_close: str
-
-    def __init__(self, line: int, nodes: Optional[List[Node]] = None):
+    def __init__(self, line: int, brackets: str, nodes: Optional[List[Node]] = None):
         self.original_line = line
         self.prefix: str = ''
-        # Leave bracket_open, bracket_close unset.
-        # self.bracket_open = ''
-        # self.bracket_close = ''
+        self.brackets = brackets
         self.nodes = nodes or []
         self.index_wrap_hint: int = 1
         self.wrap_all_or_nothing_hint: bool = False
@@ -1001,7 +995,7 @@ class NdSexp(Node):
                     write_fn('  ' * level)
                     ctx.is_newline = False
 
-            write_fn(self.bracket_open)
+            write_fn(self.brackets[0])
             ctx.is_newline = False
 
         ctx.last_node = self
@@ -1087,7 +1081,7 @@ class NdSexp(Node):
                     ctx.is_newline = True
                     write_fn('  ' * level_next)
                     ctx.is_newline = False
-            write_fn(self.bracket_close)
+            write_fn(self.brackets[1])
             ctx.is_newline = False
 
 
@@ -1248,11 +1242,8 @@ def parse_file(cfg: FormatConfig, fh: TextIO) -> Tuple[str, NdSexp]:
 
     line = 0
 
-    # Fake top level S-expression to populate.
-    root = NdSexp(line)
-    # Unused, set to avoid issues with checks later.
-    root.bracket_open = '('
-    root.bracket_close = ')'
+    # Fake top level S-expression to populate, (brackets aren't used).
+    root = NdSexp(line, brackets='()')
 
     # Current S-expressions.
     sexp_ctx = [root]
@@ -1277,29 +1268,32 @@ def parse_file(cfg: FormatConfig, fh: TextIO) -> Tuple[str, NdSexp]:
     while c := c_peek or fh.read(1):
         c_peek = None
 
-        if c in {'(', '['}:
-            _ = NdSexp(line)
-            _.bracket_open = c
-            sexp_ctx[sexp_level].nodes.append(_)
-            sexp_ctx.append(_)
+        if c == '(':
+            sexp_ctx.append(NdSexp(line, '()'))
+            sexp_ctx[sexp_level].nodes.append(sexp_ctx[-1])
             sexp_level += 1
-            del _
             line_has_contents = True
-        elif c in {')', ']'}:
+        elif c == '[':
+            sexp_ctx.append(NdSexp(line, '[]'))
+            sexp_ctx[sexp_level].nodes.append(sexp_ctx[-1])
+            sexp_level += 1
+            line_has_contents = True
+        elif c == ')':
             if sexp_level == 0:
                 raise FmtException('additional closing brackets, line {}'.format(line))
-            _ = sexp_ctx.pop()
-            if _.bracket_open == '(':
-                if c != ')':
-                    raise FmtException(
-                        'closing bracket "{:s}" line {:d}, unmatched bracket types, expected ")"'.format(c, line)
-                    )
-            else:
-                if c != ']':
-                    raise FmtException(
-                        'closing bracket "{:s}" line {:d}, unmatched bracket types, expected "]"'.format(c, line)
-                    )
-            _.bracket_close = c
+            if sexp_ctx.pop().brackets[0] != '(':
+                raise FmtException(
+                    'closing bracket "{:s}" line {:d}, unmatched bracket types, expected ")"'.format(c, line)
+                )
+            sexp_level -= 1
+            line_has_contents = True
+        elif c == ']':
+            if sexp_level == 0:
+                raise FmtException('additional closing brackets, line {}'.format(line))
+            if sexp_ctx.pop().brackets[0] != '[':
+                raise FmtException(
+                    'closing bracket "{:s}" line {:d}, unmatched bracket types, expected "]"'.format(c, line)
+                )
             sexp_level -= 1
             line_has_contents = True
         elif c == '"':
