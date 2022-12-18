@@ -850,7 +850,7 @@ class NdSexp(Node):
                     continue
                 self.nodes_only_code[:] = [nodes_backup[i]]
 
-            assert (ctx.line_terminate == -1)
+            assert ctx.line_terminate == -1
             if self.fmt_check_exceeds_colum_max(ctx.cfg, level, trailing_parens):
                 if i == len(nodes_backup):
                     apply_relaxed_wrap(self)
@@ -861,7 +861,7 @@ class NdSexp(Node):
         for i in range(len(self.nodes_only_code)):
             if nl[i] is False and self.nodes_only_code[i].force_newline is True:
                 self.nodes_only_code[i].force_newline = False
-                assert (ctx.line_terminate == -1)
+                assert ctx.line_terminate == -1
                 if self.fmt_check_exceeds_colum_max(
                         ctx.cfg,
                         level,
@@ -998,7 +998,7 @@ class NdSexp(Node):
                 # Use only for testing.
                 if node is test_node_terminate:
                     # We could return however this misses trailing parenthesis on the same line.
-                    assert (ctx.line_terminate == -1)
+                    assert ctx.line_terminate == -1
                     ctx.line_terminate = ctx.line
                 if getattr(node, 'test_blacklist', False):
                     continue
@@ -1443,7 +1443,7 @@ def format_file(
         with open(filepath, 'r', encoding='utf-8', newline=newline) as fh:
             first_line, root = parse_file(cfg, fh)
 
-    assert (root.flush_newlines_from_nodes_recursive() == False)
+    assert root.flush_newlines_from_nodes_recursive() is False
 
     if use_stdout:
         write_file(cfg, sys.stdout, root, first_line)
