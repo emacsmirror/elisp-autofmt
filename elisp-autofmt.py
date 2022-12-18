@@ -225,7 +225,7 @@ def parse_local_defs(defs: Defs, node_parent: NdSexp) -> None:
                             arg_index_min = i
                             arg_index_max = 'many'
                             break
-                        elif node_arg.data == '&optional':
+                        if node_arg.data == '&optional':
                             arg_index_min = i
                             arg_index_max = i
                             # Count remaining arguments and exit.
@@ -541,7 +541,7 @@ class Defs:
             with open(filepath, 'r', encoding='utf-8') as fh:
                 try:
                     fh_as_json = json.load(fh)
-                except Exception as ex:
+                except BaseException as ex:
                     sys.stderr.write('JSON definition: error ({:s}) parsing {!r}!\n'.format(str(ex), filepath))
                     continue
 
@@ -590,24 +590,44 @@ class WriteCtx:
 class Node:
     '''Base class for all kinds of Lisp elements.'''
     __slots__ = (
-        *(
-            (
-                'force_newline',
-            )
-            if not TRACE_NEWLINES else
-            (
-                '_force_newline',
-                '_force_newline_tracepoint',
-            )
-        ),
+        'force_newline',
         'original_line',
         'test_blacklist',
     )
 
+    force_newline: bool
     original_line: int
     test_blacklist: bool
 
-    if TRACE_NEWLINES:
+    def calc_force_newline(self) -> None:
+        raise Exception('All subclasses must define this')
+
+    def fmt(
+            self,
+            ctx: WriteCtx,
+            write_fn: Callable[[str], Any],
+            level: int,
+            *,
+            test: bool = False,
+    ) -> None:
+        raise Exception('All subclasses must define this')
+
+
+if TRACE_NEWLINES:
+    _Node = Node
+    Node.__slots__ = tuple(s for s in Node.__slots__ if s != 'force_newline')  # type: ignore
+    del Node
+
+    class NodeTraceLines(_Node):
+        '''Base class for all kinds of Lisp elements.'''
+        __slots__ = (
+            '_force_newline',
+            '_force_newline_tracepoint',
+        )
+
+        original_line: int
+        test_blacklist: bool
+
         @property
         def force_newline(self) -> bool:
             return self._force_newline
@@ -623,18 +643,7 @@ class Node:
                     )
             self._force_newline = value
 
-    def calc_force_newline(self) -> None:
-        raise Exception('All subclasses must define this')
-
-    def fmt(
-            self,
-            ctx: WriteCtx,
-            write_fn: Callable[[str], Any],
-            level: int,
-            *,
-            test: bool = False,
-    ) -> None:
-        raise Exception('All subclasses must define this')
+    Node = NodeTraceLines  # type: ignore
 
 
 class NdSexp(Node):
@@ -822,9 +831,8 @@ class NdSexp(Node):
                     if line_length > fill_column - trailing_parens:
                         return True
                     return False
-                else:
-                    if line_length > fill_column:
-                        return True
+                if line_length > fill_column:
+                    return True
                 i += 1
         else:
             while line_step != -1:
@@ -867,17 +875,17 @@ class NdSexp(Node):
                     self.nodes_only_code[0].force_newline = True
 
         # Disable newlines for individual items where possible.
-        for i in range(len(self.nodes_only_code)):
-            if nl[i] is False and self.nodes_only_code[i].force_newline is True:
-                self.nodes_only_code[i].force_newline = False
+        for i, node_only_code in enumerate(self.nodes_only_code):
+            if nl[i] is False and node_only_code.force_newline is True:
+                node_only_code.force_newline = False
                 assert ctx.line_terminate == -1
                 if self.fmt_check_exceeds_colum_max(
                         ctx.cfg,
                         level,
                         trailing_parens,
-                        test_node_terminate=self.nodes_only_code[i],
+                        test_node_terminate=node_only_code,
                 ):
-                    self.nodes_only_code[i].force_newline = True
+                    node_only_code.force_newline = True
                 else:
                     break
 
@@ -931,7 +939,7 @@ class NdSexp(Node):
             #     (:eval
             #        ...)
 
-            node_prev = None
+            # node_prev = None
             for node in self.nodes_only_code[self.index_wrap_hint:]:
                 if not node.force_newline:
                     if (
@@ -946,7 +954,7 @@ class NdSexp(Node):
                         node.force_newline = True
                         self.force_newline = True
 
-                node_prev = node
+                # node_prev = node
 
     def fmt(self,
             ctx: WriteCtx,
@@ -986,7 +994,7 @@ class NdSexp(Node):
                     if TRACE_NEWLINES:
                         if self.force_newline:
                             if not test:
-                                write_fn(' $' + self._force_newline_tracepoint)
+                                write_fn(' $' + self._force_newline_tracepoint)  # type: ignore
 
                     ctx.line += 1
                     ctx.is_newline = True
@@ -1033,7 +1041,7 @@ class NdSexp(Node):
                     if TRACE_NEWLINES:
                         if node.force_newline:
                             if not test:
-                                write_fn(' $' + node._force_newline_tracepoint)
+                                write_fn(' $' + node._force_newline_tracepoint)  # type: ignore
 
                     write_fn('  ' * level_next)
                     ctx.is_newline = False
@@ -1050,7 +1058,7 @@ class NdSexp(Node):
                     ):
                         write_fn(' ')
 
-            if ctx.line_terminate != -1 and (ctx.line != ctx.line_terminate):
+            if ctx.line_terminate not in (-1, ctx.line):
                 return
 
             line = ctx.line
@@ -1062,7 +1070,7 @@ class NdSexp(Node):
 
             is_first = False
 
-            if ctx.line_terminate != -1 and (ctx.line != ctx.line_terminate):
+            if ctx.line_terminate not in (-1, ctx.line):
                 return
 
         if level != -1:
@@ -1109,6 +1117,7 @@ class NdWs(Node):
             ctx: WriteCtx,
             write_fn: Callable[[str], Any],
             level: int,
+            *,
             test: bool = False,
     ) -> None:
         write_fn('\n')
@@ -1632,7 +1641,7 @@ def main_generate_defs() -> bool:
     return True
 
 
-def main() -> None:
+def main_no_except() -> None:
 
     if main_generate_defs():
         return
@@ -1684,9 +1693,13 @@ def main() -> None:
     sys.exit(args.exit_code)
 
 
-if __name__ == '__main__':
+def main() -> None:
     try:
-        main()
+        main_no_except()
     except FmtException as ex:
         sys.stderr.write('Error: {}\n'.format(str(ex)))
         sys.exit(1)
+
+
+if __name__ == '__main__':
+    main()
