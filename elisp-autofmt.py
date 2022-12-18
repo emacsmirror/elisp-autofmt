@@ -1289,8 +1289,7 @@ def parse_file(cfg: FormatConfig, fh: TextIO) -> Tuple[str, NdSexp]:
             if not c:
                 raise FmtException('parsing string at line {}'.format(line))
 
-            data.seek(0, os.SEEK_SET)
-            _ = NdString(line, data.read())
+            _ = NdString(line, data.getvalue())
             sexp_ctx[sexp_level].nodes.append(_)
             del _, data, is_slash, c
             line_has_contents = True
@@ -1302,8 +1301,7 @@ def parse_file(cfg: FormatConfig, fh: TextIO) -> Tuple[str, NdSexp]:
                 data.write(c)
 
             is_own_line = not line_has_contents
-            data.seek(0, os.SEEK_SET)
-            _ = NdComment(line, data.read(), is_own_line)
+            _ = NdComment(line, data.getvalue(), is_own_line)
             sexp_ctx[sexp_level].nodes.append(_)
             del _, data, is_own_line
             line_has_contents = True
@@ -1344,8 +1342,8 @@ def parse_file(cfg: FormatConfig, fh: TextIO) -> Tuple[str, NdSexp]:
                 c = c_peek
                 c_peek = None
 
-            data.seek(0, os.SEEK_SET)
-            text = data.read()
+            text = data.getvalue()
+            del data
 
             # Special support for character literals.
             if text[0] == '?':
@@ -1367,7 +1365,7 @@ def parse_file(cfg: FormatConfig, fh: TextIO) -> Tuple[str, NdSexp]:
 
             _ = NdSymbol(line, text)
             sexp_ctx[sexp_level].nodes.append(_)
-            del _, data, is_slash
+            del _, is_slash
             line_has_contents = True
 
     if sexp_level != 0:
