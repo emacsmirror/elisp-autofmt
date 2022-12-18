@@ -145,7 +145,7 @@ This can be installed using ``straight``, example:
 
      :straight
      (elisp-autofmt
-       :files (:defaults "elisp-autofmt" "elisp-autofmt.overrides.json")
+       :files (:defaults "elisp-autofmt.py" "elisp-autofmt.overrides.json")
        :host nil
        :type git
        :repo "https://codeberg.org/ideasman42/emacs-elisp-autofmt.git"))

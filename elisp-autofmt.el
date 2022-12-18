@@ -96,8 +96,9 @@ This is intended to be set from file or directory locals and is marked safe.")
 ;; Internal Variables
 
 ;; Run this command to format.
-(defconst elisp-autofmt--bin (file-name-sans-extension load-file-name))
 (defconst elisp-autofmt--this-file load-file-name)
+(defconst elisp-autofmt--base (file-name-sans-extension elisp-autofmt--this-file))
+(defconst elisp-autofmt--bin (concat elisp-autofmt--base ".py"))
 
 ;; Include these in the default emacs-binary API list.
 ;; Only use this for:
@@ -605,7 +606,7 @@ Optional argument ASSUME-FILE-NAME overrides the file name used for this buffer.
                       ;; Optionally
                       (cond
                         (elisp-autofmt-use-default-override-defs
-                          (list (concat elisp-autofmt--bin ".overrides.json")))
+                          (list (concat elisp-autofmt--base ".overrides.json")))
                         (t
                           (list))))
                     path-separator))))
