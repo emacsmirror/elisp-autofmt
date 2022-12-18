@@ -1268,17 +1268,17 @@ def parse_file(cfg: FormatConfig, fh: TextIO) -> Tuple[str, NdSexp]:
     while c := c_peek or fh.read(1):
         c_peek = None
 
-        if c == '(':
+        if c == '(':  # Open S-expression.
             sexp_ctx.append(NdSexp(line, '()'))
             sexp_ctx[sexp_level].nodes.append(sexp_ctx[-1])
             sexp_level += 1
             line_has_contents = True
-        elif c == '[':
+        elif c == '[':  # Open vector.
             sexp_ctx.append(NdSexp(line, '[]'))
             sexp_ctx[sexp_level].nodes.append(sexp_ctx[-1])
             sexp_level += 1
             line_has_contents = True
-        elif c == ')':
+        elif c == ')':  # Close S-expression.
             if sexp_level == 0:
                 raise FmtException('additional closing brackets, line {}'.format(line))
             if sexp_ctx.pop().brackets[0] != '(':
@@ -1287,7 +1287,7 @@ def parse_file(cfg: FormatConfig, fh: TextIO) -> Tuple[str, NdSexp]:
                 )
             sexp_level -= 1
             line_has_contents = True
-        elif c == ']':
+        elif c == ']':  # Close vector.
             if sexp_level == 0:
                 raise FmtException('additional closing brackets, line {}'.format(line))
             if sexp_ctx.pop().brackets[0] != '[':
@@ -1296,7 +1296,7 @@ def parse_file(cfg: FormatConfig, fh: TextIO) -> Tuple[str, NdSexp]:
                 )
             sexp_level -= 1
             line_has_contents = True
-        elif c == '"':
+        elif c == '"':  # Open & close string.
             data = StringIO()
             is_slash = False
             while (c := fh.read(1)):
@@ -1316,7 +1316,7 @@ def parse_file(cfg: FormatConfig, fh: TextIO) -> Tuple[str, NdSexp]:
             sexp_ctx[sexp_level].nodes.append(NdString(line, data.getvalue()))
             del data, is_slash, c
             line_has_contents = True
-        elif c == ';':
+        elif c == ';':  # Comment.
             data = StringIO()
             while (c_peek := fh.read(1)) not in {'', '\n'}:
                 c = c_peek
@@ -1327,16 +1327,15 @@ def parse_file(cfg: FormatConfig, fh: TextIO) -> Tuple[str, NdSexp]:
             sexp_ctx[sexp_level].nodes.append(NdComment(line, data.getvalue(), is_own_line))
             del data, is_own_line
             line_has_contents = True
-        elif c == '\n':
+        elif c == '\n':  # White-space (newline).
             line += 1
             # Respect blank lines up until the limit.
             if line_has_contents is False:
                 sexp_ctx[sexp_level].nodes.append(NdWs(line))
             line_has_contents = False
-        elif c in {' ', '\t'}:
+        elif c in {' ', '\t'}:  # White-space (space, tab) - ignored.
             pass
-        else:
-            # Symbol
+        else:  # Symbol (any other character).
             data = StringIO()
             is_slash = False
             while c:
