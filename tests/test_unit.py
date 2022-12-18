@@ -80,10 +80,22 @@ class ELispAutoFormat(unittest.TestCase):
         self.assertEqual(stderr, stderr_expect)
 
 
+class CompareFormatNOP(ELispAutoFormat):
+
+    def test_empty(self) -> None:
+        self.compare(
+            code_format="",
+            code_expect="\n",
+        )
+
+    def test_empty_excess_newline(self) -> None:
+        self.compare(
+            code_format="\n\n\n\n",
+            code_expect="\n\n",
+        )
+
+
 class CompareFormat(ELispAutoFormat):
-    """
-    Sub-classes must have a ``code_format`` & ``code_expect`` property.
-    """
 
     def test_if_simple(self) -> None:
         self.compare(
