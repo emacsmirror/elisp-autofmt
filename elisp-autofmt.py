@@ -1289,9 +1289,17 @@ def parse_file(cfg: FormatConfig, fh: TextIO) -> Tuple[str, NdSexp]:
             if sexp_level == 0:
                 raise FmtException('additional closing brackets, line {}'.format(line))
             _ = sexp_ctx.pop()
+            if _.bracket_open == '(':
+                if c != ')':
+                    raise FmtException(
+                        'closing bracket "{:s}" line {:d}, unmatched bracket types, expected ")"'.format(c, line)
+                    )
+            else:
+                if c != ']':
+                    raise FmtException(
+                        'closing bracket "{:s}" line {:d}, unmatched bracket types, expected "]"'.format(c, line)
+                    )
             _.bracket_close = c
-            if (_.bracket_open + _.bracket_close) not in {'()', '[]'}:
-                raise FmtException('closing parenthesis line {}, unmatched bracket types'.format(line))
             sexp_level -= 1
             line_has_contents = True
         elif c == '"':
