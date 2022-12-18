@@ -217,7 +217,6 @@ def parse_local_defs(defs: Defs, node_parent: NdSexp) -> None:
                     symbol = node_symbol.data
                     arg_index_min = 0
                     arg_index_max: Union[int, str] = 0
-                    is_optional = False
                     for i, node_arg in enumerate(node_args.nodes_only_code):
                         if not isinstance(node_arg, NdSymbol):
                             continue
@@ -800,7 +799,6 @@ class NdSexp(Node):
         self.fmt_with_terminate_node(_ctx, _data.append, level, test=True, test_node_terminate=test_node_terminate)
         data = ''.join(_data)
         del _data
-        ok = True
 
         fill_column = cfg.fill_column
         line_terminate = _ctx.line_terminate
