@@ -10,6 +10,7 @@ from typing import (
     Tuple,
 )
 
+# Un-comment to see full error messages.
 # import unittest.util
 # unittest.util._MAX_LENGTH = 1000000
 
@@ -95,7 +96,61 @@ class CompareFormatNOP(ELispAutoFormat):
         )
 
 
-class CompareFormat(ELispAutoFormat):
+class CompareFormatEmpty(ELispAutoFormat):
+
+    def test_sexpr(self) -> None:
+        self.compare(
+            code_format="()",
+            code_expect="()\n",
+        )
+
+    def test_vector(self) -> None:
+        self.compare(
+            code_format="[]",
+            code_expect="[]\n",
+        )
+
+    def test_string(self) -> None:
+        self.compare(
+            code_format="\"\"",
+            code_expect="\"\"\n",
+        )
+
+    def test_comment(self) -> None:
+        self.compare(
+            code_format=";",
+            code_expect=";\n",
+        )
+
+
+class CompareFormatSingle(ELispAutoFormat):
+
+    def test_comment(self) -> None:
+        self.compare(
+            code_format=";; Test.",
+            code_expect=";; Test.\n",
+        )
+
+    def test_sexpr(self) -> None:
+        self.compare(
+            code_format="(x)",
+            code_expect="(x)\n",
+        )
+
+    def test_char(self) -> None:
+        self.compare(
+            code_format="?x",
+            code_expect="?x\n",
+        )
+
+    def test_string(self) -> None:
+        self.compare(
+            code_format="\"x\"",
+            code_expect="\"x\"\n",
+        )
+
+
+class CompareFormatSingleExpr(ELispAutoFormat):
 
     def test_if_simple(self) -> None:
         self.compare(
