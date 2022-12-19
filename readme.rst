@@ -2,10 +2,7 @@
 Emacs AutoFmt
 #############
 
-This is a utility to auto-format Emacs lisp.
-
-This is a command line tool which requires Python3.10 as well as
-an Emacs utility to run this tool on saving.
+This is a package to auto-format Emacs lisp.
 
 Projects using this:
 
@@ -79,6 +76,14 @@ this checks for the existence of an ``.elisp-autofmt`` file in the buffers direc
 .. note::
 
    ``.elisp-autofmt`` will eventually be used for configuration, for now it should be left empty.
+
+
+Requirements
+------------
+
+- Emacs 27.2.
+- Python 3.10.
+
 
 Performance
 -----------
