@@ -4,7 +4,7 @@ Emacs AutoFmt
 
 This is a utility to auto-format Emacs lisp.
 
-This is a command line tool which requires Python3.8 as well as
+This is a command line tool which requires Python3.10 as well as
 an Emacs utility to run this tool on saving.
 
 Projects using this:

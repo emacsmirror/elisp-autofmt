@@ -1268,126 +1268,128 @@ def parse_file(cfg: FormatConfig, fh: TextIO) -> Tuple[str, NdSexp]:
 
     while c := c_peek or fh.read(1):
         c_peek = None
+        match c:
+            case '(':  # Open S-expression.
+                sexp_ctx.append(NdSexp(line, '()'))
+                sexp_ctx[sexp_level].nodes.append(sexp_ctx[-1])
+                sexp_level += 1
+                line_has_contents = True
 
-        if c == '(':  # Open S-expression.
-            sexp_ctx.append(NdSexp(line, '()'))
-            sexp_ctx[sexp_level].nodes.append(sexp_ctx[-1])
-            sexp_level += 1
-            line_has_contents = True
-        elif c == '[':  # Open vector.
-            sexp_ctx.append(NdSexp(line, '[]'))
-            sexp_ctx[sexp_level].nodes.append(sexp_ctx[-1])
-            sexp_level += 1
-            line_has_contents = True
-        elif c == ')':  # Close S-expression.
-            if sexp_level == 0:
-                raise FmtException('additional closing brackets, line {}'.format(line))
-            if sexp_ctx.pop().brackets[0] != '(':
-                raise FmtException(
-                    'closing bracket "{:s}" line {:d}, unmatched bracket types, expected ")"'.format(c, line)
-                )
-            sexp_level -= 1
-            line_has_contents = True
-        elif c == ']':  # Close vector.
-            if sexp_level == 0:
-                raise FmtException('additional closing brackets, line {}'.format(line))
-            if sexp_ctx.pop().brackets[0] != '[':
-                raise FmtException(
-                    'closing bracket "{:s}" line {:d}, unmatched bracket types, expected "]"'.format(c, line)
-                )
-            sexp_level -= 1
-            line_has_contents = True
-        elif c == '"':  # Open & close string.
-            data = StringIO()
-            is_slash = False
-            while (c := fh.read(1)):
-                if c == '"' and not is_slash:
-                    break
-                data.write(c)
-                if c == '\\':
-                    is_slash = not is_slash
-                else:
-                    is_slash = False
-                    if c == '\n':
-                        line += 1
-
-            if not c:
-                raise FmtException('parsing string at line {}'.format(line))
-
-            sexp_ctx[sexp_level].nodes.append(NdString(line, data.getvalue()))
-            del data, is_slash, c
-            line_has_contents = True
-        elif c == ';':  # Comment.
-            data = StringIO()
-            while (c_peek := fh.read(1)) not in {'', '\n'}:
-                c = c_peek
-                c_peek = None
-                data.write(c)
-
-            is_own_line = not line_has_contents
-            sexp_ctx[sexp_level].nodes.append(NdComment(line, data.getvalue(), is_own_line))
-            del data, is_own_line
-            line_has_contents = True
-        elif c == '\n':  # White-space (newline).
-            line += 1
-            # Respect blank lines up until the limit.
-            if line_has_contents is False:
-                sexp_ctx[sexp_level].nodes.append(NdWs(line))
-            line_has_contents = False
-        elif c in {' ', '\t'}:  # White-space (space, tab) - ignored.
-            pass
-        else:  # Symbol (any other character).
-            data = StringIO()
-            is_slash = False
-            while c:
-                if c == '\\':
-                    is_slash = not is_slash
-                else:
-                    is_slash = False
-                data.write(c)
-                c_peek = fh.read(1)
-                if not c_peek:
-                    break
-                if c_peek == '\n':
-                    break
-                if not is_slash:
-                    if c_peek in {
-                            '(', ')',
-                            '[', ']',
-                            ';',
-                            ' ', '\t',
-                            # Lisp doesn't require spaces are between symbols and quotes.
-                            '"',
-                    }:
+            case '[':  # Open vector.
+                sexp_ctx.append(NdSexp(line, '[]'))
+                sexp_ctx[sexp_level].nodes.append(sexp_ctx[-1])
+                sexp_level += 1
+                line_has_contents = True
+            case ')':  # Close S-expression.
+                if sexp_level == 0:
+                    raise FmtException('additional closing brackets, line {}'.format(line))
+                if sexp_ctx.pop().brackets[0] != '(':
+                    raise FmtException(
+                        'closing bracket "{:s}" line {:d}, unmatched bracket types, expected ")"'.format(c, line)
+                    )
+                sexp_level -= 1
+                line_has_contents = True
+            case ']':  # Close vector.
+                if sexp_level == 0:
+                    raise FmtException('additional closing brackets, line {}'.format(line))
+                if sexp_ctx.pop().brackets[0] != '[':
+                    raise FmtException(
+                        'closing bracket "{:s}" line {:d}, unmatched bracket types, expected "]"'.format(c, line)
+                    )
+                sexp_level -= 1
+                line_has_contents = True
+            case '"':  # Open & close string.
+                data = StringIO()
+                is_slash = False
+                while (c := fh.read(1)):
+                    if c == '"' and not is_slash:
                         break
+                    data.write(c)
+                    if c == '\\':
+                        is_slash = not is_slash
+                    else:
+                        is_slash = False
+                        if c == '\n':
+                            line += 1
 
-                c = c_peek
-                c_peek = None
+                if not c:
+                    raise FmtException('parsing string at line {}'.format(line))
 
-            text = data.getvalue()
-            del data
+                sexp_ctx[sexp_level].nodes.append(NdString(line, data.getvalue()))
+                del data, is_slash, c
+                line_has_contents = True
+            case ';':  # Comment.
+                data = StringIO()
+                while (c_peek := fh.read(1)) not in {'', '\n'}:
+                    c = c_peek
+                    c_peek = None
+                    data.write(c)
 
-            # Special support for character literals.
-            if text[0] == '?':
-                if c_peek:
-                    # Always include the next character even if it's normally a delimiting character such as ';', '"'
-                    # (un-escaped literal support, even allowing for `?;` or `?\C-;`).
-                    if (
-                            # Support `? ` and `?;`.
-                            (len(text) == 1) or
-                            # Support `?\C- ` and `?\C-;` and `?\C-\s- `.
-                            (len(text) >= 4 and (
-                                text[-1] == '-' and
-                                text[-2].isalpha() and
-                                text[-3] == '\\')
-                             )
-                    ):
-                        text = text + c_peek
-                        c_peek = None
+                is_own_line = not line_has_contents
+                sexp_ctx[sexp_level].nodes.append(NdComment(line, data.getvalue(), is_own_line))
+                del data, is_own_line
+                line_has_contents = True
+            case '\n':  # White-space (newline).
+                line += 1
+                # Respect blank lines up until the limit.
+                if line_has_contents is False:
+                    sexp_ctx[sexp_level].nodes.append(NdWs(line))
+                line_has_contents = False
+            case ' ' | '\t':  # White-space (space, tab) - ignored.
+                pass
+            case _:  # Symbol (any other character).
+                data = StringIO()
+                is_slash = False
+                while c:
+                    if c == '\\':
+                        is_slash = not is_slash
+                    else:
+                        is_slash = False
+                    data.write(c)
+                    c_peek = fh.read(1)
+                    if not c_peek:
+                        break
+                    if c_peek == '\n':
+                        break
+                    if not is_slash:
+                        if c_peek in {
+                                '(', ')',
+                                '[', ']',
+                                ';',
+                                ' ', '\t',
+                                # Lisp doesn't require spaces are between symbols and quotes.
+                                '"',
+                        }:
+                            break
 
-            sexp_ctx[sexp_level].nodes.append(NdSymbol(line, text))
-            del is_slash
-            line_has_contents = True
+                    c = c_peek
+                    c_peek = None
+
+                text = data.getvalue()
+                del data
+
+                # Special support for character literals.
+                if text[0] == '?':
+                    if c_peek:
+                        # Always include the next character
+                        # even if it's normally a delimiting character such as ';', '"'
+                        # (un-escaped literal support, even allowing for `?;` or `?\C-;`).
+                        if (
+                                # Support `? ` and `?;`.
+                                (len(text) == 1) or
+                                # Support `?\C- ` and `?\C-;` and `?\C-\s- `.
+                                (len(text) >= 4 and (
+                                    text[-1] == '-' and
+                                    text[-2].isalpha() and
+                                    text[-3] == '\\')
+                                 )
+                        ):
+                            text = text + c_peek
+                            c_peek = None
+
+                sexp_ctx[sexp_level].nodes.append(NdSymbol(line, text))
+                del is_slash
+                line_has_contents = True
 
     if sexp_level != 0:
         raise FmtException('unbalanced S-expressions at file-end, found {} levels, expected 0'.format(sexp_level))
