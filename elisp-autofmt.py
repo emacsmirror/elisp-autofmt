@@ -706,11 +706,12 @@ class NdSexp(Node):
 
     def flush_newlines_from_nodes(self) -> bool:
         changed = False
-        for node in self.nodes_only_code:
-            if node.force_newline:
-                self.force_newline = True
-                changed = True
-                break
+        if not self.force_newline:
+            for node in self.nodes_only_code:
+                if node.force_newline:
+                    self.force_newline = True
+                    changed = True
+                    break
         return changed
 
     def flush_newlines_from_nodes_recursive(self) -> bool:
@@ -719,7 +720,7 @@ class NdSexp(Node):
             if node.force_newline:
                 if not self.force_newline:
                     changed = True
-                self.force_newline = True
+                    self.force_newline = True
             if isinstance(node, NdSexp):
                 changed |= node.flush_newlines_from_nodes_recursive()
         return changed
@@ -1463,6 +1464,8 @@ def format_file(
         with open(filepath, 'r', encoding='utf-8', newline=newline) as fh:
             first_line, root = parse_file(cfg, fh)
 
+    # Redundant but needed for the assertion not to fail in the case when `len(root.nodes_only_code) == 1`.
+    root.force_newline = True
     assert root.flush_newlines_from_nodes_recursive() is False
 
     if use_stdout:
