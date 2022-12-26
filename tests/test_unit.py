@@ -177,6 +177,21 @@ class CompareFormatSingleExpr(ELispAutoFormat):
             fill_column=14,
         )
 
+    def test_setq_multi(self) -> None:
+        self.compare(
+            code_format="(setq a b c d e f)\n",
+            code_expect=("(setq\n"
+                         "  a b\n"
+                         "  c d\n"
+                         "  e f)\n"),
+        )
+
+    def test_setq_single(self) -> None:
+        self.compare(
+            code_format="(setq a b)\n",
+            code_expect=("(setq a b)\n"),
+        )
+
 
 class CompareFormatExpectError(ELispAutoFormat):
 

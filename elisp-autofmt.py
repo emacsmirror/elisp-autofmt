@@ -120,7 +120,16 @@ def apply_relaxed_wrap(node_parent: NdSexp) -> None:
     node_prev = None
     force_newline = False
 
-    nodes_iter = node_parent.nodes_only_code[node_parent.index_wrap_hint:]
+    if node_parent.hints is not None:
+        group = node_parent.hints.get('group')
+    else:
+        group = None
+
+    if group is not None:
+        nodes_iter = node_parent.nodes_only_code[group[0] + 1:]
+    else:
+        nodes_iter = node_parent.nodes_only_code[node_parent.index_wrap_hint:]
+
     i_last = len(nodes_iter) - 1
 
     # Make a map, we could store this for reuse.
@@ -132,50 +141,65 @@ def apply_relaxed_wrap(node_parent: NdSexp) -> None:
         node_prev = node
     # Finish building 'nodes_with_trailing_comment_or_newline'.
 
-    for i, node in enumerate(nodes_iter):
-        node_next = None if i == i_last else nodes_iter[i + 1]
+    if group is not None:
+        group_count = group[1]
+        for i, node in enumerate(nodes_iter):
+            ok = True
 
-        ok = True
-        # Keep pairs:
-        #     (foo
-        #       :keyword value)
-        #
-        # Or:
-        #     (foo
-        #       :keyword value
-        #       :other other-value)
-        #
-        # But only pairs, so multiple values each get their own line:
-        #     (foo
-        #       :keyword
-        #       value
-        #       other-value)
-        #
-        # .. Better for use-package 'config' sections.
-        #
-        # But but... keep ther pairs in the case of a blank line or comment.
-        #     (foo
-        #       :keyword value
-        #
-        #       other-value)
-        #
-        # .. Useful for macros such as 'define-minor-mode' which have properties, then a &rest.
-        #
-        if (
-                (isinstance(node_prev, NdSymbol) and node_prev.data.startswith(':')) and
-                (
-                    (node_next is None) or
-                    (id(node) in nodes_with_trailing_comment_or_newline) or
-                    (isinstance(node_next, NdSymbol) and node_next.data.startswith(':'))
-                )
-        ):
-            ok = False
+            if (i % group_count) != 0:
+                ok = False
 
-        if ok:
-            node.force_newline = True
-        force_newline |= node.force_newline
+            if ok:
+                node.force_newline = True
+            force_newline |= node.force_newline
 
-        node_prev = node
+            node_prev = node
+
+    else:
+        for i, node in enumerate(nodes_iter):
+            node_next = None if i == i_last else nodes_iter[i + 1]
+
+            ok = True
+            # Keep pairs:
+            #     (foo
+            #       :keyword value)
+            #
+            # Or:
+            #     (foo
+            #       :keyword value
+            #       :other other-value)
+            #
+            # But only pairs, so multiple values each get their own line:
+            #     (foo
+            #       :keyword
+            #       value
+            #       other-value)
+            #
+            # .. Better for use-package 'config' sections.
+            #
+            # But but... keep ther pairs in the case of a blank line or comment.
+            #     (foo
+            #       :keyword value
+            #
+            #       other-value)
+            #
+            # .. Useful for macros such as 'define-minor-mode' which have properties, then a &rest.
+            #
+            if (
+                    (isinstance(node_prev, NdSymbol) and node_prev.data.startswith(':')) and
+                    (
+                        (node_next is None) or
+                        (id(node) in nodes_with_trailing_comment_or_newline) or
+                        (isinstance(node_next, NdSymbol) and node_next.data.startswith(':'))
+                    )
+            ):
+                ok = False
+
+            if ok:
+                node.force_newline = True
+            force_newline |= node.force_newline
+
+            node_prev = node
 
     if force_newline:
         node_parent.force_newline = True
@@ -353,33 +377,19 @@ def apply_rules(defs: Defs, node_parent: NdSexp) -> None:
                         apply_relaxed_wrap(node_parent)
                     else:
                         apply_relaxed_wrap_when_multiple_args(node_parent)
-            elif node.data in {
-                    'fset',
-                    'setf',
-                    'setq',
-                    'setq-default',
-                    'setq-local',
-            }:
-                node_parent.index_wrap_hint = 2
-                if len(node_parent.nodes_only_code) > 3:
-                    # Pairs.
-                    i = 2
-                    for subnode in node_parent.nodes_only_code[1:]:
-                        if i == 2:
-                            subnode.force_newline = True
-                            i = 0
-                        i += 1
             else:
                 # First lookup built-in definitions, if they exist.
                 if (fn_data := defs.fn_arity.get(node.data)) is not None:
                     # May be `FnArity` or a list.
                     symbol_type, nargs_min, nargs_max, hints = fn_data
+                    if hints is None:
+                        hints = {}
+                    else:
+                        hints = hints.copy()
+                    node_parent.hints = hints
 
                     hint_indent = None
-                    if (
-                            (hints is not None) and
-                            ((hint_indent := hints.get('indent')) is not None)
-                    ):
+                    if (hint_indent := hints.get('indent')) is not None:
                         if type(hint_indent) is str:
                             if (fn_data_test := defs.fn_arity.get(hint_indent)) is not None:
                                 hints_test = fn_data_test[3]
@@ -390,6 +400,8 @@ def apply_rules(defs: Defs, node_parent: NdSexp) -> None:
                         node_parent.index_wrap_hint = 1 + hint_indent
                         if 'break' not in hints:
                             hints['break'] = 'always'
+                        del hint_indent
+
                     elif nargs_min is not None:
                         # First symbol counts for 1, another since wrapping takes place after this argument.
                         node_parent.index_wrap_hint = nargs_min + 1
@@ -416,7 +428,15 @@ def apply_rules(defs: Defs, node_parent: NdSexp) -> None:
                         # if nargs_max in {'many', 'unevalled'} and nargs_min != 0:
                         #     apply_relaxed_wrap(node_parent)
                         #     # apply_relaxed_wrap_when_multiple_args(node_parent)
-                    if hints is not None:
+                    if hints:
+
+                        if (hint_group := hints.get('group')) is not None:
+                            if len(node_parent.nodes_only_code) > hint_group[0] + hint_group[1] + 1:
+                                node_parent.index_wrap_hint = hint_group[0] + hint_group[1] + 1
+                            else:
+                                # Group not in use.
+                                del hints['group']
+
                         if (val := hints.get('break')) is not None:
                             if val == 'always':
                                 apply_relaxed_wrap(node_parent)
@@ -433,7 +453,6 @@ def apply_rules(defs: Defs, node_parent: NdSexp) -> None:
                             #         'Missing: {:s} {:s} {:s}\n'.format(
                             #             node.data, repr(fn_data), str(
                             #                 node_parent.index_wrap_hint)))
-                        node_parent.hints = hints
                 else:
                     if LOG_MISSING_DEFS is not None:
                         with open(LOG_MISSING_DEFS, 'a', encoding='utf-8') as fh:

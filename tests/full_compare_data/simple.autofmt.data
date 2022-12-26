@@ -414,8 +414,7 @@ To control which errors are matched, customize the variable
   (interactive "P")
   (if (consp arg)
     (setq
-      reset
-      t
+      reset t
       arg nil))
   (let ((buffer (next-error-find-buffer)))
     (when
@@ -1160,14 +1159,12 @@ any other non-digit terminates the character code and is then used as input."))
         ((null translated))
         ((not (integerp translated))
           (setq
-            unread-command-events
-            (list char)
+            unread-command-events (list char)
             done t))
         ((/= (logand translated ?\M-\^@) 0)
           ;; Turn a meta-character into a character with the 0200 bit set.
           (setq
-            code
-            (logior (logand translated (lognot ?\M-\^@)) 128)
+            code (logior (logand translated (lognot ?\M-\^@)) 128)
             done t))
         (
           (and
@@ -1194,13 +1191,11 @@ any other non-digit terminates the character code and is then used as input."))
           (setq done t))
         ((not first)
           (setq
-            unread-command-events
-            (list char)
+            unread-command-events (list char)
             done t))
         (t
           (setq
-            code
-            translated
+            code translated
             done t)))
       (setq first nil))
     code))
@@ -1691,8 +1686,7 @@ instead of deleted."
         (or first (insert ?\n))
         (insert-for-yank (car lines))
         (setq
-          lines
-          (cdr lines)
+          lines (cdr lines)
           first nil))))
   "Function to insert the region's content.
 Called with one argument LINES.
@@ -2231,8 +2225,7 @@ in *Help* buffer.  See also the command `describe-char'."
               (if (< to (+ pos 4))
                 (setq under-display "")
                 (setq
-                  under-display
-                  "..."
+                  under-display "..."
                   to (+ pos 4)))
               (setq under-display
                 (concat
@@ -3466,8 +3459,7 @@ negative number -N means the Nth entry of \"future history.\""
             (length minibuffer-default)
             1))))
     (setq
-      minibuffer-default-add-done
-      t
+      minibuffer-default-add-done t
       minibuffer-default (funcall minibuffer-default-add-function)))
   (let
     (
@@ -3782,8 +3774,7 @@ Intended to be added to `minibuffer-setup-hook'."
                     (previous-history-element 1)
                     (goto-char (point-max))))
                 (setq
-                  isearch-barrier
-                  (point)
+                  isearch-barrier (point)
                   isearch-opoint (point))
                 ;; After putting the next/prev history element, search
                 ;; the string in them again, until next-history-element
@@ -4081,8 +4072,7 @@ as an argument limits undo to changes within the current region."
               (setq tail (cdr tail)))
             (setq tail nil)))
         (setq
-          prev
-          tail
+          prev tail
           tail (cdr tail))))
     ;; Record what the current undo list says,
     ;; so the next command can tell if the buffer was modified in between.
@@ -6972,8 +6962,7 @@ visual order of that text when it is inserted at some other place."
       (goto-char start)
       (setq para-dir (current-bidi-paragraph-direction))
       (setq
-        from
-        (line-beginning-position)
+        from (line-beginning-position)
         to (line-end-position))
       (goto-char from)
       ;; If we don't have any mixed directional characters in the
@@ -8914,15 +8903,13 @@ The value is a floating-point number."
         (unless lh
           (let ((wend (pos-visible-in-window-p t nil t)))
             (setq
-              rbot
-              (nth 3 wend)
+              rbot (nth 3 wend)
               rowh (nth 4 wend)
               vpos (nth 5 wend))))
         (unless this-lh
           (let ((wstart (pos-visible-in-window-p nil nil t)))
             (setq
-              this-ypos
-              (nth 2 wstart)
+              this-ypos (nth 2 wstart)
               this-height (nth 4 wstart))))
         (setq py
           (or
@@ -9801,8 +9788,7 @@ variables `truncate-lines' and `truncate-partial-width-windows'."
       (setq-local line-move-visual t)
       (setq-local truncate-partial-width-windows nil)
       (setq
-        truncate-lines
-        nil
+        truncate-lines nil
         word-wrap t
         fringe-indicator-alist
         (cons
@@ -9998,8 +9984,7 @@ current object."
   (when (> (car pos1) (car pos2))
     (let ((swap pos1))
       (setq
-        pos1
-        pos2
+        pos1 pos2
         pos2 swap)))
   (if (> (cdr pos1) (car pos2))
     (error "Don't have two things to transpose"))
