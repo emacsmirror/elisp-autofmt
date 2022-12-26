@@ -466,13 +466,11 @@ Argument PENDING-LIST an `pending-undo-list' compatible list."
                 (write-region nil nil file-dst-full nil 0))
 
               (setq size-src
-                (+
-                  size-src
+                (+ size-src
                   (file-attribute-size
                     (file-attributes file-src-full))))
               (setq size-dst
-                (+
-                  size-dst
+                (+ size-dst
                   (file-attribute-size
                     (file-attributes file-dst-full))))
 
@@ -540,19 +538,16 @@ Argument PENDING-LIST an `pending-undo-list' compatible list."
       ((null filename)
         nil)
       ( ;; Ignore encryped files.
-        (and
-          undo-fu-session-ignore-encrypted-files
+        (and undo-fu-session-ignore-encrypted-files
           epa-file-handler
           (string-match-p (car epa-file-handler) filename))
         nil)
       (
-        (and
-          test-files
+        (and test-files
           (undo-fu-session--match-file-name filename test-files))
         nil)
       (
-        (and
-          test-modes
+        (and test-modes
           (memq (buffer-local-value 'major-mode buffer) test-modes))
         nil)
       (t

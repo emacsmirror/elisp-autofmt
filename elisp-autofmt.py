@@ -21,6 +21,7 @@ from typing import (
 )
 from types import (
     ModuleType,
+    TracebackType,
 )
 
 
@@ -28,6 +29,7 @@ import sys
 import os
 import argparse
 
+HintType = Dict[str, Union[str, int, Tuple[int, int]]]
 
 # ------------------------------------------------------------------------------
 # Globals
@@ -44,9 +46,12 @@ USE_EXTRACT_DEFS = True
 # Report missing definitions.
 LOG_MISSING_DEFS = None  # '/tmp/out.log'
 
+# Simulate EMACS native indentation.
+USE_NATIVE = True
 
 # ------------------------------------------------------------------------------
 # Exceptions
+
 
 # Exception for failure to parse the file,
 # show this in the command line wite.
@@ -93,6 +98,36 @@ def is_hash_prefix_special_case(text: str) -> bool:
 # ------------------------------------------------------------------------------
 # Formatting Utilities
 
+class NdSexp_SoftWrap:
+    '''
+    Track any newly enabled nodes ``force_newline``,
+    setting ``force_newline_soft`` so they may can be used as candidates to remove later.
+
+    This is done parent level nodes that are wrapped may remove wrapping added to child nodes.
+    '''
+    __slots__ = ('force_newline_orig', 'node_parent')
+
+    def __init__(self, node_parent: NdSexp):
+        self.node_parent = node_parent
+
+    def __enter__(self) -> None:
+        self.force_newline_orig = tuple(node.force_newline for node in self.node_parent.nodes_only_code)
+
+    def __exit__(
+            self,
+            exc_type: Optional[type[BaseException]],
+            exc_value: Optional[BaseException],
+            exc_traceback: Optional[TracebackType],
+    ) -> None:
+        for node, force_newline_orig in zip(self.node_parent.nodes_only_code, self.force_newline_orig, strict=True):
+            if (
+                    (not node.force_newline_soft) and
+                    (not force_newline_orig) and
+                    (node.force_newline is True)
+            ):
+                node.force_newline_soft = True
+
+
 def apply_comment_force_newline(root: NdSexp) -> None:
     # Special calculation for lines with comments on same line,
     # don't merge these lines since it would make it seem as if
@@ -121,12 +156,17 @@ def apply_relaxed_wrap(node_parent: NdSexp) -> None:
     force_newline = False
 
     if node_parent.hints is not None:
-        group = node_parent.hints.get('group')
+        hint_group = node_parent.hints.get('group')
     else:
-        group = None
+        hint_group = None
 
-    if group is not None:
-        nodes_iter = node_parent.nodes_only_code[group[0] + 1:]
+    if hint_group is not None:
+        assert isinstance(hint_group, list) and len(hint_group) == 2
+        group_beg, group_len = hint_group
+        assert isinstance(group_beg, int)
+        assert isinstance(group_len, int)
+
+        nodes_iter = node_parent.nodes_only_code[group_beg + 1:]
     else:
         nodes_iter = node_parent.nodes_only_code[node_parent.index_wrap_hint:]
 
@@ -141,12 +181,12 @@ def apply_relaxed_wrap(node_parent: NdSexp) -> None:
         node_prev = node
     # Finish building 'nodes_with_trailing_comment_or_newline'.
 
-    if group is not None:
-        group_count = group[1]
+    if hint_group is not None:
+        group_len = hint_group[1]
         for i, node in enumerate(nodes_iter):
             ok = True
 
-            if (i % group_count) != 0:
+            if (i % group_len) != 0:
                 ok = False
 
             if ok:
@@ -201,8 +241,9 @@ def apply_relaxed_wrap(node_parent: NdSexp) -> None:
 
             node_prev = node
 
-    if force_newline:
-        node_parent.force_newline = True
+    if not USE_NATIVE:
+        if force_newline:
+            node_parent.force_newline = True
 
 
 def apply_relaxed_wrap_when_multiple_args(node_parent: NdSexp) -> None:
@@ -241,7 +282,7 @@ def parse_local_defs(defs: Defs, node_parent: NdSexp) -> None:
                     symbol = node_symbol.data
                     arg_index_min = 0
                     arg_index_max: Union[int, str] = 0
-                    hints = None
+                    hints: Optional[HintType] = None
                     for i, node_arg in enumerate(node_args.nodes_only_code):
                         if not isinstance(node_arg, NdSymbol):
                             continue
@@ -285,19 +326,18 @@ def parse_local_defs(defs: Defs, node_parent: NdSexp) -> None:
                                             node_key, node_val = node_iter.nodes_only_code
                                             if isinstance(node_key, NdSymbol):
                                                 key = node_key.data
-                                                match node_key.data:
-                                                    case 'indent':
-                                                        if hints is None:
-                                                            hints = {}
-                                                        if isinstance(node_val, NdSymbol):
-                                                            val = node_val.data
-                                                            hints[key] = int(val) if val.isdigit() else val
-                                                    case 'doc-string':
-                                                        if hints is None:
-                                                            hints = {}
-                                                        if isinstance(node_val, NdSymbol):
-                                                            val = node_val.data
-                                                            hints[key] = int(val) if val.isdigit() else val
+                                                if key == 'indent':
+                                                    if hints is None:
+                                                        hints = {}
+                                                    if isinstance(node_val, NdSymbol):
+                                                        val = node_val.data
+                                                        hints[key] = int(val) if val.isdigit() else val
+                                                elif key == 'doc-string':
+                                                    if hints is None:
+                                                        hints = {}
+                                                    if isinstance(node_val, NdSymbol):
+                                                        val = node_val.data
+                                                        hints[key] = int(val) if val.isdigit() else val
 
                     defs.fn_arity[symbol] = FnArity(
                         symbol_type=symbol_type,
@@ -333,16 +373,27 @@ def apply_rules(defs: Defs, node_parent: NdSexp) -> None:
                     'when-let*',
             }:
                 # Only wrap with multiple declarations.
-                if isinstance(node_parent.nodes_only_code[1], NdSexp):
-                    if len(node_parent.nodes_only_code[1].nodes_only_code) > 1:
-                        for subnode in node_parent.nodes_only_code[1].nodes_only_code:
-                            subnode.force_newline = True
+                if USE_NATIVE:
+                    if isinstance(node_parent.nodes_only_code[1], NdSexp):
+                        if len(node_parent.nodes_only_code[1].nodes_only_code) > 1:
+                            for subnode in node_parent.nodes_only_code[1].nodes_only_code[1:]:
+                                subnode.force_newline = True
+                else:
+                    if isinstance(node_parent.nodes_only_code[1], NdSexp):
+                        if len(node_parent.nodes_only_code[1].nodes_only_code) > 1:
+                            for subnode in node_parent.nodes_only_code[1].nodes_only_code:
+                                subnode.force_newline = True
+
                 # A new line for each body of the let-statement.
-                if len(node_parent.nodes_only_code) > 2:
-                    # While this should always be true, while editing it can be empty at times.
-                    # Don't error in this case because it's annoying.
-                    node_parent.nodes_only_code[2].force_newline = True
                 node_parent.index_wrap_hint = 2
+
+                if not USE_NATIVE:
+                    if len(node_parent.nodes_only_code) > 2:
+                        # While this should always be true, while editing it can be empty at times.
+                        # Don't error in this case because it's annoying.
+                        node_parent.nodes_only_code[2].force_newline = True
+
+                node_parent.hints['indent'] = 1
                 apply_relaxed_wrap(node_parent)
             elif node.data == 'cond':
                 for subnode in node_parent.nodes_only_code[1:]:
@@ -358,50 +409,35 @@ def apply_rules(defs: Defs, node_parent: NdSexp) -> None:
                     if nargs_min is None:
                         nargs_min = 0
 
-                    if hints is None:
-                        hints = {}
-                    else:
-                        hints = hints.copy()
-                    node_parent.hints = hints
+                    if hints is not None:
+                        node_parent.hints.update(hints)
+                    hints = node_parent.hints
 
-                    hint_indent = None
-                    if (hint_indent := hints.get('indent')) is not None:
-                        if type(hint_indent) is str:
-                            if (fn_data_test := defs.fn_arity.get(hint_indent)) is not None:
-                                hints_test = fn_data_test[3]
-                                hint_indent = hints_test.get('indent')
-                            del fn_data_test
+                    hint_indent = hints.get('indent')
+                    if hint_indent is not None:
+                        # node_parent.index_wrap_hint = 1 + hint_indent
+                        if symbol_type in {'special', 'macro'}:
+                            if 'break' not in hints:
+                                hints['break'] = 'always'
 
-                    hint_docstring = None
-                    if (hint_docstring := hints.get('doc-string')) is not None:
-                        if type(hint_docstring) is str:
-                            if (fn_data_test := defs.fn_arity.get(hint_docstring)) is not None:
-                                hints_test = fn_data_test[3]
-                                hint_docstring = hints_test.get('doc-string')
-                            del fn_data_test
-
-                    if hint_indent and hint_docstring:
-                        hint_indent = max(0, min(hint_indent, hint_docstring - 1))
-
-                    if hint_indent:
-                        node_parent.index_wrap_hint = 1 + hint_indent
-                        if 'break' not in hints:
-                            hints['break'] = 'always'
-                        del hint_indent
-                    else:
-                        # First symbol counts for 1, another since wrapping takes place after this argument.
-                        node_parent.index_wrap_hint = nargs_min + 1
+                    # First symbol counts for 1, another since wrapping takes place after this argument.
+                    node_parent.index_wrap_hint = nargs_min + 1
 
                     # Wrap the first argument, instead of the last argument
                     # so all arguments are at an equal level as having the last
                     # argument split from the rest doesn't signify an important difference.
                     if symbol_type == 'func':
-                        if node_parent.index_wrap_hint >= len(node_parent.nodes_only_code):
-                            node_parent.index_wrap_hint = 1
+                        if hint_indent is None:
+                            if hints is not None and hints.get('break_point') != 'overflow':
+                                if node_parent.index_wrap_hint >= len(node_parent.nodes_only_code):
+                                    node_parent.index_wrap_hint = 1
+
                     elif symbol_type == 'macro':
                         if nargs_max == 'many':
                             # So (with ...) macros don't keep the first argument aligned.
                             node_parent.wrap_all_or_nothing_hint = True
+                            hints['break_point'] = 'overflow'
+
                     elif symbol_type == 'special':
                         # Used for special forms `unwind-protect`, `progn` .. etc.
                         node_parent.wrap_all_or_nothing_hint = True
@@ -410,15 +446,21 @@ def apply_rules(defs: Defs, node_parent: NdSexp) -> None:
                         if 'break' not in hints:
                             hints['break'] = 'always'
 
-                        # TODO: detect a way to wrap macros that expand the remaining body argument.
-                        # if nargs_max in {'many', 'unevalled'} and nargs_min != 0:
-                        #     apply_relaxed_wrap(node_parent)
-                        #     # apply_relaxed_wrap_when_multiple_args(node_parent)
                     if hints:
+                        # Always wrap the doc-string.
+                        if (hint_docstring := hints.get('doc-string')) is not None:
+                            # NOTE: no support for evaluating EMACS-lisp from Python
+                            # (so no support for symbol types).
+                            if isinstance(hint_docstring, int):
+                                node_parent.index_wrap_hint = min(node_parent.index_wrap_hint, hint_docstring)
 
                         if (hint_group := hints.get('group')) is not None:
-                            if len(node_parent.nodes_only_code) > hint_group[0] + hint_group[1] + 1:
-                                node_parent.index_wrap_hint = hint_group[0] + hint_group[1] + 1
+                            assert isinstance(hint_group, list) and len(hint_group) == 2
+                            group_beg, group_len = hint_group
+                            assert isinstance(group_beg, int)
+                            assert isinstance(group_len, int)
+                            if len(node_parent.nodes_only_code) > group_beg + group_len + 1:
+                                node_parent.index_wrap_hint = group_beg + group_len + 1
                             else:
                                 # Group not in use.
                                 del hints['group']
@@ -428,17 +470,13 @@ def apply_rules(defs: Defs, node_parent: NdSexp) -> None:
                                 apply_relaxed_wrap(node_parent)
                             elif val == 'multi':
                                 apply_relaxed_wrap_when_multiple_args(node_parent)
-                            # elif val == 'to_wrap':  # Default
-                            #     pass
-                            else:
-                                # TODO: warn about unknown `break`.
+                            elif val == 'to_wrap':  # Default
                                 pass
-
-                            # with open('/tmp/out.log', 'a', encoding='utf-8') as fh:
-                            #     fh.write(
-                            #         'Missing: {:s} {:s} {:s}\n'.format(
-                            #             node.data, repr(fn_data), str(
-                            #                 node_parent.index_wrap_hint)))
+                            else:
+                                raise FmtException((
+                                    'unknown "break" for {:s}, expected a value in '
+                                    '["always", "multi", "to_wrap"]'
+                                ).format(node.data))
                 else:
                     if LOG_MISSING_DEFS is not None:
                         with open(LOG_MISSING_DEFS, 'a', encoding='utf-8') as fh:
@@ -447,21 +485,25 @@ def apply_rules(defs: Defs, node_parent: NdSexp) -> None:
     for node in node_parent.nodes_only_code:
         if isinstance(node, NdSexp):
             apply_rules(defs, node)
-        if node.force_newline:
-            node_parent.force_newline = True
+        if not USE_NATIVE:
+            if node.force_newline:
+                node_parent.force_newline = True
 
-    node_parent.flush_newlines_from_nodes()
+    if not USE_NATIVE:
+        node_parent.flush_newlines_from_nodes()
 
 
 def apply_pre_indent_1(cfg: FormatConfig, node_parent: NdSexp, level: int, trailing_parens: int) -> None:
-
     # First be relaxed, then again if it fails.
-    if node_parent.fmt_check_exceeds_colum_max(cfg, level, trailing_parens):
+    # NOTE: The caller should use a `NdSexp_SoftWrap` context manager.
+    if node_parent.fmt_check_exceeds_colum_max(cfg, level, trailing_parens, find_longest_line=False):
         apply_relaxed_wrap(node_parent)
-        node_parent.force_newline = True
+        if not USE_NATIVE:
+            node_parent.force_newline = True
 
 
 def apply_pre_indent_2(cfg: FormatConfig, node_parent: NdSexp, level: int, trailing_parens: int) -> None:
+    # NOTE: The caller should use a `NdSexp_SoftWrap` context manager.
 
     # Wrap items before if absolutely needed, one at a time.
     force_newline = False
@@ -469,7 +511,13 @@ def apply_pre_indent_2(cfg: FormatConfig, node_parent: NdSexp, level: int, trail
         i = min(node_parent.index_wrap_hint, len(node_parent.nodes_only_code) - 1)
         if i > 0:
             node = node_parent.nodes_only_code[i]
-            if node_parent.fmt_check_exceeds_colum_max(cfg, level, trailing_parens, test_node_terminate=node):
+            if node_parent.fmt_check_exceeds_colum_max(
+                    cfg,
+                    level,
+                    trailing_parens,
+                    find_longest_line=False,
+                    test_node_terminate=node,
+            ):
                 # Don't attempt the wrap the first item,
                 # as this will simply push it onto the line below.
                 #
@@ -494,11 +542,12 @@ def apply_pre_indent_2(cfg: FormatConfig, node_parent: NdSexp, level: int, trail
                                 cfg,
                                 level,
                                 trailing_parens,
+                                find_longest_line=False,
                                 test_node_terminate=node,
                         ):
                             # Imply 'node_parent.wrap_all_or_nothing_hint', even when not set.
                             hints = node_parent.hints
-                            if hints is not None and hints.get('break_point') == 'overflow':
+                            if hints.get('break_point') == 'overflow':
                                 pass
                             else:
                                 # TODO: warn about unknown break_point.
@@ -512,14 +561,38 @@ def apply_pre_indent_2(cfg: FormatConfig, node_parent: NdSexp, level: int, trail
                             break
                     i -= 1
 
-    if force_newline:
-        node_parent.force_newline = True
+    if not USE_NATIVE:
+        if force_newline:
+            node_parent.force_newline = True
 
     # If after wrapping 'everything', we still overflow,
     # don't use  this for tests in future, it confuses checks
     # causing other lines to wrap because of this node.
-    if node_parent.fmt_check_exceeds_colum_max(cfg, level, trailing_parens):
-        node_parent.test_blacklist = True
+    line_length_max = node_parent.fmt_check_exceeds_colum_max(cfg, level, trailing_parens, find_longest_line=True)
+    if line_length_max:
+        if USE_NATIVE:
+            test_blacklist = True
+            if len(node_parent.nodes_only_code) > 1:
+                node = node_parent.nodes_only_code[1]
+                if not node.force_newline:
+                    node.force_newline = True
+                    line_length_max_test = node_parent.fmt_check_exceeds_colum_max(
+                        cfg,
+                        level,
+                        trailing_parens,
+                        find_longest_line=True,
+                    )
+                    if line_length_max_test < line_length_max:
+                        # Success, don't exclude.
+                        test_blacklist = False
+                    else:
+                        # Don't add line break.
+                        node.force_newline = False
+
+            if test_blacklist:
+                node_parent.test_blacklist = True
+        else:
+            node_parent.test_blacklist = True
 
 
 def apply_pre_indent(cfg: FormatConfig, node_parent: NdSexp, level: int, trailing_parens: int) -> None:
@@ -530,21 +603,85 @@ def apply_pre_indent(cfg: FormatConfig, node_parent: NdSexp, level: int, trailin
     if not node_parent.nodes_only_code:
         return
 
+    node_parent_is_multiline_prev = node_parent.is_multiline()
+
     node_trailing_parens = node_parent.node_last_for_trailing_parens_test()
 
-    for node in node_parent.nodes_only_code:
+    level_next_data = node_parent.calc_nodes_level_next(cfg, level)
+    level_next_data_last = len(level_next_data) - 1
+    for i, node in enumerate(node_parent.nodes):
         if isinstance(node, NdSexp):
-            apply_pre_indent(cfg, node, level + 1, trailing_parens + 1 if node is node_trailing_parens else 0)
-            if node.force_newline:
-                node_parent.force_newline = True
+            level_next = level_next_data[min(i, level_next_data_last)]
+            apply_pre_indent(cfg, node, level_next, trailing_parens + 1 if node is node_trailing_parens else 0)
+            if not USE_NATIVE:
+                if node.force_newline:
+                    node_parent.force_newline = True
 
-    apply_pre_indent_1(cfg, node_parent, level, trailing_parens)
-    apply_pre_indent_2(cfg, node_parent, level, trailing_parens)
+    with NdSexp_SoftWrap(node_parent):
+        apply_pre_indent_1(cfg, node_parent, level, trailing_parens)
+        apply_pre_indent_2(cfg, node_parent, level, trailing_parens)
 
     # Some blocks don't allow mixed wrapping.
     if node_parent.wrap_all_or_nothing_hint:
-        if node_parent.is_multiline():
-            apply_relaxed_wrap(node_parent)
+        if node_parent_is_multiline_prev or node_parent.is_multiline():
+            if node_parent_is_multiline_prev:
+                apply_relaxed_wrap(node_parent)
+            else:
+                with NdSexp_SoftWrap(node_parent):
+                    apply_relaxed_wrap(node_parent)
+
+
+def apply_pre_indent_unwrap_recursive(cfg: FormatConfig, node_parent: NdSexp, level: int, trailing_parens: int) -> None:
+    if not node_parent.nodes_only_code:
+        return
+
+    node_trailing_parens = node_parent.node_last_for_trailing_parens_test()
+
+    level_next_data = node_parent.calc_nodes_level_next(cfg, level)
+    level_next_data_last = len(level_next_data) - 1
+    force_newline_soft_any = False
+    for i, node in enumerate(node_parent.nodes):
+        if not isinstance(node, NODE_CODE_TYPES):
+            continue
+
+        if isinstance(node, NdSexp):
+            level_next = level_next_data[min(i, level_next_data_last)]
+            apply_pre_indent_unwrap_recursive(
+                cfg,
+                node,
+                level_next,
+                trailing_parens + 1 if node is node_trailing_parens else 0,
+            )
+
+        force_newline_soft_any |= node.force_newline_soft
+
+    # Check if any of these nodes that were wrapped to fit into the fill-column could be unwrapped.
+    if force_newline_soft_any:
+        nl = [
+            (node.force_newline, node.force_newline_soft, getattr(node, 'test_blacklist', False))
+            for node in node_parent.nodes_only_code
+        ]
+        for node in node_parent.nodes_only_code:
+            if node.force_newline_soft:
+                node.force_newline = False
+                node.force_newline_soft = False
+            if getattr(node, 'test_blacklist', False):
+                del node.test_blacklist
+
+        if (test_blacklist_parent := getattr(node_parent, 'test_blacklist', False)):
+            del node_parent.test_blacklist
+
+        if node_parent.fmt_check_exceeds_colum_max(cfg, level, trailing_parens, find_longest_line=False):
+            # Failure, restore the previous state.
+            for i, node in enumerate(node_parent.nodes_only_code):
+                force_newline, force_newline_soft, test_blacklist = nl[i]
+                node.force_newline = force_newline
+                node.force_newline_soft = force_newline_soft
+                if test_blacklist:
+                    node.test_blacklist = True
+
+            if test_blacklist_parent:
+                node_parent.test_blacklist = True
 
 
 # ------------------------------------------------------------------------------
@@ -552,6 +689,7 @@ def apply_pre_indent(cfg: FormatConfig, node_parent: NdSexp, level: int, trailin
 
 # Immutable configuration,
 # created from command line arguments.
+
 
 class FormatConfig(NamedTuple):
     '''Configuration options relating to how the file should be formatted.'''
@@ -570,7 +708,7 @@ class FnArity(NamedTuple):
     # Maximum number of arguments, or strings: `many`, `unevalled`.
     nargs_max: Union[int, str]
     # Optional additional hints.
-    hints: Optional[Dict[str, str]]
+    hints: Optional[HintType]
 
 
 class Defs:
@@ -652,11 +790,13 @@ class Node:
     '''Base class for all kinds of Lisp elements.'''
     __slots__ = (
         'force_newline',
+        'force_newline_soft',
         'original_line',
         'test_blacklist',
     )
 
     force_newline: bool
+    force_newline_soft: bool
     original_line: int
     test_blacklist: bool
 
@@ -726,7 +866,7 @@ class NdSexp(Node):
         self.nodes = nodes or []
         self.index_wrap_hint: int = 1
         self.wrap_all_or_nothing_hint: bool = False
-        self.hints: Optional[Dict[str, str]] = None
+        self.hints: HintType = {}
 
     def __repr__(self) -> str:
         return '{}(line={} prefix=({}) newline={}\n  {}\n)'.format(
@@ -765,7 +905,168 @@ class NdSexp(Node):
             if isinstance(node, NdSexp):
                 yield from node.iter_nodes_recursive_with_parent()
 
+    def calc_nodes_level_next(self, cfg: FormatConfig, level: int) -> List[int]:
+        '''
+        Return a ``self.nodes`` aligned list of next levels.
+        The list may be shorter, in this case the last element should be used
+        for node indices that exceed this lists range.
+        '''
+        if not USE_NATIVE:
+            if level == -1:
+                return [0]
+            return [level + 2]
+
+        # The complex 'native' case.
+        node_code_index_pre_newline = 0
+        if self.hints:
+            indent = indent_orig = self.hints.get('indent')
+            if type(indent) is str:
+                fn_data_test = cfg.defs.fn_arity.get(indent)
+                if fn_data_test is not None:
+                    hints_test = fn_data_test[3]
+                    if hints_test is not None:
+                        indent = hints_test.get('indent')
+                        if not isinstance(indent, int):
+                            # Unlikely, avoid unexpected cases.
+                            indent = None
+                del fn_data_test
+
+            if indent is not None:
+                if isinstance(indent, int):
+                    hint_docstring = self.hints.get('doc-string')
+                    if hint_docstring is not None:
+                        # TODO: no support for evaluating EMACS-lisp from Python.
+                        if isinstance(hint_docstring, int):
+                            indent = min(hint_docstring - 1, indent)
+                    del hint_docstring
+                else:
+                    indent = None
+        else:
+            indent_orig = None
+            indent = None
+
+        if level == -1:
+            level_next_first = 0
+            level_next_pre = 0
+            level_next_post = 0
+        else:
+            level_next_base = level + len(self.prefix)
+            level_next_first = level_next_base + 1
+            level_next_pre = level_next_base + 1
+            level_next_post = level_next_base + 1
+
+            if (len(self.nodes_only_code) > 1) and isinstance(self.nodes_only_code[0], NdSymbol):
+                if self.nodes_only_code[0].force_newline is False:
+                    if self.nodes_only_code[1].force_newline is False:
+                        # Add 1 for the space for the trailing space.
+                        # Values may be overwritten below.
+                        level_next_first = level_next_pre = level_next_base + len(self.nodes_only_code[0].data) + 2
+                        node_code_index_pre_newline = 1
+
+            if indent is not None:
+                if isinstance(self.nodes_only_code[0], NdSymbol):
+                    fn_data = cfg.defs.fn_arity.get(self.nodes_only_code[0].data)
+                else:
+                    fn_data = None
+                if fn_data is not None:
+                    symbol_type, nargs_min, nargs_max, _hints = fn_data
+
+                # Perhaps this should be indented further.
+                if (
+                        len(self.nodes_only_code) > 1 and
+                        isinstance(self.nodes_only_code[0], NdSymbol) and
+                        self.nodes_only_code[0].force_newline is False
+                ):
+
+                    two_or_more_non_wrapped_args = True
+                    for node in self.nodes_only_code[1:3]:
+                        if node.force_newline:
+                            two_or_more_non_wrapped_args = False
+                            break
+
+                    if self.nodes_only_code[1].force_newline:
+                        is_aligned = False
+                    elif fn_data and symbol_type == 'special':
+                        # This is used for e.g.
+                        #    (condition-case err
+                        #        (progn
+                        #          test
+                        #          case)
+                        #      (error case))
+                        is_aligned = False
+                    elif (
+                            fn_data is not None and
+                            (nargs_min <= indent) and
+                            two_or_more_non_wrapped_args and
+                            # fancy-compilation needs this.
+                            # WARNING: this is odd but for e.g.
+                            #    (defun foo
+                            #        (long arg list)
+                            #      "Doc string.")
+                            # is what emacs does. so follow this.
+                            self.nodes_only_code[0].data != 'defun'
+                    ):
+                        # This is used for e.g.
+                        #
+                        #    (example foo bar
+                        #             test)
+                        is_aligned = True
+                    else:
+                        # This is used for e.g.
+                        #    (when
+                        #        (progn
+                        #          a
+                        #          b)
+                        #      c)
+                        is_aligned = False
+
+                    if is_aligned:
+                        level_next_pre = level_next_base + len(self.nodes_only_code[0].data) + 2
+                    else:
+                        level_next_pre = level_next_base + 4
+
+                    level_next_post = level_next_base + 2
+
+                    if fn_data is not None:
+                        # All wrapped, no special indents handling.
+                        if indent_orig == 'defun':
+                            if (
+                                    (nargs_max == 'unevalled' and symbol_type == 'special') or
+                                    symbol_type in {'func', 'macro'}
+                            ):
+                                level_next_pre = level_next_base + 2
+                                level_next_post = level_next_base + 2
+
+        node_code_index = 0
+        node_code_index_next = 0
+        if indent is not None:
+            assert isinstance(indent, int)
+            node_code_index_to_indent = indent
+        else:
+            # Never use 'level_next_post', when no indent, everything is 'pre'.
+            node_code_index_to_indent = len(self.nodes_only_code) + 1
+
+        level_next_data = []
+        for node in self.nodes:
+            node_code_index = node_code_index_next
+            if node_code_index <= node_code_index_pre_newline:
+                level_next_data.append(level_next_first)
+            elif node_code_index <= node_code_index_to_indent:
+                level_next_data.append(level_next_pre)
+            else:
+                level_next_data.append(level_next_post)
+                # All future elements will use this value.
+                break
+
+            if isinstance(node, NODE_CODE_TYPES):
+                node_code_index_next = node_code_index + 1
+            else:
+                node_code_index_next = node_code_index
+
+        return level_next_data
+
     def flush_newlines_from_nodes(self) -> bool:
+        assert not USE_NATIVE
         changed = False
         if not self.force_newline:
             for node in self.nodes_only_code:
@@ -775,7 +1076,34 @@ class NdSexp(Node):
                     break
         return changed
 
+    def flush_newlines_from_nodes_recursive_for_native(self) -> bool:
+        # Ensure There is never trailing non-wrapped S-expressions: e.g:
+        #
+        #    (a b c d (e
+        #              f
+        #              g))
+        #
+        # This is only permissible for the first or second arguments, e.g:
+        #
+        #    (a (e
+        #        f
+        #        g))
+        #
+        # While this could be supported currently it's not and I feel this adds awkward right shift.
+        assert USE_NATIVE
+        changed = False
+        for i, node in enumerate(self.nodes_only_code):
+            if i > 1 and isinstance(node, NdSexp) and not node.force_newline and node.is_multiline():
+                node.force_newline = True
+                changed = True
+                # if not self.force_newline:
+                #     self.force_newline = True
+            if isinstance(node, NdSexp):
+                changed |= node.flush_newlines_from_nodes_recursive_for_native()
+        return changed
+
     def flush_newlines_from_nodes_recursive(self) -> bool:
+        assert not USE_NATIVE
         changed = False
         for node in self.nodes_only_code:
             if node.force_newline:
@@ -802,7 +1130,12 @@ class NdSexp(Node):
                             node.force_newline = True
             force_newline |= node.force_newline
             node_prev = node
-        self.force_newline = force_newline
+
+        if not USE_NATIVE:
+            self.force_newline = force_newline
+        else:
+            self.force_newline = False
+        self.force_newline_soft = False
 
     def finalize(self, cfg: FormatConfig) -> None:
         # Connect: ' (  to '(
@@ -843,9 +1176,9 @@ class NdSexp(Node):
             i -= 1
         del count
 
-        self.nodes_only_code = [
+        self.nodes_only_code: List[Node] = [
             node for node in self.nodes
-            if isinstance(node, (NdSymbol, NdString, NdSexp))
+            if isinstance(node, NODE_CODE_TYPES)
         ]
         for node in self.nodes_only_code:
             if isinstance(node, NdSexp):
@@ -857,8 +1190,9 @@ class NdSexp(Node):
             level: int,
             trailing_parens: int,
             *,
+            find_longest_line: bool,
             test_node_terminate: Optional[Node] = None,
-    ) -> bool:
+    ) -> int:
         _ctx = WriteCtx(cfg)
         _data: List[str] = []
         self.fmt_with_terminate_node(_ctx, _data.append, level, test=True, test_node_terminate=test_node_terminate)
@@ -873,6 +1207,7 @@ class NdSexp(Node):
         line_step = 0
         i = 0
 
+        line_length_max = 0
         if (not cfg.use_trailing_parens) and (_ctx.line_terminate == _ctx.line):
             while line_step != -1:
                 line_step_next = data.find('\n', line_step)
@@ -884,11 +1219,16 @@ class NdSexp(Node):
                     line_step = line_step_next + 1
 
                 if line_terminate == i:
-                    if line_length > fill_column - trailing_parens:
-                        return True
-                    return False
+                    line_length += trailing_parens
+                    if line_length > fill_column:
+                        if not find_longest_line:
+                            return 1
+                        line_length_max = max(line_length_max, line_length)
+                    break
                 if line_length > fill_column:
-                    return True
+                    if not find_longest_line:
+                        return 1
+                    line_length_max = max(line_length_max, line_length)
                 i += 1
         else:
             while line_step != -1:
@@ -901,10 +1241,12 @@ class NdSexp(Node):
                     line_step = line_step_next + 1
 
                 if line_length > fill_column:
-                    return True
+                    if not find_longest_line:
+                        return 1
+                    line_length_max = max(line_length_max, line_length)
                 i += 1
 
-        return False
+        return line_length_max
 
     def fmt_pre_wrap(self, ctx: WriteCtx, level: int, trailing_parens: int) -> None:
 
@@ -924,11 +1266,14 @@ class NdSexp(Node):
                 self.nodes_only_code[:] = [nodes_backup[i]]
 
             assert ctx.line_terminate == -1
-            if self.fmt_check_exceeds_colum_max(ctx.cfg, level, trailing_parens):
+            if self.fmt_check_exceeds_colum_max(ctx.cfg, level, trailing_parens, find_longest_line=False):
                 if i == len(nodes_backup):
-                    apply_relaxed_wrap(self)
+                    with NdSexp_SoftWrap(self):
+                        apply_relaxed_wrap(self)
                 else:
-                    self.nodes_only_code[0].force_newline = True
+                    if not self.nodes_only_code[0].force_newline:
+                        self.nodes_only_code[0].force_newline = True
+                        self.nodes_only_code[0].force_newline_soft = True
 
         # Disable newlines for individual items where possible.
         for i, node_only_code in enumerate(self.nodes_only_code):
@@ -939,22 +1284,32 @@ class NdSexp(Node):
                         ctx.cfg,
                         level,
                         trailing_parens,
+                        find_longest_line=False,
                         test_node_terminate=node_only_code,
                 ):
                     node_only_code.force_newline = True
+                    node_only_code.force_newline_soft = True
                 else:
                     break
 
         node_trailing_parens = self.node_last_for_trailing_parens_test()
 
         force_newline = False
-        for node in self.nodes:
+
+        level_next_data = self.calc_nodes_level_next(ctx.cfg, level)
+        level_next_data_last = len(level_next_data) - 1
+        for i, node in enumerate(self.nodes):
             if isinstance(node, NdSexp):
-                node.fmt_pre_wrap(ctx, level + 1, trailing_parens + 1 if node is node_trailing_parens else 0)
+                level_next = level_next_data[min(i, level_next_data_last)]
+                node.fmt_pre_wrap(ctx, level_next, trailing_parens + 1 if node is node_trailing_parens else 0)
             force_newline |= node.force_newline
 
-        if force_newline:
-            self.force_newline = True
+        if USE_NATIVE:
+            pass
+        else:
+            if force_newline:
+                self.force_newline = True
+        del force_newline
 
         # Finally, if the node is multi-line, ensure it's also split at the hinted location.
         # Ensures we don't get:
@@ -976,7 +1331,8 @@ class NdSexp(Node):
             if len(self.nodes_only_code) > self.index_wrap_hint:
                 node = self.nodes_only_code[self.index_wrap_hint]
                 node.force_newline = True
-                self.force_newline = True
+                if not USE_NATIVE:
+                    self.force_newline = True
 
             # Ensure colon prefixed arguments are on new-lines
             # if the block is multi-line.
@@ -1008,7 +1364,8 @@ class NdSexp(Node):
                         #         node_prev_prev.data.startswith(':')
                         # ):
                         node.force_newline = True
-                        self.force_newline = True
+                        if not USE_NATIVE:
+                            self.force_newline = True
 
                 # node_prev = node
 
@@ -1033,29 +1390,30 @@ class NdSexp(Node):
 
         line_sexpr_prev = ctx.line
 
-        level_next = level + 1
-
         if level != -1:
             if ctx.is_newline:
-                write_fn('  ' * level)
+                write_fn(' ' * level)
 
             if self.prefix:
                 write_fn(self.prefix)
 
-                # A single `#` is used for advanced macros,
-                # we can't put a new-line after them.
-                if (not is_hash_prefix_special_case(self.prefix)) and self.is_multiline():
-                    write_fn('\n')
+                if USE_NATIVE:
+                    pass
+                else:
+                    # A single `#` is used for advanced macros,
+                    # we can't put a new-line after them.
+                    if (not is_hash_prefix_special_case(self.prefix)) and self.is_multiline():
+                        write_fn('\n')
 
-                    if TRACE_NEWLINES:
-                        if self.force_newline:
-                            if not test:
-                                write_fn(' $' + self._force_newline_tracepoint)  # type: ignore
+                        if TRACE_NEWLINES:
+                            if self.force_newline:
+                                if not test:
+                                    write_fn(' $' + self._force_newline_tracepoint)  # type: ignore
 
-                    ctx.line += 1
-                    ctx.is_newline = True
-                    write_fn('  ' * level)
-                    ctx.is_newline = False
+                        ctx.line += 1
+                        ctx.is_newline = True
+                        write_fn(' ' * level)
+                        ctx.is_newline = False
 
             write_fn(self.brackets[0])
             ctx.is_newline = False
@@ -1066,7 +1424,11 @@ class NdSexp(Node):
 
         node_prev_is_multiline = False
 
-        for node in self.nodes:
+        level_next_data = self.calc_nodes_level_next(ctx.cfg, level)
+        level_next_data_last = len(level_next_data) - 1
+        for i, node in enumerate(self.nodes):
+            level_next = level_next_data[min(i, level_next_data_last)]
+
             if test:
                 # Use only for testing.
                 if node is test_node_terminate:
@@ -1099,7 +1461,8 @@ class NdSexp(Node):
                             if not test:
                                 write_fn(' $' + node._force_newline_tracepoint)  # type: ignore
 
-                    write_fn('  ' * level_next)
+                    write_fn(' ' * level_next)
+
                     ctx.is_newline = False
                 else:
                     if (
@@ -1131,7 +1494,7 @@ class NdSexp(Node):
 
         if level != -1:
             if ctx.is_newline:
-                write_fn('  ' * level_next)
+                write_fn(' ' * level_next)
                 ctx.is_newline = False
             else:
                 if (
@@ -1141,7 +1504,7 @@ class NdSexp(Node):
                     write_fn('\n')
                     ctx.line += 1
                     ctx.is_newline = True
-                    write_fn('  ' * level_next)
+                    write_fn(' ' * level_next)
                     ctx.is_newline = False
             write_fn(self.brackets[1])
             ctx.is_newline = False
@@ -1167,6 +1530,7 @@ class NdWs(Node):
     def calc_force_newline(self) -> None:
         # False because this forces it's own newline
         self.force_newline = True
+        self.force_newline_soft = False
 
     def fmt(
             self,
@@ -1205,6 +1569,7 @@ class NdComment(Node):
 
     def calc_force_newline(self) -> None:
         self.force_newline = self.is_own_line
+        self.force_newline_soft = False
 
     def fmt(
             self,
@@ -1246,6 +1611,7 @@ class NdString(Node):
             self.force_newline = ((not self.data.startswith('\n')) and self.lines > 0)
         else:
             self.force_newline = False
+        self.force_newline_soft = False
 
     def fmt(
             self,
@@ -1283,6 +1649,7 @@ class NdSymbol(Node):
 
     def calc_force_newline(self) -> None:
         self.force_newline = False
+        self.force_newline_soft = False
 
     def fmt(
             self,
@@ -1294,6 +1661,9 @@ class NdSymbol(Node):
     ) -> None:
         write_fn(self.data)
         ctx.is_newline = False
+
+
+NODE_CODE_TYPES = (NdSymbol, NdString, NdSexp)
 
 
 # ------------------------------------------------------------------------------
@@ -1329,128 +1699,128 @@ def parse_file(cfg: FormatConfig, fh: TextIO) -> Tuple[str, NdSexp]:
 
     while c := c_peek or fh.read(1):
         c_peek = None
-        match c:
-            case '(':  # Open S-expression.
-                sexp_ctx.append(NdSexp(line, '()'))
-                sexp_ctx[sexp_level].nodes.append(sexp_ctx[-1])
-                sexp_level += 1
-                line_has_contents = True
+        # NOTE: Can use 'match c' here, will bump minimum Python version to 3.10
+        if c == '(':  # Open S-expression.
+            sexp_ctx.append(NdSexp(line, '()'))
+            sexp_ctx[sexp_level].nodes.append(sexp_ctx[-1])
+            sexp_level += 1
+            line_has_contents = True
 
-            case '[':  # Open vector.
-                sexp_ctx.append(NdSexp(line, '[]'))
-                sexp_ctx[sexp_level].nodes.append(sexp_ctx[-1])
-                sexp_level += 1
-                line_has_contents = True
-            case ')':  # Close S-expression.
-                if sexp_level == 0:
-                    raise FmtException('additional closing brackets, line {}'.format(line))
-                if sexp_ctx.pop().brackets[0] != '(':
-                    raise FmtException(
-                        'closing bracket "{:s}" line {:d}, unmatched bracket types, expected ")"'.format(c, line)
-                    )
-                sexp_level -= 1
-                line_has_contents = True
-            case ']':  # Close vector.
-                if sexp_level == 0:
-                    raise FmtException('additional closing brackets, line {}'.format(line))
-                if sexp_ctx.pop().brackets[0] != '[':
-                    raise FmtException(
-                        'closing bracket "{:s}" line {:d}, unmatched bracket types, expected "]"'.format(c, line)
-                    )
-                sexp_level -= 1
-                line_has_contents = True
-            case '"':  # Open & close string.
-                data = StringIO()
-                is_slash = False
-                while (c := fh.read(1)):
-                    if c == '"' and not is_slash:
+        elif c == '[':  # Open vector.
+            sexp_ctx.append(NdSexp(line, '[]'))
+            sexp_ctx[sexp_level].nodes.append(sexp_ctx[-1])
+            sexp_level += 1
+            line_has_contents = True
+        elif c == ')':  # Close S-expression.
+            if sexp_level == 0:
+                raise FmtException('additional closing brackets, line {}'.format(line))
+            if sexp_ctx.pop().brackets[0] != '(':
+                raise FmtException(
+                    'closing bracket "{:s}" line {:d}, unmatched bracket types, expected ")"'.format(c, line)
+                )
+            sexp_level -= 1
+            line_has_contents = True
+        elif c == ']':  # Close vector.
+            if sexp_level == 0:
+                raise FmtException('additional closing brackets, line {}'.format(line))
+            if sexp_ctx.pop().brackets[0] != '[':
+                raise FmtException(
+                    'closing bracket "{:s}" line {:d}, unmatched bracket types, expected "]"'.format(c, line)
+                )
+            sexp_level -= 1
+            line_has_contents = True
+        elif c == '"':  # Open & close string.
+            data = StringIO()
+            is_slash = False
+            while (c := fh.read(1)):
+                if c == '"' and not is_slash:
+                    break
+                data.write(c)
+                if c == '\\':
+                    is_slash = not is_slash
+                else:
+                    is_slash = False
+                    if c == '\n':
+                        line += 1
+
+            if not c:
+                raise FmtException('parsing string at line {}'.format(line))
+
+            sexp_ctx[sexp_level].nodes.append(NdString(line, data.getvalue()))
+            del data, is_slash, c
+            line_has_contents = True
+        elif c == ';':  # Comment.
+            data = StringIO()
+            while (c_peek := fh.read(1)) not in {'', '\n'}:
+                c = c_peek
+                c_peek = None
+                data.write(c)
+
+            is_own_line = not line_has_contents
+            sexp_ctx[sexp_level].nodes.append(NdComment(line, data.getvalue(), is_own_line))
+            del data, is_own_line
+            line_has_contents = True
+        elif c == '\n':  # White-space (newline).
+            line += 1
+            # Respect blank lines up until the limit.
+            if line_has_contents is False:
+                sexp_ctx[sexp_level].nodes.append(NdWs(line))
+            line_has_contents = False
+        elif c in {' ', '\t'}:  # White-space (space, tab) - ignored.
+            pass
+        else:  # Symbol (any other character).
+            data = StringIO()
+            is_slash = False
+            while c:
+                if c == '\\':
+                    is_slash = not is_slash
+                else:
+                    is_slash = False
+                data.write(c)
+                c_peek = fh.read(1)
+                if not c_peek:
+                    break
+                if c_peek == '\n':
+                    break
+                if not is_slash:
+                    if c_peek in {
+                            '(', ')',
+                            '[', ']',
+                            ';',
+                            ' ', '\t',
+                            # Lisp doesn't require spaces are between symbols and quotes.
+                            '"',
+                    }:
                         break
-                    data.write(c)
-                    if c == '\\':
-                        is_slash = not is_slash
-                    else:
-                        is_slash = False
-                        if c == '\n':
-                            line += 1
 
-                if not c:
-                    raise FmtException('parsing string at line {}'.format(line))
+                c = c_peek
+                c_peek = None
 
-                sexp_ctx[sexp_level].nodes.append(NdString(line, data.getvalue()))
-                del data, is_slash, c
-                line_has_contents = True
-            case ';':  # Comment.
-                data = StringIO()
-                while (c_peek := fh.read(1)) not in {'', '\n'}:
-                    c = c_peek
-                    c_peek = None
-                    data.write(c)
+            text = data.getvalue()
+            del data
 
-                is_own_line = not line_has_contents
-                sexp_ctx[sexp_level].nodes.append(NdComment(line, data.getvalue(), is_own_line))
-                del data, is_own_line
-                line_has_contents = True
-            case '\n':  # White-space (newline).
-                line += 1
-                # Respect blank lines up until the limit.
-                if line_has_contents is False:
-                    sexp_ctx[sexp_level].nodes.append(NdWs(line))
-                line_has_contents = False
-            case ' ' | '\t':  # White-space (space, tab) - ignored.
-                pass
-            case _:  # Symbol (any other character).
-                data = StringIO()
-                is_slash = False
-                while c:
-                    if c == '\\':
-                        is_slash = not is_slash
-                    else:
-                        is_slash = False
-                    data.write(c)
-                    c_peek = fh.read(1)
-                    if not c_peek:
-                        break
-                    if c_peek == '\n':
-                        break
-                    if not is_slash:
-                        if c_peek in {
-                                '(', ')',
-                                '[', ']',
-                                ';',
-                                ' ', '\t',
-                                # Lisp doesn't require spaces are between symbols and quotes.
-                                '"',
-                        }:
-                            break
+            # Special support for character literals.
+            if text[0] == '?':
+                if c_peek:
+                    # Always include the next character
+                    # even if it's normally a delimiting character such as ';', '"'
+                    # (un-escaped literal support, even allowing for `?;` or `?\C-;`).
+                    if (
+                            # Support `? ` and `?;`.
+                            (len(text) == 1) or
+                            # Support `?\C- ` and `?\C-;` and `?\C-\s- `.
+                            (len(text) >= 4 and (
+                                text[-1] == '-' and
+                                text[-2].isalpha() and
+                                text[-3] == '\\')
+                             )
+                    ):
+                        text = text + c_peek
+                        c_peek = None
 
-                    c = c_peek
-                    c_peek = None
-
-                text = data.getvalue()
-                del data
-
-                # Special support for character literals.
-                if text[0] == '?':
-                    if c_peek:
-                        # Always include the next character
-                        # even if it's normally a delimiting character such as ';', '"'
-                        # (un-escaped literal support, even allowing for `?;` or `?\C-;`).
-                        if (
-                                # Support `? ` and `?;`.
-                                (len(text) == 1) or
-                                # Support `?\C- ` and `?\C-;` and `?\C-\s- `.
-                                (len(text) >= 4 and (
-                                    text[-1] == '-' and
-                                    text[-2].isalpha() and
-                                    text[-3] == '\\')
-                                 )
-                        ):
-                            text = text + c_peek
-                            c_peek = None
-
-                sexp_ctx[sexp_level].nodes.append(NdSymbol(line, text))
-                del is_slash
-                line_has_contents = True
+            sexp_ctx[sexp_level].nodes.append(NdSymbol(line, text))
+            del is_slash
+            line_has_contents = True
 
     if sexp_level != 0:
         raise FmtException('unbalanced S-expressions at file-end, found {} levels, expected 0'.format(sexp_level))
@@ -1484,6 +1854,9 @@ def parse_file(cfg: FormatConfig, fh: TextIO) -> Tuple[str, NdSexp]:
         apply_rules(cfg.defs, root)
 
         apply_pre_indent(cfg, root, -1, 0)
+
+        if USE_NATIVE:
+            apply_pre_indent_unwrap_recursive(cfg, root, -1, 0)
 
         # All root level nodes get their own line always.
         for node in root.nodes_only_code:
@@ -1529,7 +1902,11 @@ def format_file(
 
     # Redundant but needed for the assertion not to fail in the case when `len(root.nodes_only_code) == 1`.
     root.force_newline = True
-    assert root.flush_newlines_from_nodes_recursive() is False
+
+    if USE_NATIVE:
+        root.flush_newlines_from_nodes_recursive_for_native()
+    else:
+        assert root.flush_newlines_from_nodes_recursive() is False
 
     if use_stdout:
         write_file(cfg, sys.stdout, root, first_line)
@@ -1576,6 +1953,17 @@ def argparse_create() -> argparse.ArgumentParser:
             'split by PATH_SEPARATOR. '
             '(internal use, this is written by Emacs).'
         ),
+    )
+    parser.add_argument(
+        '--fmt-style',
+        dest='fmt_style',
+        default='native',
+        help=(
+            'Formatting style in where "native" mimics EMACS default indentation and "fixed" '
+            'formats using a simple 2-space for each nested block rule.'
+        ),
+        required=False,
+        choices=('native', 'fixed')
     )
 
     parser.add_argument(
@@ -1726,6 +2114,10 @@ def main_no_except() -> None:
         sys.stderr.write(
             'No files passed in, pass in files or use both \'--stdin\' & \'--stdout\'\n')
         sys.exit(1)
+
+    # Ugly global, TODO: clean up use of this.
+    global USE_NATIVE
+    USE_NATIVE = args.fmt_style == 'native'
 
     if args.fmt_defs:
         defs = Defs.from_json_files(

@@ -100,8 +100,7 @@
         (dolist (dir (list -1 1))
           (let ((last-pos pos))
             (while
-              (and
-                (zerop (forward-line dir))
+              (and (zerop (forward-line dir))
                 (progn
                   (back-to-indentation)
                   (eq col (current-column))))
@@ -128,8 +127,7 @@ Return the blank text representing the indentation or nil if none is found."
 
       ;; Scan forward lines until we hit the next indentation level.
       (while
-        (and
-          (null result)
+        (and (null result)
           ;; Stop when we hit the end of the buffer.
           (zerop (forward-line 1))
           ;; Don't read past this point.
@@ -254,21 +252,18 @@ Return the blank text representing the indentation or nil if none is found."
   (let*
     (
       (buf
-        (or
-          (current-buffer)
+        (or (current-buffer)
           (user-error
             (concat
               error-prefix "current buffer not found, exiting!"))))
       (current-filepath
-        (or
-          (buffer-file-name buf)
+        (or (buffer-file-name buf)
           (user-error
             (concat
               error-prefix
               "current buffer has no path, exiting!"))))
       (current-dir
-        (or
-          (file-name-directory current-filepath)
+        (or (file-name-directory current-filepath)
           (user-error
             (concat error-prefix "unable to get directory name"))))
 
@@ -511,8 +506,7 @@ This is done relative to CURRENT-PROJECT-ROOT or CURRENT-DIR."
                 (
                   (rst-role-id (match-string-no-properties 1 symbol))
                   (rst-role-data
-                    (or
-                      (match-string-no-properties 2 symbol)
+                    (or (match-string-no-properties 2 symbol)
                       (match-string-no-properties 3 symbol))))
 
                 ;; Act on roles.
@@ -609,8 +603,7 @@ This is done relative to CURRENT-PROJECT-ROOT or CURRENT-DIR."
                   (when
                     (string-equal
                       rst-role-data
-                      (or
-                        (match-string-no-properties 1)
+                      (or (match-string-no-properties 1)
                         (match-string-no-properties 2)))
                     (let
                       (
@@ -714,8 +707,7 @@ This is done relative to CURRENT-PROJECT-ROOT or CURRENT-DIR."
                   (when
                     (string-match-p
                       rst-terms-data-regex
-                      (or
-                        (match-string-no-properties 1)
+                      (or (match-string-no-properties 1)
                         (match-string-no-properties 2)))
                     (let
                       (

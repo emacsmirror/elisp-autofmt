@@ -390,8 +390,7 @@ Optional argument ARG the number of steps to undo."
             ;; unconstrained, as we don't want to present the undo chain as
             ;; infinite in either direction.
             (
-              (and
-                was-redo
+              (and was-redo
                 (null undo-fu--respect)
                 (eq t pending-undo-list))
               'ignore)

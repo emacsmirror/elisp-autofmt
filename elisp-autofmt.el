@@ -24,7 +24,17 @@
 ;; ---------------------------------------------------------------------------
 ;; Public Custom Variables
 
-(defgroup elisp-autofmt nil "Configure emacs-lisp auto-formatting behavior." :group 'tools)
+(defgroup elisp-autofmt nil
+  "Configure emacs-lisp auto-formatting behavior."
+  :group 'tools)
+
+(defcustom elisp-autofmt-style 'native
+  "The formatting style to use."
+  :type
+  (list
+    'choice
+    (list 'const :tag "Native (Emacs indentation, slow)" 'native)
+    (list 'const :tag "Fixed (Fixed indentation, fast)" 'fixed)))
 
 (defcustom elisp-autofmt-empty-line-max 2
   "The maximum number of blank lines to preserve."
@@ -91,7 +101,8 @@ This is intended to be set from file or directory locals and is marked safe.")
 ;;;###autoload
 (put 'elisp-autofmt-load-packages-local 'safe-local-variable #'elisp-autofmt-list-of-strings-p)
 
-(defvar-local elisp-autofmt-extra-debug-info nil "Show additional debug information.")
+(defvar-local elisp-autofmt-extra-debug-info nil
+  "Show additional debug information.")
 
 
 ;; ---------------------------------------------------------------------------
@@ -256,7 +267,7 @@ Any `stderr' is output a message and is interpreted as failure."
       ", {"
       (cond
         (properties
-          (mapconcat 'identity properties ", "))
+          (mapconcat #'identity properties ", "))
         (t
           ""))
       "}],\n")))
@@ -556,8 +567,8 @@ When SKIP-REQUIRE is set, don't require the package."
 Useful for fast operation, especially for automated conversion or tests."
   (let
     (
-      (is-beg (eq (point) (point-min)))
-      (is-end (eq (point) (point-max))))
+      (is-beg (bobp))
+      (is-end (eobp)))
     (cond
       ((and (eq t buffer-undo-list) (or is-beg is-end))
         ;; No undo, use a simple method instead of `replace-buffer-contents',
@@ -623,6 +634,7 @@ Optional argument ASSUME-FILE-NAME overrides the file name used for this buffer.
             ;; Follow the 'fill-column' setting.
             (format "--fmt-fill-column=%d" fill-column)
             (format "--fmt-empty-lines=%d" elisp-autofmt-empty-line-max)
+            (format "--fmt-style=%s" (symbol-name elisp-autofmt-style))
             ;; Not 0 or 1.
             "--exit-code=2")
 
@@ -635,7 +647,7 @@ Optional argument ASSUME-FILE-NAME overrides the file name used for this buffer.
                   (convert-standard-filename (expand-file-name elisp-autofmt-cache-directory)))
                 (concat
                   "--fmt-defs="
-                  (mapconcat 'identity
+                  (mapconcat #'identity
                     (append
                       ;; May be nil (skipped).
                       cache-defs
@@ -758,7 +770,7 @@ Optional argument ASSUME-FILE-NAME overrides the file name used for this buffer.
 (defun elisp-autofmt-check-elisp-autofmt-exists ()
   "Return non-nil when `.elisp-autofmt' is found in a parent directory."
   (let ((cfg (locate-dominating-file (file-name-directory buffer-file-name) ".elisp-autofmt")))
-    (not (null cfg))))
+    (stringp cfg)))
 
 ;; Auto load as this is a callback for `safe-local-variable'.
 ;;;###autoload

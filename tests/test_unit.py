@@ -5,10 +5,15 @@ import os
 import subprocess
 import tempfile
 import unittest
+import shutil
 
 from typing import (
     Tuple,
 )
+
+'''
+bash -c 'while true; do inotifywait -e close_write ./elisp-autofmt.el ./elisp-autofmt.py ./tests/test_unit.py; tput clear; python tests/test_unit.py CompareFormatSingleExpr; done'
+'''
 
 # Un-comment to see full error messages.
 # import unittest.util
@@ -22,10 +27,14 @@ BASE_DIR = os.path.normpath(os.path.join(THIS_DIR, '..'))
 
 EMACS_BIN = "emacs"
 
+# Fancy + useful delta output.
+USE_DELTA_DIFF = shutil.which("delta") is not None
+
 
 def emacs_elisp_autofmt_str_as_str(
         input_str: str,
         fill_column: int,
+        style: str,
 ) -> Tuple[str, bytes, bytes]:
     """
     Take a path and return a string representing the formatted text.
@@ -48,6 +57,7 @@ def emacs_elisp_autofmt_str_as_str(
                 # The extension is `.data`, so the mode needs to be activated.
                 "(setq buffer-undo-list t)"
                 "(setq-local fill-column " + str(fill_column) + ")"
+                "(setq elisp-autofmt-style '" + style + ")"
                 "(elisp-autofmt-buffer)"
                 "(write-region nil nil (buffer-file-name) nil 0))"
             ),
@@ -65,20 +75,43 @@ class ELispAutoFormat(unittest.TestCase):
             stdout_expect: bytes = b'',
             stderr_expect: bytes = b'',
             fill_column: int = 79,
+            style: str = 'fixed',
     ) -> None:
         self.maxDiff = None
 
         import difflib
-        code_result, stdout, stderr = emacs_elisp_autofmt_str_as_str(code_format, fill_column)
+        code_result, stdout, stderr = emacs_elisp_autofmt_str_as_str(code_format, fill_column, style)
         diff_output = "\n".join(
             difflib.unified_diff(
                 code_expect.splitlines(),
                 code_result.splitlines(),
+                fromfile='expected.el',
+                tofile='actual.el',
             )
         )
-        self.assertEqual("", diff_output)
+
+        if diff_output != "":
+            if USE_DELTA_DIFF:
+                completed_proc = subprocess.run(
+                    ("delta", "--side-by-side"),
+                    check=True,
+                    capture_output=True,
+                    input=diff_output.encode('utf-8'),
+                )
+                raise self.failureException(
+                    "Unexpected difference:\n" + completed_proc.stdout.decode('utf-8'),
+                )
+            else:
+                self.assertEqual("", diff_output)
+
         self.assertEqual(stdout, stdout_expect)
-        self.assertEqual(stderr, stderr_expect)
+
+        if not stderr_expect and stderr:
+            raise self.failureException(
+                "Expected empty stderr:\n" + stderr.decode('utf-8'),
+            )
+        else:
+            self.assertEqual(stderr, stderr_expect)
 
 
 class CompareFormatNOP(ELispAutoFormat):
@@ -248,6 +281,86 @@ class CompareFormatExpectError(ELispAutoFormat):
                 b'Error: parsing string at line 1\n'
                 b'\n'
             ),
+        )
+
+
+class CompareFormatNative(ELispAutoFormat):
+
+    def test_if_simple(self) -> None:
+        self.compare(
+            code_format="(if a b c)\n",
+            code_expect=(
+                "(if a\n"
+                "    b\n"
+                "  c)\n"
+            ),
+            style='native',
+        )
+
+    def test_if_complex(self) -> None:
+        self.compare(
+            code_format="(if a (progn b c d) (progn e f g))\n",
+            code_expect=(
+                "(if a\n"
+                "    (progn\n"
+                "      b\n"
+                "      c\n"
+                "      d)\n"
+                "  (progn\n"
+                "    e\n"
+                "    f\n"
+                "    g))\n"
+            ),
+            style='native',
+        )
+
+    def test_while_multiline(self) -> None:
+        self.compare(
+            code_format="(while (progn a b c) (foo))\n",
+            code_expect=(
+                "(while (progn\n"
+                "         a\n"
+                "         b\n"
+                "         c)\n"
+                "  (foo))\n"
+            ),
+            style='native',
+        )
+
+    def test_while_multiline_with_comments(self) -> None:
+        self.compare(
+            code_format=("(while\n"
+                         ";; A.\n"
+                         "(progn a b c)\n"
+                         ";; B.\n"
+                         "(foo))\n"),
+            code_expect=(
+                "(while\n"
+                "    ;; A.\n"
+                "    (progn\n"
+                "      a\n"
+                "      b\n"
+                "      c)\n"
+                "  ;; B.\n"
+                "  (foo))\n"
+            ),
+            style='native',
+        )
+
+    def test_and_multiline(self) -> None:
+        self.compare(
+            code_format="(and a b c d e f g)\n",
+            code_expect=(
+                "(and a\n"
+                "     b\n"
+                "     c\n"
+                "     d\n"
+                "     e\n"
+                "     f\n"
+                "     g)\n"
+            ),
+            fill_column=14,
+            style='native',
         )
 
 

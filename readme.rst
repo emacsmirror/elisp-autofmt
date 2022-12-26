@@ -82,7 +82,7 @@ Requirements
 ------------
 
 - Emacs 27.2.
-- Python 3.10.
+- Python 3.8.
 
 
 Performance
@@ -104,6 +104,23 @@ Functions
 
 Customization
 -------------
+
+``elisp-autofmt-style`` (``native``)
+   Style to use for formatting, currently the options are:
+
+   ``native``
+      Use Emacs settings for indentation.
+
+   ``fixed``
+      Use fixed (2 space) indentation (simple behavior).
+
+      For Emacs to match this formatting set the defaults:
+
+      .. code-block:: elisp
+
+         (setq-local indent-tabs-mode nil)
+         (setq-local lisp-indent-function nil)
+         (setq-local lisp-indent-offset 2)
 
 ``elisp-autofmt-empty-line-max`` (``2``)
    The maximum number of empty lines to keep.
@@ -166,23 +183,3 @@ TODO
 ====
 
 - Use: ``.elisp-autofmt`` as a configuration file.
-
-- Support conventional ``let`` formatting:
-
-  .. code-block:: elisp
-
-     ;; Support this.
-     (let ((foo 1)
-           (bar 2))
-       *body*)
-
-     ;; As an alternative to this.
-     (let
-       (
-         (foo 1)
-         (bar 2))
-       *body*)
-
-  *Moving away from the current rule of fixed 2 space indentation.*
-
-- Use the indentation width from Emacs (currently fixed to 2).

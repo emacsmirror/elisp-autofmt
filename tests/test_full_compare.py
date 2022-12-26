@@ -32,6 +32,7 @@ def emacs_elisp_autofmt_file_as_str(filepath: str) -> str:
             "(progn"
             # The extension is `.data`, so the mode needs to be activated.
             "(setq buffer-undo-list t)"
+            "(setq elisp-autofmt-style 'fixed)"
             "(elisp-autofmt-buffer)"
             "(write-region nil nil (getenv \"ELISP_AUTOFMT_OUTPUT\") nil 0))"
         ),
