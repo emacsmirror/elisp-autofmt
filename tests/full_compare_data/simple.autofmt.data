@@ -3098,7 +3098,10 @@ function as needed."
         "Prefix command (definition is a keymap associating keystrokes with commands).")
       (
         (or
-          `(lambda ,_args . ,body)
+          `
+          (lambda ,_args
+            .
+            ,body)
           `(closure ,_env ,_args . ,body)
           `
           (autoload ,_file .
@@ -6105,7 +6108,9 @@ see other processes running on the system, use `list-system-processes'."
       (let ((strs nil))
         (run-hook-wrapped
           'prefix-command-echo-keystrokes-functions
-          (lambda (fun) (push (funcall fun) strs) nil))
+          (lambda (fun)
+            (push (funcall fun) strs)
+            nil))
         (setq strs (delq nil strs))
         (when strs
           (mapconcat #'identity strs " "))))))
@@ -9804,7 +9809,8 @@ variables `truncate-lines' and `truncate-partial-width-windows'."
         (set (make-local-variable (car saved)) (cdr saved))))
     (kill-local-variable 'visual-line--saved-state)))
 
-(defun turn-on-visual-line-mode () (visual-line-mode 1))
+(defun turn-on-visual-line-mode ()
+  (visual-line-mode 1))
 
 (define-globalized-minor-mode global-visual-line-mode
   visual-line-mode
@@ -11170,7 +11176,10 @@ makes it easier to edit it."
               ;; Use VAR's `variable-interactive' property
               ;; as an interactive spec for prompting.
               (call-interactively
-                `(lambda (arg) (interactive ,prop) arg))
+                `
+                (lambda (arg)
+                  (interactive ,prop)
+                  arg))
               (read-from-minibuffer prompt
                 nil
                 read-expression-map

@@ -367,7 +367,10 @@ When SKIP-REQUIRE is non-nil, the package is not required."
           t)
         ((member package-id (list "subr"))
           t)
-        ((with-demoted-errors "%S" (require package-sym) t)
+        (
+          (with-demoted-errors "%S"
+            (require package-sym)
+            t)
           t)
         (t
           (message "Unable to load %s" package-id)
@@ -458,7 +461,10 @@ When SKIP-REQUIRE is set, don't require the package."
       (cond
         (skip-require
           t)
-        ((with-demoted-errors "%S" (require package-sym) t)
+        (
+          (with-demoted-errors "%S"
+            (require package-sym)
+            t)
           t)
         (t
           (message "Unable to load %s" package-id)
@@ -716,12 +722,15 @@ Optional argument ASSUME-FILE-NAME overrides the file name used for this buffer.
 
 (defun elisp-autofmt--buffer-impl (buf)
   "Auto-format the entire buffer BUF."
-  (with-current-buffer buf (elisp-autofmt--region)))
+  (with-current-buffer buf
+    (elisp-autofmt--region)))
 
 (defun elisp-autofmt--buffer-format-for-save-hook ()
   "The hook to run on buffer saving to format the buffer."
   ;; Demote errors as this is user configurable, we can't be sure it wont error.
-  (when (with-demoted-errors "elisp-autofmt: Error %S" (funcall elisp-autofmt-on-save-p))
+  (when
+    (with-demoted-errors "elisp-autofmt: Error %S"
+      (funcall elisp-autofmt-on-save-p))
     (elisp-autofmt-buffer))
   ;; Continue to save.
   nil)
