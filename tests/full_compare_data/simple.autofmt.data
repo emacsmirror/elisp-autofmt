@@ -3107,7 +3107,9 @@ function as needed."
         (or
           `(lambda ,_args . ,body)
           `(closure ,_env ,_args . ,body)
-          `(autoload ,_file . ,body))
+          `
+          (autoload ,_file .
+            ,body))
         (let ((doc (car body)))
           (when
             (and
@@ -3894,7 +3896,8 @@ the minibuffer contents."
 
 
 ;Put this on C-x u, so we can force that rather than C-_ into startup msg
-(define-obsolete-function-alias 'advertised-undo 'undo "23.2")
+(define-obsolete-function-alias 'advertised-undo 'undo
+  "23.2")
 
 (defconst undo-equiv-table (make-hash-table :test 'eq :weakness t)
   "Table mapping redo records to the corresponding undo one.
@@ -3967,7 +3970,8 @@ as an argument limits undo to changes within the current region."
       ;; auto-save data.
       (base-buffer (or (buffer-base-buffer) (current-buffer)))
       (recent-save
-        (with-current-buffer base-buffer (recent-auto-save-p)))
+        (with-current-buffer base-buffer
+          (recent-auto-save-p)))
       ;; Allow certain commands to inhibit an immediately following
       ;; undo-in-region.
       (inhibit-region
@@ -4665,7 +4669,8 @@ REASON describes the reason that the boundary is being added; see
       (current-buffer)))
   (dolist (b undo-auto--undoably-changed-buffers)
     (when (buffer-live-p b)
-      (with-current-buffer b (undo-auto--ensure-boundary cause))))
+      (with-current-buffer b
+        (undo-auto--ensure-boundary cause))))
   (setq undo-auto--undoably-changed-buffers nil))
 
 (defun undo-auto--boundary-timer ()
@@ -5104,7 +5109,9 @@ whose `car' is BUFFER."
         (let
           (
             (win (car (get-buffer-window-list buf)))
-            (pmax (with-current-buffer buf (point-max))))
+            (pmax
+              (with-current-buffer buf
+                (point-max))))
 
           ;; The first time we run a command in a freshly created buffer
           ;; we have not saved positions yet; advance to `point-max', so that
@@ -5119,7 +5126,8 @@ whose `car' is BUFFER."
           (if win
             (set-window-point win pos)
             (when pos
-              (with-current-buffer buf (goto-char pos)))
+              (with-current-buffer buf
+                (goto-char pos)))
             (save-window-excursion
               (let
                 (
@@ -5376,11 +5384,13 @@ impose the use of a shell (with its need to quote arguments)."
                       'confirm-rename-buffer)
                     ;; If will rename the buffer, query first.
                     (shell-command--same-buffer-confirm "Rename it")
-                    (with-current-buffer buffer (rename-uniquely))
+                    (with-current-buffer buffer
+                      (rename-uniquely))
                     (setq buffer (get-buffer-create bname)))
                   ((eq async-shell-command-buffer 'rename-buffer)
                     ;; It will rename the buffer.
-                    (with-current-buffer buffer (rename-uniquely))
+                    (with-current-buffer buffer
+                      (rename-uniquely))
                     (setq buffer (get-buffer-create bname)))))
               (with-current-buffer buffer
                 (shell-command-save-pos-or-erase)
@@ -5773,7 +5783,8 @@ characters."
                   ((not (equal 0 exit-status))
                     (format " - Exit [%d]" exit-status)))))
             (if
-              (with-current-buffer buffer (> (point-max) (point-min)))
+              (with-current-buffer buffer
+                (> (point-max) (point-min)))
               ;; There's some output, display it
               (progn
                 (display-message-or-buffer buffer)
@@ -5832,7 +5843,8 @@ characters."
 (defun shell-command-to-string (command)
   "Execute shell command COMMAND and return its output as a string."
   (with-output-to-string
-    (with-current-buffer standard-output (shell-command command t))))
+    (with-current-buffer standard-output
+      (shell-command command t))))
 
 (defun process-file
   (program &optional infile buffer display &rest args)
@@ -11925,7 +11937,8 @@ after it has been set up properly in other respects."
       (new (generate-new-buffer (or newname (buffer-name)))))
     (save-restriction
       (widen)
-      (with-current-buffer new (insert-buffer-substring buf)))
+      (with-current-buffer new
+        (insert-buffer-substring buf)))
     (with-current-buffer new
       (narrow-to-region ptmin ptmax)
       (goto-char pt)

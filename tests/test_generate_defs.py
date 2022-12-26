@@ -114,14 +114,14 @@ class SimpleTestBuiltinPackage_SubrX(MyTestCase):
     def test_check_simple(self) -> None:
         data = generate_defs_package_as_json("subr-x")
         self.assertEqual(data['functions']['string-join'], ['func', 1, 2, {}])
-        self.assertEqual(data['functions']['named-let'], ['macro', 2, 'many', {}])
+        self.assertEqual(data['functions']['named-let'], ['macro', 2, 'many', {'indent': 2}])
 
 
 class SimpleTestBuiltinPackage_Subr(MyTestCase):
     def test_check_simple(self) -> None:
         data = generate_defs_package_as_json("subr")
-        self.assertEqual(data['functions']['with-syntax-table'], ['macro', 1, 'many', {}])
-        self.assertEqual(data['functions']['defvar-local'], ['macro', 2, 3, {}])
+        self.assertEqual(data['functions']['with-syntax-table'], ['macro', 1, 'many', {'indent': 1}])
+        self.assertEqual(data['functions']['defvar-local'], ['macro', 2, 3, {'doc-string': 3, 'indent': 2}])
 
 
 class SimpleTestBuiltinPackage_Simple(MyTestCase):

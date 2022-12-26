@@ -709,7 +709,8 @@ This only checks the text matching face rules."
   "Update spelling for POS-BEG & POS-END to the queue, checking all text."
   (spell-fu--setq-expand-range-to-line-boundaries
     ;; Warning these values are set in place.
-    pos-beg pos-end)
+    pos-beg
+    pos-end)
   (funcall spell-fu-check-range pos-beg pos-end))
 
 (defun spell-fu--immediate-enable ()
@@ -761,7 +762,8 @@ when checking the entire buffer for example."
             ;; Expand so we don't spell check half a word.
             (spell-fu--setq-expand-range-to-line-boundaries
               ;; Warning these values are set in place.
-              pos-beg pos-end)
+              pos-beg
+              pos-end)
 
             (when
               (condition-case err
@@ -970,7 +972,8 @@ The VERBOSE argument reports the findings."
       (setq pos-end (point-max)))
     (spell-fu--setq-expand-range-to-line-boundaries
       ;; Warning these values are set in place.
-      pos-beg pos-end))
+      pos-beg
+      pos-end))
 
   (setq pos-beg (or pos-beg (point-min)))
   (setq pos-end (or pos-end (point-max)))

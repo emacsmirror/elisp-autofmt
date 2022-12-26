@@ -192,7 +192,7 @@ def parse_local_defs(defs: Defs, node_parent: NdSexp) -> None:
     # since it's nearly always where we have the body of macros which is logically
     # where we want to break.
     if node_parent.nodes_only_code and node_parent.brackets == '()':
-        node = node_parent.nodes[0]
+        node = node_parent.nodes_only_code[0]
         if isinstance(node, NdSymbol):
             symbol_type = None
             if node.data in {
@@ -210,13 +210,14 @@ def parse_local_defs(defs: Defs, node_parent: NdSexp) -> None:
                 return
 
             # Sanity check, should never fail.
-            if len(node_parent.nodes) >= 3:
-                node_symbol = node_parent.nodes[1]
-                node_args = node_parent.nodes[2]
+            if len(node_parent.nodes_only_code) >= 3:
+                node_symbol = node_parent.nodes_only_code[1]
+                node_args = node_parent.nodes_only_code[2]
                 if isinstance(node_symbol, NdSymbol) and isinstance(node_args, NdSexp):
                     symbol = node_symbol.data
                     arg_index_min = 0
                     arg_index_max: Union[int, str] = 0
+                    hints = None
                     for i, node_arg in enumerate(node_args.nodes_only_code):
                         if not isinstance(node_arg, NdSymbol):
                             continue
@@ -234,12 +235,51 @@ def parse_local_defs(defs: Defs, node_parent: NdSexp) -> None:
                                     arg_index_max = j
                             break
 
-                    # The second value is currently unused (max arguments).
+                    if node.data in {'defun', 'defmacro'}:
+                        if len(node_parent.nodes_only_code) >= 4:
+                            node_decl = None
+                            if isinstance(node_parent.nodes_only_code[3], NdString):
+                                if len(node_parent.nodes_only_code) >= 5:
+                                    if isinstance(node_parent.nodes_only_code[4], NdSexp):
+                                        node_decl = node_parent.nodes_only_code[4]
+                            else:
+                                if isinstance(node_parent.nodes_only_code[3], NdSexp):
+                                    node_decl = node_parent.nodes_only_code[3]
+
+                            # First argument after a function may be 'declare'.
+                            if node_decl is not None and len(node_decl.nodes_only_code) > 1:
+                                if (
+                                        (isinstance(node_decl.nodes_only_code[0], NdSymbol)) and
+                                        (node_decl.nodes_only_code[0].data == 'declare')
+                                ):
+                                    # The second value is currently unused (max arguments).
+                                    for node_iter in node_decl.nodes_only_code[1:]:
+                                        if (
+                                                isinstance(node_iter, NdSexp) and
+                                                len(node_iter.nodes_only_code) == 2
+                                        ):
+                                            node_key, node_val = node_iter.nodes_only_code
+                                            if isinstance(node_key, NdSymbol):
+                                                key = node_key.data
+                                                match node_key.data:
+                                                    case 'indent':
+                                                        if hints is None:
+                                                            hints = {}
+                                                        if isinstance(node_val, NdSymbol):
+                                                            val = node_val.data
+                                                            hints[key] = int(val) if val.isdigit() else val
+                                                    case 'doc-string':
+                                                        if hints is None:
+                                                            hints = {}
+                                                        if isinstance(node_val, NdSymbol):
+                                                            val = node_val.data
+                                                            hints[key] = int(val) if val.isdigit() else val
+
                     defs.fn_arity[symbol] = FnArity(
                         symbol_type=symbol_type,
                         nargs_min=arg_index_min,
                         nargs_max=arg_index_max,
-                        hints=None,
+                        hints=hints,
                     )
 
     for node in node_parent.nodes_only_code:
@@ -251,7 +291,7 @@ def apply_rules(defs: Defs, node_parent: NdSexp) -> None:
 
     # Optional
     if node_parent.nodes_only_code and node_parent.brackets == '()':
-        node = node_parent.nodes[0]
+        node = node_parent.nodes_only_code[0]
         if isinstance(node, NdSymbol):
 
             node_parent.index_wrap_hint = 1
@@ -334,7 +374,23 @@ def apply_rules(defs: Defs, node_parent: NdSexp) -> None:
                 if (fn_data := defs.fn_arity.get(node.data)) is not None:
                     # May be `FnArity` or a list.
                     symbol_type, nargs_min, nargs_max, hints = fn_data
-                    if nargs_min is not None:
+
+                    hint_indent = None
+                    if (
+                            (hints is not None) and
+                            ((hint_indent := hints.get('indent')) is not None)
+                    ):
+                        if type(hint_indent) is str:
+                            if (fn_data_test := defs.fn_arity.get(hint_indent)) is not None:
+                                hints_test = fn_data_test[3]
+                                hint_indent = hints_test.get('indent')
+                            del fn_data_test
+
+                    if hint_indent:
+                        node_parent.index_wrap_hint = 1 + hint_indent
+                        if 'break' not in hints:
+                            hints['break'] = 'always'
+                    elif nargs_min is not None:
                         # First symbol counts for 1, another since wrapping takes place after this argument.
                         node_parent.index_wrap_hint = nargs_min + 1
 

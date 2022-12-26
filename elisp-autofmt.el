@@ -221,20 +221,45 @@ Any `stderr' is output a message and is interpreted as failure."
   (unless (file-directory-p elisp-autofmt-cache-directory)
     (make-directory elisp-autofmt-cache-directory t)))
 
-(defun elisp-autofmt--cache-api-insert-function-to-file (sym-name sym-ty arity)
-  "Insert JSON data from SYM-NAME, SYM-TY and ARITY."
+(defun elisp-autofmt--cache-api-insert-function-to-file (sym-id sym-name sym-ty arity)
+  "Insert JSON data from SYM-ID, SYM-NAME, SYM-TY and ARITY."
   ;; `arity' is an argument because built-in functions use different logic.
 
-  (insert "\"" (string-replace "\\" "\\\\" sym-name) "\": ")
-  (insert
-    "["
-    (concat "\"" (symbol-name sym-ty) "\"")
-    ", "
-    (elisp-autofmt--cache-api-val-as-str (car arity))
-    ", "
-    (elisp-autofmt--cache-api-val-as-str (cdr arity))
-    ;; Dictionary for additional hints.
-    ", {}],\n"))
+  ;; There are many other properties, however they don't relate to formatting so much.
+  (let ((properties nil))
+    (let ((val (function-get sym-id 'lisp-indent-function t)))
+      (when val
+        (cond
+          ((numberp val)
+            (push (format "\"indent\": %d" val) properties))
+          ((symbolp val)
+            ;; Perform the lookup here, avoid the burden on the caller having to check!
+            (push (format "\"indent\": \"%s\"" (symbol-name val)) properties)))))
+
+    (let ((val (function-get sym-id 'doc-string-elt t)))
+      (when val
+        (cond
+          ((numberp val)
+            (push (format "\"doc-string\": %d" val) properties))
+          ((symbolp val)
+            (push (format "\"doc-string\": \"%s\"" (symbol-name val)) properties)))))
+
+    (insert "\"" (string-replace "\\" "\\\\" sym-name) "\": ")
+    (insert
+      "["
+      (concat "\"" (symbol-name sym-ty) "\"")
+      ", "
+      (elisp-autofmt--cache-api-val-as-str (car arity))
+      ", "
+      (elisp-autofmt--cache-api-val-as-str (cdr arity))
+      ;; Dictionary for additional hints.
+      ", {"
+      (cond
+        (properties
+          (mapconcat 'identity properties ", "))
+        (t
+          ""))
+      "}],\n")))
 
 (defun elisp-autofmt--fn-type (sym-id)
   "Return the type of function SYM-ID or nil."
@@ -261,6 +286,7 @@ When INCLUDE-PRIVATE is nil, exclude functions with \"--\" in their names."
                 ;; Ignore "--" separators as this is a convention for private names.
                 (when (or include-private (null (string-match-p "--" sym-name)))
                   (elisp-autofmt--cache-api-insert-function-to-file
+                    sym-id
                     sym-name
                     sym-ty
                     (func-arity sym-id)))))))))))
@@ -298,7 +324,9 @@ When INCLUDE-PRIVATE is nil, exclude functions with \"--\" in their names."
                   (when t
                     ;; (eq file 'C-source)
                     (elisp-autofmt--cache-api-insert-function-to-file
-                      (symbol-name sym-id) sym-ty
+                      sym-id
+                      (symbol-name sym-id)
+                      sym-ty
                       (cond
                         ((subrp sym-fn)
                           (subr-arity sym-fn))
