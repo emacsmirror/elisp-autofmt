@@ -1186,8 +1186,6 @@ class NdSexp(Node):
         data = ''.join(_data)
         del _data
 
-        line_terminate = _ctx.line_terminate
-
         # Step over `\n` characters instead of data.split('\n')
         # so multiple characters are handled separately.
         line_step = 0
@@ -1195,6 +1193,7 @@ class NdSexp(Node):
 
         line_length_max = 0
         if (not cfg.use_trailing_parens) and (_ctx.line_terminate == _ctx.line):
+            line_terminate = _ctx.line_terminate
             while line_step != -1:
                 line_step_next = data.find('\n', line_step)
                 if line_step_next == -1:
