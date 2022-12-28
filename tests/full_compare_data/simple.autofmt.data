@@ -2723,7 +2723,9 @@ This function uses the `read-extended-command-predicate' user option."
                     (message "read-extended-command-predicate: %s: %s"
                       sym
                       (error-message-string err))))))))
-        t nil 'extended-command-history))))
+        t
+        nil
+        'extended-command-history))))
 
 (defun command-completion-using-modes-p (symbol buffer)
   "Say whether SYMBOL has been marked as a mode-specific command in BUFFER."
@@ -4146,8 +4148,7 @@ Return what remains of the list."
                     (`(,delta ,start ,end ,fun . ,args) fun-args)
                     (start-mark (copy-marker start nil))
                     (end-mark (copy-marker end t)))
-                  (when
-                    (or (> (point-min) start) (< (point-max) end))
+                  (when (or (> (point-min) start) (< (point-max) end))
                     (error
                       "Changes to be undone are outside visible portion of buffer"))
                   (apply fun args) ;; Use `save-current-buffer'?
@@ -6061,7 +6062,8 @@ Runs `prefix-command-preserve-state-hook'."
 (defun universal-argument--preserve ()
   (setq prefix-arg current-prefix-arg))
 
-(defvar universal-argument-map
+(defvar
+  universal-argument-map
   (let
     (
       (map (make-sparse-keymap))

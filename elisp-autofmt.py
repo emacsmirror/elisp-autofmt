@@ -568,13 +568,13 @@ def apply_pre_indent_2(cfg: FormatConfig, node_parent: NdSexp, level: int, trail
     # If after wrapping 'everything', we still overflow,
     # don't use  this for tests in future, it confuses checks
     # causing other lines to wrap because of this node.
-    line_length_max = node_parent.fmt_check_exceeds_colum_max(cfg, level, trailing_parens, find_longest_line=True)
-    if line_length_max:
-        if USE_NATIVE:
-            test_blacklist = True
-            if len(node_parent.nodes_only_code) > 1:
-                node = node_parent.nodes_only_code[1]
-                if not node.force_newline:
+    if USE_NATIVE:
+        if len(node_parent.nodes_only_code) > 1:
+            node = node_parent.nodes_only_code[1]
+            if not node.force_newline:
+                line_length_max = node_parent.fmt_check_exceeds_colum_max(
+                    cfg, level, trailing_parens, find_longest_line=True)
+                if line_length_max:
                     node.force_newline = True
                     line_length_max_test = node_parent.fmt_check_exceeds_colum_max(
                         cfg,
@@ -584,15 +584,10 @@ def apply_pre_indent_2(cfg: FormatConfig, node_parent: NdSexp, level: int, trail
                     )
                     if line_length_max_test < line_length_max:
                         # Success, don't exclude.
-                        test_blacklist = False
+                        pass
                     else:
                         # Don't add line break.
                         node.force_newline = False
-
-            if test_blacklist:
-                node_parent.test_blacklist = True
-        else:
-            node_parent.test_blacklist = True
 
 
 def apply_pre_indent(cfg: FormatConfig, node_parent: NdSexp, level: int, trailing_parens: int) -> None:
@@ -658,30 +653,19 @@ def apply_pre_indent_unwrap_recursive(cfg: FormatConfig, node_parent: NdSexp, le
     # Check if any of these nodes that were wrapped to fit into the fill-column could be unwrapped.
     if force_newline_soft_any:
         nl = [
-            (node.force_newline, node.force_newline_soft, getattr(node, 'test_blacklist', False))
+            (node.force_newline, node.force_newline_soft)
             for node in node_parent.nodes_only_code
         ]
         for node in node_parent.nodes_only_code:
             if node.force_newline_soft:
                 node.force_newline = False
                 node.force_newline_soft = False
-            if getattr(node, 'test_blacklist', False):
-                del node.test_blacklist
-
-        if (test_blacklist_parent := getattr(node_parent, 'test_blacklist', False)):
-            del node_parent.test_blacklist
 
         if node_parent.fmt_check_exceeds_colum_max(cfg, level, trailing_parens, find_longest_line=False):
             # Failure, restore the previous state.
             for i, node in enumerate(node_parent.nodes_only_code):
-                force_newline, force_newline_soft, test_blacklist = nl[i]
+                force_newline, force_newline_soft = nl[i]
                 node.force_newline = force_newline
-                node.force_newline_soft = force_newline_soft
-                if test_blacklist:
-                    node.test_blacklist = True
-
-            if test_blacklist_parent:
-                node_parent.test_blacklist = True
 
 
 # ------------------------------------------------------------------------------
@@ -792,13 +776,11 @@ class Node:
         'force_newline',
         'force_newline_soft',
         'original_line',
-        'test_blacklist',
     )
 
     force_newline: bool
     force_newline_soft: bool
     original_line: int
-    test_blacklist: bool
 
     def calc_force_newline(self) -> None:
         raise Exception('All subclasses must define this')
@@ -827,7 +809,6 @@ if TRACE_NEWLINES:
         )
 
         original_line: int
-        test_blacklist: bool
 
         @property
         def force_newline(self) -> bool:
@@ -1443,8 +1424,6 @@ class NdSexp(Node):
                     # We could return however this misses trailing parenthesis on the same line.
                     assert ctx.line_terminate == -1
                     ctx.line_terminate = ctx.line
-                if getattr(node, 'test_blacklist', False):
-                    continue
 
             if (
                     node.force_newline or
