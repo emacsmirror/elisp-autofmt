@@ -137,7 +137,8 @@ Any `stderr' is output a message and is interpreted as failure."
         (this-buffer (current-buffer))
         (stdout-buffer nil)
         (stderr-buffer nil)
-        (stderr-as-string nil))
+        (stderr-as-string nil)
+        (proc-id "elisp-autofmt--call-checked"))
     (with-temp-buffer
       (setq stdout-buffer (current-buffer))
       (with-temp-buffer
@@ -145,13 +146,27 @@ Any `stderr' is output a message and is interpreted as failure."
         (with-current-buffer this-buffer
           (let ((proc
                  (make-process
-                  :name "elisp-autofmt--call-checked"
+                  :name proc-id
                   :buffer stdout-buffer
                   :stderr stderr-buffer
                   :command command-with-args
                   :sentinel
                   (lambda (_proc _msg)
                     (setq sentinel-called t)
+
+                    ;; FIXME: how to avoid printing status text in the first place?
+                    (unless (zerop (buffer-size stderr-buffer))
+                      (with-current-buffer stderr-buffer
+                        (goto-char (point-min))
+                        (save-match-data
+                          (when (search-forward (concat "Process " proc-id " stderr finished")
+                                                nil t)
+                            (replace-match "" t nil nil)))
+                        (goto-char (point-max))
+                        (skip-chars-backward " \t\n" (point-min))
+                        (when (bobp)
+                          (erase-buffer))))
+                    ;; End awkward hack.
 
                     (unless (zerop (buffer-size stderr-buffer))
                       (with-current-buffer stderr-buffer
