@@ -4,6 +4,12 @@ Emacs AutoFmt
 
 This is a package to auto-format Emacs lisp.
 
+Available via `melpa <https://melpa.org/#/elisp-autofmt>`__.
+
+
+Examples
+========
+
 Projects using this:
 
 - `bookmark-in-project <https://codeberg.org/ideasman42/emacs-bookmark-in-project>`__
@@ -157,20 +163,12 @@ Customization (API Definitions)
 Installation
 ============
 
-This can be installed using ``straight``, example:
+This can be installed with ``use-package``:
 
 .. code-block:: elisp
 
    (use-package elisp-autofmt
-     :commands (elisp-autofmt-mode)
-     :hook (emacs-lisp-mode . elisp-autofmt-mode)
-
-     :straight
-     (elisp-autofmt
-       :files (:defaults "elisp-autofmt.py" "elisp-autofmt.overrides.json")
-       :host nil
-       :type git
-       :repo "https://codeberg.org/ideasman42/emacs-elisp-autofmt.git"))
+     :commands (elisp-autofmt-mode))
 
 
 Limitations
