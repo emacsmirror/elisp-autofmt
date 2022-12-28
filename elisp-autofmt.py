@@ -46,9 +46,6 @@ USE_EXTRACT_DEFS = True
 # Report missing definitions.
 LOG_MISSING_DEFS = None  # '/tmp/out.log'
 
-# Simulate EMACS native indentation.
-USE_NATIVE = True
-
 # ------------------------------------------------------------------------------
 # Exceptions
 
@@ -105,7 +102,10 @@ class NdSexp_SoftWrap:
 
     This is done parent level nodes that are wrapped may remove wrapping added to child nodes.
     '''
-    __slots__ = ('force_newline_orig', 'node_parent')
+    __slots__ = (
+        'force_newline_orig',
+        'node_parent',
+    )
 
     def __init__(self, node_parent: NdSexp):
         self.node_parent = node_parent
@@ -152,7 +152,7 @@ def apply_comment_force_newline(root: NdSexp) -> None:
             node_line_start = node
 
 
-def apply_relaxed_wrap(node_parent: NdSexp) -> None:
+def apply_relaxed_wrap(node_parent: NdSexp, cfg: FormatConfig) -> None:
     node_prev = None
     force_newline = False
 
@@ -242,14 +242,14 @@ def apply_relaxed_wrap(node_parent: NdSexp) -> None:
 
             node_prev = node
 
-    if not USE_NATIVE:
+    if not cfg.use_native:
         if force_newline:
             node_parent.force_newline = True
 
 
-def apply_relaxed_wrap_when_multiple_args(node_parent: NdSexp) -> None:
+def apply_relaxed_wrap_when_multiple_args(node_parent: NdSexp, cfg: FormatConfig) -> None:
     if len(node_parent.nodes_only_code) - node_parent.index_wrap_hint > 1:
-        apply_relaxed_wrap(node_parent)
+        apply_relaxed_wrap(node_parent, cfg)
 
 
 def parse_local_defs(defs: Defs, node_parent: NdSexp) -> None:
@@ -352,7 +352,7 @@ def parse_local_defs(defs: Defs, node_parent: NdSexp) -> None:
             parse_local_defs(defs, node)
 
 
-def apply_rules(defs: Defs, node_parent: NdSexp) -> None:
+def apply_rules(cfg: FormatConfig, node_parent: NdSexp) -> None:
 
     # Optional
     if node_parent.nodes_only_code and node_parent.brackets == '()':
@@ -374,7 +374,7 @@ def apply_rules(defs: Defs, node_parent: NdSexp) -> None:
                     'when-let*',
             }:
                 # Only wrap with multiple declarations.
-                if USE_NATIVE:
+                if cfg.use_native:
                     if isinstance(node_parent.nodes_only_code[1], NdSexp):
                         if len(node_parent.nodes_only_code[1].nodes_only_code) > 1:
                             for subnode in node_parent.nodes_only_code[1].nodes_only_code[1:]:
@@ -388,23 +388,23 @@ def apply_rules(defs: Defs, node_parent: NdSexp) -> None:
                 # A new line for each body of the let-statement.
                 node_parent.index_wrap_hint = 2
 
-                if not USE_NATIVE:
+                if not cfg.use_native:
                     if len(node_parent.nodes_only_code) > 2:
                         # While this should always be true, while editing it can be empty at times.
                         # Don't error in this case because it's annoying.
                         node_parent.nodes_only_code[2].force_newline = True
 
                 node_parent.hints['indent'] = 1
-                apply_relaxed_wrap(node_parent)
+                apply_relaxed_wrap(node_parent, cfg)
             elif node.data == 'cond':
                 for subnode in node_parent.nodes_only_code[1:]:
                     subnode.force_newline = True
                     if isinstance(subnode, NdSexp) and len(subnode.nodes_only_code) >= 2:
                         subnode.nodes_only_code[1].force_newline = True
-                        apply_relaxed_wrap_when_multiple_args(subnode)
+                        apply_relaxed_wrap_when_multiple_args(subnode, cfg)
             else:
                 # First lookup built-in definitions, if they exist.
-                if (fn_data := defs.fn_arity.get(node.data)) is not None:
+                if (fn_data := cfg.defs.fn_arity.get(node.data)) is not None:
                     # May be `FnArity` or a list.
                     symbol_type, nargs_min, nargs_max, hints = fn_data
                     if nargs_min is None:
@@ -468,9 +468,9 @@ def apply_rules(defs: Defs, node_parent: NdSexp) -> None:
 
                         if (val := hints.get('break')) is not None:
                             if val == 'always':
-                                apply_relaxed_wrap(node_parent)
+                                apply_relaxed_wrap(node_parent, cfg)
                             elif val == 'multi':
-                                apply_relaxed_wrap_when_multiple_args(node_parent)
+                                apply_relaxed_wrap_when_multiple_args(node_parent, cfg)
                             elif val == 'to_wrap':  # Default
                                 pass
                             else:
@@ -485,12 +485,12 @@ def apply_rules(defs: Defs, node_parent: NdSexp) -> None:
 
     for node in node_parent.nodes_only_code:
         if isinstance(node, NdSexp):
-            apply_rules(defs, node)
-        if not USE_NATIVE:
+            apply_rules(cfg, node)
+        if not cfg.use_native:
             if node.force_newline:
                 node_parent.force_newline = True
 
-    if not USE_NATIVE:
+    if not cfg.use_native:
         node_parent.flush_newlines_from_nodes()
 
 
@@ -498,8 +498,8 @@ def apply_pre_indent_1(cfg: FormatConfig, node_parent: NdSexp, level: int, trail
     # First be relaxed, then again if it fails.
     # NOTE: The caller should use a `NdSexp_SoftWrap` context manager.
     if node_parent.fmt_check_exceeds_colum_max(cfg, level, trailing_parens, find_longest_line=False):
-        apply_relaxed_wrap(node_parent)
-        if not USE_NATIVE:
+        apply_relaxed_wrap(node_parent, cfg)
+        if not cfg.use_native:
             node_parent.force_newline = True
 
 
@@ -562,14 +562,14 @@ def apply_pre_indent_2(cfg: FormatConfig, node_parent: NdSexp, level: int, trail
                             break
                     i -= 1
 
-    if not USE_NATIVE:
+    if not cfg.use_native:
         if force_newline:
             node_parent.force_newline = True
 
     # If after wrapping 'everything', we still overflow,
     # don't use  this for tests in future, it confuses checks
     # causing other lines to wrap because of this node.
-    if USE_NATIVE:
+    if cfg.use_native:
         if len(node_parent.nodes_only_code) > 1:
             node = node_parent.nodes_only_code[1]
             if not node.force_newline:
@@ -609,7 +609,7 @@ def apply_pre_indent(cfg: FormatConfig, node_parent: NdSexp, level: int, trailin
         if isinstance(node, NdSexp):
             level_next = level_next_data[min(i, level_next_data_last)]
             apply_pre_indent(cfg, node, level_next, trailing_parens + 1 if node is node_trailing_parens else 0)
-            if not USE_NATIVE:
+            if not cfg.use_native:
                 if node.force_newline:
                     node_parent.force_newline = True
 
@@ -621,10 +621,10 @@ def apply_pre_indent(cfg: FormatConfig, node_parent: NdSexp, level: int, trailin
     if node_parent.wrap_all_or_nothing_hint:
         if node_parent_is_multiline_prev or node_parent.is_multiline():
             if node_parent_is_multiline_prev:
-                apply_relaxed_wrap(node_parent)
+                apply_relaxed_wrap(node_parent, cfg)
             else:
                 with NdSexp_SoftWrap(node_parent):
-                    apply_relaxed_wrap(node_parent)
+                    apply_relaxed_wrap(node_parent, cfg)
 
 
 def apply_pre_indent_unwrap_recursive(cfg: FormatConfig, node_parent: NdSexp, level: int, trailing_parens: int) -> None:
@@ -678,6 +678,7 @@ def apply_pre_indent_unwrap_recursive(cfg: FormatConfig, node_parent: NdSexp, le
 class FormatConfig(NamedTuple):
     '''Configuration options relating to how the file should be formatted.'''
     use_trailing_parens: bool
+    use_native: bool
     fill_column: int
     empty_lines: int
     defs: Defs
@@ -782,7 +783,7 @@ class Node:
     force_newline_soft: bool
     original_line: int
 
-    def calc_force_newline(self) -> None:
+    def calc_force_newline(self, cfg: FormatConfig) -> None:
         raise Exception('All subclasses must define this')
 
     def fmt(
@@ -892,7 +893,7 @@ class NdSexp(Node):
         The list may be shorter, in this case the last element should be used
         for node indices that exceed this lists range.
         '''
-        if not USE_NATIVE:
+        if not cfg.use_native:
             if level == -1:
                 return [0]
             return [level + 2]
@@ -1047,7 +1048,7 @@ class NdSexp(Node):
         return level_next_data
 
     def flush_newlines_from_nodes(self) -> bool:
-        assert not USE_NATIVE
+        # assert not cfg.use_native
         changed = False
         if not self.force_newline:
             for node in self.nodes_only_code:
@@ -1071,7 +1072,7 @@ class NdSexp(Node):
         #        g))
         #
         # While this could be supported currently it's not and I feel this adds awkward right shift.
-        assert USE_NATIVE
+        # assert cfg.use_native
         changed = False
         for i, node in enumerate(self.nodes_only_code):
             if i > 1 and isinstance(node, NdSexp) and not node.force_newline and node.is_multiline():
@@ -1084,7 +1085,7 @@ class NdSexp(Node):
         return changed
 
     def flush_newlines_from_nodes_recursive(self) -> bool:
-        assert not USE_NATIVE
+        # assert not cfg.use_native
         changed = False
         for node in self.nodes_only_code:
             if node.force_newline:
@@ -1095,11 +1096,11 @@ class NdSexp(Node):
                 changed |= node.flush_newlines_from_nodes_recursive()
         return changed
 
-    def calc_force_newline(self) -> None:
+    def calc_force_newline(self, cfg: FormatConfig) -> None:
         force_newline = False
         node_prev = None
         for node in self.nodes:
-            node.calc_force_newline()
+            node.calc_force_newline(cfg)
             if not node.force_newline:
                 if node_prev:
                     if isinstance(node_prev, NdComment):
@@ -1112,7 +1113,7 @@ class NdSexp(Node):
             force_newline |= node.force_newline
             node_prev = node
 
-        if not USE_NATIVE:
+        if not cfg.use_native:
             self.force_newline = force_newline
         else:
             self.force_newline = False
@@ -1237,7 +1238,6 @@ class NdSexp(Node):
         return line_length_max
 
     def fmt_pre_wrap(self, ctx: WriteCtx, level: int, trailing_parens: int) -> None:
-
         # First handle Sexpr's one at a time, then all of them.
         # not very efficient, but it avoids over wrapping.
 
@@ -1257,7 +1257,7 @@ class NdSexp(Node):
             if self.fmt_check_exceeds_colum_max(ctx.cfg, level, trailing_parens, find_longest_line=False):
                 if i == len(nodes_backup):
                     with NdSexp_SoftWrap(self):
-                        apply_relaxed_wrap(self)
+                        apply_relaxed_wrap(self, ctx.cfg)
                 else:
                     if not self.nodes_only_code[0].force_newline:
                         self.nodes_only_code[0].force_newline = True
@@ -1292,7 +1292,9 @@ class NdSexp(Node):
                 node.fmt_pre_wrap(ctx, level_next, trailing_parens + 1 if node is node_trailing_parens else 0)
             force_newline |= node.force_newline
 
-        if USE_NATIVE:
+        use_native = ctx.cfg.use_native
+
+        if use_native:
             pass
         else:
             if force_newline:
@@ -1319,7 +1321,7 @@ class NdSexp(Node):
             if len(self.nodes_only_code) > self.index_wrap_hint:
                 node = self.nodes_only_code[self.index_wrap_hint]
                 node.force_newline = True
-                if not USE_NATIVE:
+                if not use_native:
                     self.force_newline = True
 
             # Ensure colon prefixed arguments are on new-lines
@@ -1352,7 +1354,7 @@ class NdSexp(Node):
                         #         node_prev_prev.data.startswith(':')
                         # ):
                         node.force_newline = True
-                        if not USE_NATIVE:
+                        if not use_native:
                             self.force_newline = True
 
                 # node_prev = node
@@ -1385,7 +1387,7 @@ class NdSexp(Node):
             if self.prefix:
                 write_fn(self.prefix)
 
-                if USE_NATIVE:
+                if ctx.cfg.use_native:
                     pass
                 else:
                     # A single `#` is used for advanced macros,
@@ -1513,7 +1515,7 @@ class NdWs(Node):
             self.original_line,
         )
 
-    def calc_force_newline(self) -> None:
+    def calc_force_newline(self, cfg: FormatConfig) -> None:
         # False because this forces it's own newline
         self.force_newline = True
         self.force_newline_soft = False
@@ -1553,7 +1555,7 @@ class NdComment(Node):
             self.data,
         )
 
-    def calc_force_newline(self) -> None:
+    def calc_force_newline(self, cfg: FormatConfig) -> None:
         self.force_newline = self.is_own_line
         self.force_newline_soft = False
 
@@ -1592,7 +1594,7 @@ class NdString(Node):
             self.data,
         )
 
-    def calc_force_newline(self) -> None:
+    def calc_force_newline(self, cfg: FormatConfig) -> None:
         if USE_WRAP_LINES:
             self.force_newline = ((not self.data.startswith('\n')) and self.lines > 0)
         else:
@@ -1633,7 +1635,7 @@ class NdSymbol(Node):
             self.data,
         )
 
-    def calc_force_newline(self) -> None:
+    def calc_force_newline(self, cfg: FormatConfig) -> None:
         self.force_newline = False
         self.force_newline_soft = False
 
@@ -1826,7 +1828,7 @@ def parse_file(cfg: FormatConfig, fh: TextIO) -> Tuple[str, NdSexp]:
         # Add back the blank line.
         root.nodes.insert(0, NdWs(0))
 
-    root.calc_force_newline()
+    root.calc_force_newline(cfg)
 
     apply_comment_force_newline(root)
 
@@ -1837,11 +1839,11 @@ def parse_file(cfg: FormatConfig, fh: TextIO) -> Tuple[str, NdSexp]:
                 parse_local_defs(cfg.defs, root)
                 cfg.defs._has_local = True
 
-        apply_rules(cfg.defs, root)
+        apply_rules(cfg, root)
 
         apply_pre_indent(cfg, root, -1, 0)
 
-        if USE_NATIVE:
+        if cfg.use_native:
             apply_pre_indent_unwrap_recursive(cfg, root, -1, 0)
 
         # All root level nodes get their own line always.
@@ -1889,7 +1891,7 @@ def format_file(
     # Redundant but needed for the assertion not to fail in the case when `len(root.nodes_only_code) == 1`.
     root.force_newline = True
 
-    if USE_NATIVE:
+    if cfg.use_native:
         root.flush_newlines_from_nodes_recursive_for_native()
     else:
         assert root.flush_newlines_from_nodes_recursive() is False
@@ -2043,6 +2045,7 @@ def main_generate_defs() -> bool:
     # Only for `defs`.
     cfg = FormatConfig(
         use_trailing_parens=False,  # Ignored.
+        use_native=False,  # Ignored.
         fill_column=80,  # Ignored.
         empty_lines=0,  # Ignored.
         defs=defs,
@@ -2101,10 +2104,6 @@ def main_no_except() -> None:
             'No files passed in, pass in files or use both \'--stdin\' & \'--stdout\'\n')
         sys.exit(1)
 
-    # Ugly global, TODO: clean up use of this.
-    global USE_NATIVE
-    USE_NATIVE = args.fmt_style == 'native'
-
     if args.fmt_defs:
         defs = Defs.from_json_files(
             os.path.join(args.fmt_defs_dir, filename) if (os.sep not in filename) else filename
@@ -2117,6 +2116,7 @@ def main_no_except() -> None:
         use_trailing_parens=args.fmt_use_trailing_parens,
         fill_column=args.fmt_fill_column,
         empty_lines=args.fmt_empty_lines,
+        use_native=args.fmt_style == 'native',
         defs=defs,
     )
 
