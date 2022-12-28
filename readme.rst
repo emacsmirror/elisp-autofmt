@@ -67,7 +67,7 @@ Usage
 =====
 
 Enable the ``elisp-autofmt-mode`` minor mode,
-this will format emacs-lisp buffers on save (depending on ``).
+this will format emacs-lisp buffers on save (depending on the ``elisp-autofmt-on-save-p`` function).
 
 Since it's likely you will work on code-bases that *don't* have auto-formatting enabled,
 this checks for the existence of an ``.elisp-autofmt`` file in the buffers directory (including parent paths).
