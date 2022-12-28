@@ -1193,13 +1193,18 @@ class NdSexp(Node):
             find_longest_line: bool,
             test_node_terminate: Optional[Node] = None,
     ) -> int:
+
+        # Simple optimization, don't calculate excess white-space.
+        fill_column_offset = level
+        fill_column = cfg.fill_column - fill_column_offset
+        level = 0
+
         _ctx = WriteCtx(cfg)
         _data: List[str] = []
         self.fmt_with_terminate_node(_ctx, _data.append, level, test=True, test_node_terminate=test_node_terminate)
         data = ''.join(_data)
         del _data
 
-        fill_column = cfg.fill_column
         line_terminate = _ctx.line_terminate
 
         # Step over `\n` characters instead of data.split('\n')
@@ -1245,6 +1250,9 @@ class NdSexp(Node):
                         return 1
                     line_length_max = max(line_length_max, line_length)
                 i += 1
+
+        if line_length_max != 0:
+            fill_column_offset += fill_column_offset
 
         return line_length_max
 
