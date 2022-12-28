@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
 
 test:  # Run the tests.
 	python tests/test_full_compare.py

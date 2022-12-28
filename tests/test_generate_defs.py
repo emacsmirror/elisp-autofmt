@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# GPL License, Version 3.0 or later
+# SPDX-License-Identifier: GPL-3.0-or-later
 
 import shutil
 import subprocess
