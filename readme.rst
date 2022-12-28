@@ -58,7 +58,7 @@ Features
   formatting all files without making functional changes.
 - Enforces maximum line width (using the fill column).
 - Keeps blank lines.
-- Keeps trailing comments at the end of lines.
+- Keeps trailing comments at the end of lines (without joining lines which may change their meaning).
 - Extracts function arguments from locally defined functions,
   with support for including definitions from external files.
 
@@ -108,7 +108,7 @@ Customization
    Style to use for formatting, currently the options are:
 
    ``native``
-      Use Emacs settings for indentation.
+      Follow Emacs default indentation style.
 
    ``fixed``
       Use fixed (2 space) indentation (simple behavior).
