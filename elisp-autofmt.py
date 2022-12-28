@@ -665,8 +665,7 @@ def apply_pre_indent_unwrap_recursive(cfg: FormatConfig, node_parent: NdSexp, le
         if node_parent.fmt_check_exceeds_colum_max(cfg, level, trailing_parens, find_longest_line=False):
             # Failure, restore the previous state.
             for i, node in enumerate(node_parent.nodes_only_code):
-                force_newline, force_newline_soft = nl[i]
-                node.force_newline = force_newline
+                node.force_newline, node.force_newline_soft = nl[i]
 
 
 # ------------------------------------------------------------------------------
