@@ -605,8 +605,16 @@ Optional argument ASSUME-FILE-NAME overrides the file name used for this buffer.
           (cond
            (elisp-autofmt-use-function-defs
             (elisp-autofmt--cache-api-cache-update
-             (file-name-directory
-              assume-file-name)))
+             (cond
+              (assume-file-name
+               (file-name-directory assume-file-name))
+              (t
+               ;; In this case, any relative path references
+               ;; from a buffer without a path, uses the default directory.
+               ;; In practice it seems unlikely the kinds of buffers that aren't backed
+               ;; by a file would reference relative tags, nevertheless, there is no need
+               ;; for this operation to fail with an error, see #2.
+               default-directory))))
            (t
             nil)))
 
