@@ -57,7 +57,6 @@ Features
 - Reliable, tested with Emacs 28 source (over 1.6 million lines of code),
   formatting all files without making functional changes.
 - Enforces maximum line width (using the fill column).
-- Consistent 2 space indentation.
 - Keeps blank lines.
 - Keeps trailing comments at the end of lines.
 - Extracts function arguments from locally defined functions,
@@ -67,17 +66,11 @@ Features
 Usage
 =====
 
-The save hook can be enabled in the mode hook.
+Enable the ``elisp-autofmt-mode`` minor mode,
+this will format emacs-lisp buffers on save (depending on ``).
 
 Since it's likely you will work on code-bases that *don't* have auto-formatting enabled,
 this checks for the existence of an ``.elisp-autofmt`` file in the buffers directory (including parent paths).
-
-.. code-block:: elisp
-
-   (add-hook 'emacs-lisp-mode-hook
-     (lambda ()
-       (require 'elisp-autofmt)
-       (elisp-autofmt-save-hook-for-this-buffer)))
 
 .. note::
 
@@ -98,14 +91,14 @@ The first re-format may be slow as there are likely to be a large number of chan
 Running again is typically fast enough to be enabled on save without noticeable interruption.
 
 
-Functions
----------
+Commands
+--------
 
-``(elisp-autofmt-buffer &optional buf)``
-   Auto formats the current buffer (or ``buf``).
-``(elisp-autofmt-save-hook-for-this-buffer &optional force)``
-   Setup auto-formatting for this buffer, optionally you can pass in ``force`` = ``t``
-   to enable auto-formatting even when ``.elisp-autofmt`` isn't found.
+``elisp-autofmt-mode``
+   Toggle the minor mode which formats upon saving.
+
+``elisp-autofmt-buffer``
+   Auto formats the current buffer (doesn't depend on the minor mode).
 
 
 Customization
@@ -128,8 +121,14 @@ Customization
          (setq-local lisp-indent-function nil)
          (setq-local lisp-indent-offset 2)
 
+``elisp-autofmt-on-save-p``
+   Function used to check if the buffer should be formatted on save.
+   By default the ``.elisp-autofmt`` file is detected in current & parent directories.
+   You may set this to ``'always`` to always format the buffer when ``elisp-autofmt-mode`` is enabled.
+
 ``elisp-autofmt-empty-line-max`` (``2``)
    The maximum number of empty lines to keep.
+
 ``elisp-autofmt-python-bin`` (``nil``)
    Optionally set the Python binary, use when Python is not in your ``PATH``.
 
