@@ -119,7 +119,8 @@ class NdSexp_SoftWrap:
             exc_value: Optional[BaseException],
             exc_traceback: Optional[TracebackType],
     ) -> None:
-        for node, force_newline_orig in zip(self.node_parent.nodes_only_code, self.force_newline_orig, strict=True):
+        # NOTE: use `strict=True` for Python 3.10+.
+        for node, force_newline_orig in zip(self.node_parent.nodes_only_code, self.force_newline_orig):
             if (
                     (not node.force_newline_soft) and
                     (not force_newline_orig) and
