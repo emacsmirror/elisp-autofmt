@@ -80,65 +80,35 @@ def generate_defs_builtin_as_json() -> Dict[Any, Any]:
     return result
 
 
-class MyTestCase(unittest.TestCase):
-
-    pass
-
-    # def assertFileExists(self, filepath, msg=None):
-    #     if not os.path.exists(filepath):
-    #         if msg is None:
-    #             msg = 'File %r does not exist' % os.path.relpath(filepath, TEMP_LOCAL)
-    #         raise self.failureException(msg)
-
-    def setUp(self) -> None:
-        pass
-
-        # # for running single tests
-        # if __name__ != '__main__':
-        #     self._data = global_setup()
-
-        # if not os.path.isdir(TEMP_LOCAL):
-        #     os.makedirs(TEMP_LOCAL)
-
-    def tearDown(self) -> None:
-        pass
-
-        # shutil.rmtree(TEMP_LOCAL)
-
-        # # for running single tests
-        # if __name__ != '__main__':
-        #     global_teardown(self._data)
-
-
-class SimpleTestBuiltinPackage_SubrX(MyTestCase):
+class SimpleTestBuiltinPackage_SubrX(unittest.TestCase):
     def test_check_simple(self) -> None:
         data = generate_defs_package_as_json("subr-x")
         self.assertEqual(data['functions']['string-join'], ['func', 1, 2, {}])
         self.assertEqual(data['functions']['named-let'], ['macro', 2, 'many', {'indent': 2}])
 
 
-class SimpleTestBuiltinPackage_Subr(MyTestCase):
+class SimpleTestBuiltinPackage_Subr(unittest.TestCase):
     def test_check_simple(self) -> None:
         data = generate_defs_package_as_json("subr")
         self.assertEqual(data['functions']['with-syntax-table'], ['macro', 1, 'many', {'indent': 1}])
         self.assertEqual(data['functions']['defvar-local'], ['macro', 2, 3, {'doc-string': 3, 'indent': 2}])
 
 
-class SimpleTestBuiltinPackage_Simple(MyTestCase):
+class SimpleTestBuiltinPackage_Simple(unittest.TestCase):
     def test_check_simple(self) -> None:
         data = generate_defs_package_as_json("simple")
         self.assertEqual(data['functions']['backward-word'], ['func', 0, 1, {}])
         self.assertEqual(data['functions']['shell-command-on-region'], ['func', 3, 8, {}])
 
 
-class SimpleTestBuiltinPackage_File(MyTestCase):
+class SimpleTestBuiltinPackage_File(unittest.TestCase):
     def test_check_simple(self) -> None:
         data = generate_defs_package_as_json("files")
         self.assertEqual(data['functions']['directory-abbrev-make-regexp'], ['func', 1, 1, {}])
         self.assertEqual(data['functions']['insert-directory-safely'], ['func', 2, 4, {}])
 
 
-class SimpleTestBuiltin(MyTestCase):
+class SimpleTestBuiltin(unittest.TestCase):
     def test_check_simple(self) -> None:
         data = generate_defs_builtin_as_json()
         self.assertEqual(data['functions']['file-attributes'], ['func', 1, 2, {}])
