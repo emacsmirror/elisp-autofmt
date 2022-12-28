@@ -17,6 +17,8 @@
 
 ;; (elisp-autofmt-buffer) ; Auto-format the current buffer.
 ;;
+;; You may also use the minor mode `elisp-autofmt-mode' which enables
+;; formatting the buffer on safe.
 
 ;;; Code:
 
