@@ -87,8 +87,8 @@ this checks for the existence of an ``.elisp-autofmt`` file in the buffers direc
 Requirements
 ------------
 
-- Emacs 27.2.
-- Python 3.8.
+- Emacs 27.2 (or newer).
+- Python 3.8 (or newer).
 
 
 Performance
@@ -168,7 +168,8 @@ This can be installed with ``use-package``:
 .. code-block:: elisp
 
    (use-package elisp-autofmt
-     :commands (elisp-autofmt-mode))
+     :commands (elisp-autofmt-mode elisp-autofmt-buffer)
+     :hook (emacs-lisp-mode . elisp-autofmt-mode))
 
 
 Limitations
