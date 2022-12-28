@@ -747,7 +747,11 @@ Optional argument ASSUME-FILE-NAME overrides the file name used for this buffer.
 (defun elisp-autofmt-check-elisp-autofmt-exists ()
   "Return non-nil when `.elisp-autofmt' is found in a parent directory."
   (let ((cfg (locate-dominating-file (file-name-directory buffer-file-name) ".elisp-autofmt")))
-    (stringp cfg)))
+    (cond
+     (cfg
+      t)
+     (t
+      nil))))
 
 ;; Auto load as this is a callback for `safe-local-variable'.
 ;;;###autoload
