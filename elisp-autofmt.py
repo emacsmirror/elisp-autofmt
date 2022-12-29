@@ -1239,7 +1239,7 @@ class NdSexp(Node):
                 i += 1
 
         if line_length_max != 0:
-            fill_column_offset += fill_column_offset
+            line_length_max += fill_column_offset
 
         return line_length_max
 
