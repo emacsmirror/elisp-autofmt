@@ -226,6 +226,24 @@ class CompareFormatSingleExpr(ELispAutoFormat):
         )
 
 
+class CompareLineWrap(ELispAutoFormat):
+
+    def test_long_comment(self) -> None:
+        self.compare(
+            code_format=(
+                "(when t\n"
+                ";; This line exceeds the fill column and can't be broken.\n"
+                "b)\n"
+            ),
+            code_expect=(
+                "(when t\n"
+                "  ;; This line exceeds the fill column and can't be broken.\n"
+                "  b)\n"
+            ),
+            fill_column=14,
+        )
+
+
 class CompareFormatExpectError(ELispAutoFormat):
 
     def test_unbalanced_open(self) -> None:

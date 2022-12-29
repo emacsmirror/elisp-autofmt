@@ -498,7 +498,7 @@ def apply_rules(cfg: FormatConfig, node_parent: NdSexp) -> None:
 def apply_pre_indent_1(cfg: FormatConfig, node_parent: NdSexp, level: int, trailing_parens: int) -> None:
     # First be relaxed, then again if it fails.
     # NOTE: The caller should use a `NdSexp_SoftWrap` context manager.
-    if node_parent.fmt_check_exceeds_colum_max(cfg, level, trailing_parens, find_longest_line=False):
+    if node_parent.fmt_check_exceeds_colum_max(cfg, level, trailing_parens, calc_score=False):
         apply_relaxed_wrap(node_parent, cfg.style)
         if not cfg.style.use_native:
             node_parent.force_newline = True
@@ -509,19 +509,22 @@ def apply_pre_indent_2(cfg: FormatConfig, node_parent: NdSexp, level: int, trail
     assert node_parent.index_wrap_hint != 0
     assert len(node_parent.nodes_only_code) > 1
 
+    node_force_newline = []
     # Wrap items before if absolutely needed, one at a time.
     force_newline = False
     i = min(node_parent.index_wrap_hint, len(node_parent.nodes_only_code) - 1)
     assert i > 0
 
     node = node_parent.nodes_only_code[i]
-    if node_parent.fmt_check_exceeds_colum_max(
-            cfg,
-            level,
-            trailing_parens,
-            find_longest_line=False,
-            test_node_terminate=node,
-    ):
+    score_init = node_parent.fmt_check_exceeds_colum_max(
+        cfg,
+        level,
+        trailing_parens,
+        calc_score=True,
+        test_node_terminate=node,
+    )
+
+    if score_init:
         # Don't attempt the wrap the first item,
         # as this will simply push it onto the line below.
         #
@@ -541,13 +544,15 @@ def apply_pre_indent_2(cfg: FormatConfig, node_parent: NdSexp, level: int, trail
             node = node_parent.nodes_only_code[i]
             if not node.force_newline:
                 node.force_newline = True
+                node_force_newline.append(node)
                 force_newline = True
+
                 if not node_parent.fmt_check_exceeds_colum_max(
-                        cfg,
-                        level,
-                        trailing_parens,
-                        find_longest_line=False,
-                        test_node_terminate=node,
+                    cfg,
+                    level,
+                    trailing_parens,
+                    calc_score=False,
+                    test_node_terminate=node,
                 ):
                     # Imply 'node_parent.wrap_all_or_nothing_hint', even when not set.
                     hints = node_parent.hints
@@ -561,9 +566,28 @@ def apply_pre_indent_2(cfg: FormatConfig, node_parent: NdSexp, level: int, trail
                         # that might seems significant.
                         if i < node_parent.index_wrap_hint:
                             for j in range(1, i):
-                                node_parent.nodes_only_code[j].force_newline = True
+                                node_iter = node_parent.nodes_only_code[j]
+                                if not node_iter.force_newline:
+                                    node_iter.force_newline = True
+                                    node_force_newline.append(node_iter)
                     break
             i -= 1
+
+        i = min(node_parent.index_wrap_hint, len(node_parent.nodes_only_code) - 1)
+        node = node_parent.nodes_only_code[i]
+        score_test = node_parent.fmt_check_exceeds_colum_max(
+            cfg,
+            level,
+            trailing_parens,
+            calc_score=True,
+            test_node_terminate=node,
+        )
+
+        # If none of the changes made an improvement, revert them.
+        if score_init <= score_test:
+            for node_iter in node_force_newline:
+                node_iter.force_newline = False
+            force_newline = False
 
     if not cfg.style.use_native:
         if force_newline:
@@ -576,17 +600,17 @@ def apply_pre_indent_2(cfg: FormatConfig, node_parent: NdSexp, level: int, trail
         if len(node_parent.nodes_only_code) > 1:
             node = node_parent.nodes_only_code[1]
             if not node.force_newline:
-                line_length_max = node_parent.fmt_check_exceeds_colum_max(
-                    cfg, level, trailing_parens, find_longest_line=True)
-                if line_length_max:
+                score_init = node_parent.fmt_check_exceeds_colum_max(
+                    cfg, level, trailing_parens, calc_score=True)
+                if score_init:
                     node.force_newline = True
-                    line_length_max_test = node_parent.fmt_check_exceeds_colum_max(
+                    score_test = node_parent.fmt_check_exceeds_colum_max(
                         cfg,
                         level,
                         trailing_parens,
-                        find_longest_line=True,
+                        calc_score=True,
                     )
-                    if line_length_max_test < line_length_max:
+                    if score_test < score_init:
                         # Success, don't exclude.
                         pass
                     else:
@@ -666,7 +690,7 @@ def apply_pre_indent_unwrap_recursive(cfg: FormatConfig, node_parent: NdSexp, le
                 node.force_newline = False
                 node.force_newline_soft = False
 
-        if node_parent.fmt_check_exceeds_colum_max(cfg, level, trailing_parens, find_longest_line=False):
+        if node_parent.fmt_check_exceeds_colum_max(cfg, level, trailing_parens, calc_score=False):
             # Failure, restore the previous state.
             for i, node in enumerate(node_parent.nodes_only_code):
                 node.force_newline, node.force_newline_soft = nl[i]
@@ -1181,9 +1205,16 @@ class NdSexp(Node):
             level: int,
             trailing_parens: int,
             *,
-            find_longest_line: bool,
+            calc_score: bool,
             test_node_terminate: Optional[Node] = None,
     ) -> int:
+        '''
+        :arg calc_score: When true, the return value is a score,
+           zero when all values are within the fill column.
+           This is the accumulated ``2 ** overflow``.
+           The power is used so breaking a single line into two which both overflow
+           return a better (lower) score than a single line that overflows.
+        '''
 
         # Simple optimization, don't calculate excess white-space.
         fill_column_offset = level
@@ -1201,7 +1232,7 @@ class NdSexp(Node):
         line_step = 0
         i = 0
 
-        line_length_max = 0
+        score = 0
         if (not cfg.use_trailing_parens) and (_ctx.line_terminate == _ctx.line):
             line_terminate = _ctx.line_terminate
             while line_step != -1:
@@ -1216,14 +1247,14 @@ class NdSexp(Node):
                 if line_terminate == i:
                     line_length += trailing_parens
                     if line_length > fill_column:
-                        if not find_longest_line:
+                        if not calc_score:
                             return 1
-                        line_length_max = max(line_length_max, line_length)
+                        score += 2 ** (line_length - fill_column)
                     break
                 if line_length > fill_column:
-                    if not find_longest_line:
+                    if not calc_score:
                         return 1
-                    line_length_max = max(line_length_max, line_length)
+                    score += 2 ** (line_length - fill_column)
                 i += 1
         else:
             while line_step != -1:
@@ -1236,15 +1267,12 @@ class NdSexp(Node):
                     line_step = line_step_next + 1
 
                 if line_length > fill_column:
-                    if not find_longest_line:
+                    if not calc_score:
                         return 1
-                    line_length_max = max(line_length_max, line_length)
+                    score += 2 ** (line_length - fill_column)
                 i += 1
 
-        if line_length_max != 0:
-            line_length_max += fill_column_offset
-
-        return line_length_max
+        return score
 
     def fmt_pre_wrap(self, ctx: WriteCtx, level: int, trailing_parens: int) -> None:
         # First handle Sexpr's one at a time, then all of them.
@@ -1263,7 +1291,7 @@ class NdSexp(Node):
                 self.nodes_only_code[:] = [nodes_backup[i]]
 
             assert ctx.line_terminate == -1
-            if self.fmt_check_exceeds_colum_max(ctx.cfg, level, trailing_parens, find_longest_line=False):
+            if self.fmt_check_exceeds_colum_max(ctx.cfg, level, trailing_parens, calc_score=False):
                 if i == len(nodes_backup):
                     with NdSexp_SoftWrap(self):
                         apply_relaxed_wrap(self, ctx.cfg.style)
@@ -1281,7 +1309,7 @@ class NdSexp(Node):
                         ctx.cfg,
                         level,
                         trailing_parens,
-                        find_longest_line=False,
+                        calc_score=False,
                         test_node_terminate=node_only_code,
                 ):
                     node_only_code.force_newline = True

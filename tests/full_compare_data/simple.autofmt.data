@@ -414,8 +414,7 @@ To control which errors are matched, customize the variable
       reset t
       arg nil))
   (let ((buffer (next-error-find-buffer)))
-    (when
-      buffer
+    (when buffer
       ;; We know here that next-error-function is a valid symbol we can funcall
       (with-current-buffer buffer
         (funcall next-error-function (prefix-numeric-value arg) reset)
@@ -438,8 +437,7 @@ To control which errors are matched, customize the variable
 
 (defun next-error-internal ()
   "Visit the source code corresponding to the `next-error' message at point."
-  (let
-    ((buffer (current-buffer)))
+  (let ((buffer (current-buffer)))
     ;; We know here that next-error-function is a valid symbol we can funcall
     (funcall next-error-function 0 nil)
     (let ((prev next-error-last-buffer))
@@ -1003,8 +1001,7 @@ buffer if the variable `delete-trailing-lines' is non-nil."
     (save-excursion
       (let ((end-marker (and end (copy-marker end))))
         (goto-char (or start (point-min)))
-        (with-syntax-table
-          (make-syntax-table (syntax-table))
+        (with-syntax-table (make-syntax-table (syntax-table))
           ;; Don't delete formfeeds, even if they are considered whitespace.
           (modify-syntax-entry ?\f "_")
           (while (re-search-forward "\\s-$" end-marker t)
@@ -3058,8 +3055,7 @@ function as needed."
           `(autoload ,_file . ,body))
         (let ((doc (car body)))
           (when
-            (and
-              (funcall docstring-p doc)
+            (and (funcall docstring-p doc)
               ;; Handle a doc reference--but these never come last
               ;; in the function body, so reject them if they are last.
               (or (cdr body) (eq 'autoload (car-safe function))))
@@ -3735,8 +3731,7 @@ If there are no search errors, this function displays an overlay with
 the isearch prompt which replaces the original minibuffer prompt.
 Otherwise, it displays the standard isearch message returned from
 the function `isearch-message'."
-  (if
-    (not (and (minibufferp) isearch-success (not isearch-error)))
+  (if (not (and (minibufferp) isearch-success (not isearch-error)))
     ;; Use standard function `isearch-message' when not in the minibuffer,
     ;; or search fails, or has an error (like incomplete regexp).
     ;; This function overwrites minibuffer text with isearch message,
@@ -3938,8 +3933,7 @@ as an argument limits undo to changes within the current region."
             (if undo-in-region
               " in region"
               ""))))
-      (when
-        (and (consp equiv) undo-no-redo)
+      (when (and (consp equiv) undo-no-redo)
         ;; The equiv entry might point to another redo record if we have done
         ;; undo-redo-undo-redo-... so skip to the very last equiv.
         (while
@@ -4644,8 +4638,7 @@ behavior."
 (defun undo-auto--undoable-change ()
   "Called after every undoable buffer change."
   (unless (memq (current-buffer) undo-auto--undoably-changed-buffers)
-    (let
-      ((bufs undo-auto--undoably-changed-buffers))
+    (let ((bufs undo-auto--undoably-changed-buffers))
       ;; Drop dead buffers from the list, to avoid memory leak in
       ;; (while t (with-temp-buffer (setq buffer-undo-list nil) (insert "a")))
       (while bufs
@@ -6062,8 +6055,7 @@ Runs `prefix-command-preserve-state-hook'."
 (defun universal-argument--preserve ()
   (setq prefix-arg current-prefix-arg))
 
-(defvar
-  universal-argument-map
+(defvar universal-argument-map
   (let
     (
       (map (make-sparse-keymap))
@@ -6130,8 +6122,7 @@ These commands include \\[set-mark-command] and \\[start-kbd-macro]."
   (setq prefix-arg (list 4))
   (universal-argument--mode))
 
-(defun universal-argument-more
-  (arg)
+(defun universal-argument-more (arg)
   ;; A subsequent C-u means to multiply the factor by 4 if we've typed
   ;; nothing but C-u's; otherwise it means to terminate the prefix arg.
   (interactive "P")
@@ -7030,8 +7021,7 @@ property, in the way that `yank' does."
       ;; Set the window start back where it was in the yank command,
       ;; if possible.
       (set-window-start (selected-window) yank-window-start t)
-      (if
-        before
+      (if before
         ;; This is like exchange-point-and-mark, but doesn't activate the mark.
         ;; It is cleaner to avoid activation, even though the command
         ;; loop would deactivate the mark because we inserted text.
@@ -7099,8 +7089,7 @@ See also the command `yank-pop' (\\[yank-pop])."
           -2)
         (t
           (1- arg)))))
-  (if
-    (consp arg)
+  (if (consp arg)
     ;; This is like exchange-point-and-mark, but doesn't activate the mark.
     ;; It is cleaner to avoid activation, even though the command
     ;; loop would deactivate the mark because we inserted text.
@@ -8131,8 +8120,7 @@ is set to the buffer displayed in that window.")
         (with-current-buffer (window-buffer win)
           (run-hook-with-args 'pre-redisplay-functions win))))))
 
-(when
-  (eq pre-redisplay-function #'ignore)
+(when (eq pre-redisplay-function #'ignore)
   ;; Override the default set in the C code.
   ;; This is not done using `add-function' so as to loosen the bootstrap
   ;; dependencies.
@@ -9040,8 +9028,7 @@ If NOERROR, don't signal an error if we can't move that many lines."
                 nil)))
           ;; Move by arg lines, but ignore invisible ones.
           (let (done)
-            (while
-              (and (> arg 0) (not done))
+            (while (and (> arg 0) (not done))
               ;; If the following character is currently invisible,
               ;; skip all characters with that same `invisible' property value.
               (while (and (not (eobp)) (invisible-p (point)))
@@ -9674,8 +9661,7 @@ report errors as appropriate for this kind of usage."
       (transpose-sexps arg nil)
       (scan-error (user-error "Not between two complete sexps")))
     (transpose-subr
-      (lambda
-        (arg)
+      (lambda (arg)
         ;; Here we should try to simulate the behavior of
         ;; (cons (progn (forward-sexp x) (point))
         ;;       (progn (forward-sexp (- x)) (point)))
@@ -10035,8 +10021,7 @@ Returns t if it really did any work."
             ;; No good place to break => stop trying.
             (setq give-up t)
             ;; Ok, we have a useful place to break the line.  Do it.
-            (let
-              ((prev-column (current-column)))
+            (let ((prev-column (current-column)))
               ;; If point is at the fill-point, do not `save-excursion'.
               ;; Otherwise, if a comment prefix or fill-prefix is inserted,
               ;; point will end up before it rather than after it.
@@ -10167,8 +10152,7 @@ Use \\[universal-argument] followed by a number to specify a column.
 Just \\[universal-argument] as argument means to use the current column."
   (interactive
     (list
-      (or
-        current-prefix-arg
+      (or current-prefix-arg
         ;; We used to use current-column silently, but C-x f is too easily
         ;; typed as a typo for C-x C-f, so we turned it into an error and
         ;; now an interactive prompt.
@@ -11360,8 +11344,7 @@ back on `completion-list-insert-choice-function' when nil."
                   minibuffer-completion-table
                   minibuffer-completion-predicate
                   "")))
-            (if
-              (eq (car bounds) (length result))
+            (if (eq (car bounds) (length result))
               ;; The completion chosen leads to a new set of completions
               ;; (e.g. it's a directory): don't exit the minibuffer yet.
               (let ((mini (active-minibuffer-window)))
@@ -11747,8 +11730,7 @@ after it has been set up properly in other respects."
       ;; Run any hooks (typically set up by the major mode
       ;; for cloning to work properly).
       (run-hooks 'clone-buffer-hook))
-    (if
-      display-flag
+    (if display-flag
       ;; Presumably the current buffer is shown in the selected frame, so
       ;; we want to display the clone elsewhere.
       (let

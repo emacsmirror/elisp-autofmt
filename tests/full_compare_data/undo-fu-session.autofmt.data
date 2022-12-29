@@ -575,8 +575,7 @@ Argument PENDING-LIST an `pending-undo-list' compatible list."
       ;; Quiet compression messages for `with-auto-compression-mode'.
       (jka-compr-verbose nil))
 
-    (catch
-      'exit
+    (catch 'exit
       ;; No need for a message, exit silently since there is nothing to do.
       (unless (undo-fu-session--recover-buffer-p buffer)
         (throw 'exit nil))
@@ -668,8 +667,7 @@ Argument PENDING-LIST an `pending-undo-list' compatible list."
       ;; Quiet compression messages for `with-auto-compression-mode'.
       (jka-compr-verbose nil))
 
-    (catch
-      'exit
+    (catch 'exit
       ;; No need for a message, exit silently since there is nothing to do.
       (unless (undo-fu-session--recover-buffer-p buffer)
         (throw 'exit nil))
