@@ -512,7 +512,8 @@ def apply_pre_indent_2(cfg: FormatConfig, node_parent: NdSexp, level: int, trail
     node_force_newline = []
     # Wrap items before if absolutely needed, one at a time.
     force_newline = False
-    i = min(node_parent.index_wrap_hint, len(node_parent.nodes_only_code) - 1)
+    i_last = len(node_parent.nodes_only_code) - 1
+    i = min(node_parent.index_wrap_hint, i_last)
     assert i > 0
 
     node = node_parent.nodes_only_code[i]
@@ -573,7 +574,7 @@ def apply_pre_indent_2(cfg: FormatConfig, node_parent: NdSexp, level: int, trail
                     break
             i -= 1
 
-        i = min(node_parent.index_wrap_hint, len(node_parent.nodes_only_code) - 1)
+        i = min(node_parent.index_wrap_hint, i_last)
         node = node_parent.nodes_only_code[i]
         score_test = node_parent.fmt_check_exceeds_colum_max(
             cfg,
