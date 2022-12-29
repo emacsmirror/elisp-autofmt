@@ -506,62 +506,64 @@ def apply_pre_indent_1(cfg: FormatConfig, node_parent: NdSexp, level: int, trail
 
 def apply_pre_indent_2(cfg: FormatConfig, node_parent: NdSexp, level: int, trailing_parens: int) -> None:
     # NOTE: The caller should use a `NdSexp_SoftWrap` context manager.
+    assert node_parent.index_wrap_hint != 0
+    assert len(node_parent.nodes_only_code) > 1
 
     # Wrap items before if absolutely needed, one at a time.
     force_newline = False
-    if node_parent.index_wrap_hint > 0:
-        i = min(node_parent.index_wrap_hint, len(node_parent.nodes_only_code) - 1)
-        if i > 0:
-            node = node_parent.nodes_only_code[i]
-            if node_parent.fmt_check_exceeds_colum_max(
-                    cfg,
-                    level,
-                    trailing_parens,
-                    find_longest_line=False,
-                    test_node_terminate=node,
-            ):
-                # Don't attempt the wrap the first item,
-                # as this will simply push it onto the line below.
-                #
-                # This:
-                #   (arg "Long string that does not fit")
-                #
-                # Gets converted to this:
-                #   (
-                #     arg
-                #     "Long string that does not fit")
-                #
-                # Where as we would prefer this:
-                #   (arg
-                #     "Long string that does not fit")
-                #
-                while i != 0:
-                    node = node_parent.nodes_only_code[i]
-                    if not node.force_newline:
-                        node.force_newline = True
-                        force_newline = True
-                        if not node_parent.fmt_check_exceeds_colum_max(
-                                cfg,
-                                level,
-                                trailing_parens,
-                                find_longest_line=False,
-                                test_node_terminate=node,
-                        ):
-                            # Imply 'node_parent.wrap_all_or_nothing_hint', even when not set.
-                            hints = node_parent.hints
-                            if hints.get('break_point') == 'overflow':
-                                pass
-                            else:
-                                # TODO: warn about unknown break_point.
+    i = min(node_parent.index_wrap_hint, len(node_parent.nodes_only_code) - 1)
+    assert i > 0
 
-                                # When the break was added before `node_parent.index_wrap_hint`,
-                                # wrap everything so there are no breaks added in random locations
-                                # that might seems significant.
-                                if i < node_parent.index_wrap_hint:
-                                    for j in range(1, i):
-                                        node_parent.nodes_only_code[j].force_newline = True
-                            break
-                    i -= 1
+    node = node_parent.nodes_only_code[i]
+    if node_parent.fmt_check_exceeds_colum_max(
+            cfg,
+            level,
+            trailing_parens,
+            find_longest_line=False,
+            test_node_terminate=node,
+    ):
+        # Don't attempt the wrap the first item,
+        # as this will simply push it onto the line below.
+        #
+        # This:
+        #   (arg "Long string that does not fit")
+        #
+        # Gets converted to this:
+        #   (
+        #     arg
+        #     "Long string that does not fit")
+        #
+        # Where as we would prefer this:
+        #   (arg
+        #     "Long string that does not fit")
+        #
+        while i != 0:
+            node = node_parent.nodes_only_code[i]
+            if not node.force_newline:
+                node.force_newline = True
+                force_newline = True
+                if not node_parent.fmt_check_exceeds_colum_max(
+                        cfg,
+                        level,
+                        trailing_parens,
+                        find_longest_line=False,
+                        test_node_terminate=node,
+                ):
+                    # Imply 'node_parent.wrap_all_or_nothing_hint', even when not set.
+                    hints = node_parent.hints
+                    if hints.get('break_point') == 'overflow':
+                        pass
+                    else:
+                        # TODO: warn about unknown break_point.
+
+                        # When the break was added before `node_parent.index_wrap_hint`,
+                        # wrap everything so there are no breaks added in random locations
+                        # that might seems significant.
+                        if i < node_parent.index_wrap_hint:
+                            for j in range(1, i):
+                                node_parent.nodes_only_code[j].force_newline = True
+                    break
+            i -= 1
 
     if not cfg.style.use_native:
         if force_newline:
@@ -614,9 +616,10 @@ def apply_pre_indent(cfg: FormatConfig, node_parent: NdSexp, level: int, trailin
                 if node.force_newline:
                     node_parent.force_newline = True
 
-    with NdSexp_SoftWrap(node_parent):
-        apply_pre_indent_1(cfg, node_parent, level, trailing_parens)
-        apply_pre_indent_2(cfg, node_parent, level, trailing_parens)
+    if len(node_parent.nodes_only_code) > 1:
+        with NdSexp_SoftWrap(node_parent):
+            apply_pre_indent_1(cfg, node_parent, level, trailing_parens)
+            apply_pre_indent_2(cfg, node_parent, level, trailing_parens)
 
     # Some blocks don't allow mixed wrapping.
     if node_parent.wrap_all_or_nothing_hint:
