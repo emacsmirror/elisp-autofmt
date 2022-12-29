@@ -597,25 +597,28 @@ def apply_pre_indent_2(cfg: FormatConfig, node_parent: NdSexp, level: int, trail
     # don't use  this for tests in future, it confuses checks
     # causing other lines to wrap because of this node.
     if cfg.style.use_native:
-        if len(node_parent.nodes_only_code) > 1:
-            node = node_parent.nodes_only_code[1]
-            if not node.force_newline:
-                score_init = node_parent.fmt_check_exceeds_colum_max(
-                    cfg, level, trailing_parens, calc_score=True)
-                if score_init:
-                    node.force_newline = True
-                    score_test = node_parent.fmt_check_exceeds_colum_max(
-                        cfg,
-                        level,
-                        trailing_parens,
-                        calc_score=True,
-                    )
-                    if score_test < score_init:
-                        # Success, don't exclude.
-                        pass
-                    else:
-                        # Don't add line break.
-                        node.force_newline = False
+        node = node_parent.nodes_only_code[1]
+        if not node.force_newline:
+            score_init = node_parent.fmt_check_exceeds_colum_max(
+                cfg,
+                level,
+                trailing_parens,
+                calc_score=True,
+            )
+            if score_init:
+                node.force_newline = True
+                score_test = node_parent.fmt_check_exceeds_colum_max(
+                    cfg,
+                    level,
+                    trailing_parens,
+                    calc_score=True,
+                )
+                if score_test < score_init:
+                    # Success, don't exclude.
+                    pass
+                else:
+                    # Don't add line break.
+                    node.force_newline = False
 
 
 def apply_pre_indent(cfg: FormatConfig, node_parent: NdSexp, level: int, trailing_parens: int) -> None:
