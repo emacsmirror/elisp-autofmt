@@ -30,6 +30,7 @@ import os
 import argparse
 
 HintType = Dict[str, Union[str, int, Tuple[int, int]]]
+NdSexp_WrapState = Tuple[Tuple[bool, bool], ...]
 
 # ------------------------------------------------------------------------------
 # Globals
@@ -495,11 +496,28 @@ def apply_rules(cfg: FormatConfig, node_parent: NdSexp) -> None:
         node_parent.flush_newlines_from_nodes()
 
 
+def node_state_get(node: NdSexp) -> NdSexp_WrapState:
+    return tuple((n.force_newline, n.force_newline_soft) for n in node.nodes)
+
+
+def node_state_set(node: NdSexp, state: NdSexp_WrapState) -> None:
+    for data, n in zip(state, node.nodes):
+        n.force_newline, n.force_newline_soft = data
+
+
 def apply_pre_indent_1(cfg: FormatConfig, node_parent: NdSexp, level: int, trailing_parens: int) -> None:
     # First be relaxed, then again if it fails.
     # NOTE: The caller should use a `NdSexp_SoftWrap` context manager.
     if node_parent.fmt_check_exceeds_colum_max(cfg, level, trailing_parens, calc_score=False):
+        if not node_parent.wrap_all_or_nothing_hint:
+            a = node_state_get(node_parent)
+
         apply_relaxed_wrap(node_parent, cfg.style)
+
+        if not node_parent.wrap_all_or_nothing_hint:
+            b = node_state_get(node_parent)
+            if a != b:
+                node_parent.prior_states.append(a)
         if not cfg.style.use_native:
             node_parent.force_newline = True
 
@@ -644,6 +662,8 @@ def apply_pre_indent(cfg: FormatConfig, node_parent: NdSexp, level: int, trailin
                 if node.force_newline:
                     node_parent.force_newline = True
 
+    state_init = node_state_get(node_parent)
+
     if len(node_parent.nodes_only_code) > 1:
         with NdSexp_SoftWrap(node_parent):
             apply_pre_indent_1(cfg, node_parent, level, trailing_parens)
@@ -658,83 +678,70 @@ def apply_pre_indent(cfg: FormatConfig, node_parent: NdSexp, level: int, trailin
                 with NdSexp_SoftWrap(node_parent):
                     apply_relaxed_wrap(node_parent, cfg.style)
 
+    state_test = node_state_get(node_parent)
+    if state_init != state_test:
+        node_parent.prior_states.append(state_init)
 
-def apply_pre_indent_unwrap_recursive(
-        cfg: FormatConfig,
-        node_parent: NdSexp,
-        level: int,
-        trailing_parens: int,
-        parent_chain: List[Tuple[NdSexp, int, int]],
-) -> None:
+
+def apply_pre_indent_unwrap(cfg: FormatConfig, node_parent: NdSexp, level: int, trailing_parens: int) -> None:
     if not node_parent.nodes_only_code:
         return
 
     node_trailing_parens = node_parent.node_last_for_trailing_parens_test()
 
-    parent_chain.append((node_parent, level, trailing_parens))
-
     level_next_data = node_parent.calc_nodes_level_next(cfg, level)
     level_next_data_last = len(level_next_data) - 1
-    force_newline_soft_any = False
     for i, node in enumerate(node_parent.nodes):
-        if not isinstance(node, NODE_CODE_TYPES):
-            continue
-
         if isinstance(node, NdSexp):
             level_next = level_next_data[min(i, level_next_data_last)]
-            apply_pre_indent_unwrap_recursive(
-                cfg,
-                node,
-                level_next,
-                trailing_parens + 1 if node is node_trailing_parens else 0,
-                parent_chain,
-            )
+            apply_pre_indent_unwrap(cfg, node, level_next, trailing_parens + 1 if node is node_trailing_parens else 0)
+            if not cfg.style.use_native:
+                if node.force_newline:
+                    node_parent.force_newline = True
 
-        force_newline_soft_any |= node.force_newline_soft
+    # If this isn't a newline, let a parent node handle it
+    # otherwise leading nodes won't be included.
+    parent_score_curr = -1
+    calc_score = True
+    state_curr: NdSexp_WrapState = ()
+    if node_parent.force_newline:
+        for node in node_parent.iter_nodes_recursive():
+            if not isinstance(node, NdSexp):
+                continue
+            if not node.prior_states:
+                continue
+            if parent_score_curr == -1:
+                parent_score_curr = node_parent.fmt_check_exceeds_colum_max(
+                    cfg,
+                    level,
+                    trailing_parens,
+                    calc_score=calc_score,
+                )
+                # If the current state has no over-length lines (such as long comments).
+                # There is no need to do extra work. Any over-long line caused by the state being
+                # tested can immediately be considered an error and early exit.
+                # In this case the score will only ever be 0/1 but that's fine.
+                if parent_score_curr == 0:
+                    calc_score = False
 
-    # Check if any of these nodes that were wrapped to fit into the fill-column could be unwrapped.
-    if force_newline_soft_any:
+            state_curr = node_state_get(node)
+            for state_test in node.prior_states:
+                node_state_set(node, state_test)
+                parent_score_test = node_parent.fmt_check_exceeds_colum_max(
+                    cfg,
+                    level,
+                    trailing_parens,
+                    calc_score=calc_score,
+                )
+                if parent_score_test <= parent_score_curr:
+                    parent_score_curr = parent_score_test
+                    state_curr = state_test
+                    # The most ambitious (early) states are first, no need to try others.
+                    break
 
-        node_leading = node_parent
-        level_leading = level
-        trailing_parens_leading = trailing_parens
-        for leading_data in reversed(parent_chain):
-            if leading_data[0].force_newline:
-                node_leading, level_leading, trailing_parens_leading = leading_data
-                break
-
-        score_orig = node_leading.fmt_check_exceeds_colum_max(
-            cfg,
-            level_leading,
-            trailing_parens_leading,
-            calc_score=True,
-        )
-
-        nl = [
-            (node.force_newline, node.force_newline_soft)
-            for node in node_parent.nodes_only_code
-        ]
-        for node in node_parent.nodes_only_code:
-            if node.force_newline_soft:
-                node.force_newline = False
-                node.force_newline_soft = False
-
-        score_test = node_leading.fmt_check_exceeds_colum_max(
-            cfg,
-            level_leading,
-            trailing_parens_leading,
-            calc_score=True,
-        )
-
-        if score_test <= score_orig:
-            # Success (at least no worse).
-            pass
-        else:
-            # Failure, restore the previous state.
-            for i, node in enumerate(node_parent.nodes_only_code):
-                node.force_newline, node.force_newline_soft = nl[i]
-
-    parent_chain.pop()
+                node_state_set(node, state_curr)
+            # Avoid checking these ever again - either they were useful or not.
+            node.prior_states.clear()
 
 
 # ------------------------------------------------------------------------------
@@ -920,6 +927,7 @@ class NdSexp(Node):
         'index_wrap_hint',
         'wrap_all_or_nothing_hint',
         'hints',
+        'prior_states',
     )
 
     def __init__(self, line: int, brackets: str, nodes: Optional[List[Node]] = None):
@@ -930,6 +938,7 @@ class NdSexp(Node):
         self.index_wrap_hint: int = 1
         self.wrap_all_or_nothing_hint: bool = False
         self.hints: HintType = {}
+        self.prior_states: List[NdSexp_WrapState] = []
 
     def __repr__(self) -> str:
         import textwrap
@@ -1322,62 +1331,23 @@ class NdSexp(Node):
 
         return score
 
-    def fmt_pre_wrap(self, ctx: WriteCtx, level: int, trailing_parens: int) -> None:
+    def fmt_pre_wrap(self, cfg: FormatConfig, level: int, trailing_parens: int) -> None:
         # First handle Sexpr's one at a time, then all of them.
         # not very efficient, but it avoids over wrapping.
-
-        nl = [node.force_newline for node in self.nodes_only_code]
-        nodes_backup = self.nodes_only_code[:]
-        for i in range(self.index_wrap_hint, len(nodes_backup) + 1):
-            if i == len(nodes_backup):
-                self.nodes_only_code = nodes_backup
-            else:
-                if not isinstance(nodes_backup[i], NdSexp):
-                    continue
-                if nodes_backup[i].force_newline:
-                    continue
-                self.nodes_only_code[:] = [nodes_backup[i]]
-
-            assert ctx.line_terminate == -1
-            if self.fmt_check_exceeds_colum_max(ctx.cfg, level, trailing_parens, calc_score=False):
-                if i == len(nodes_backup):
-                    with NdSexp_SoftWrap(self):
-                        apply_relaxed_wrap(self, ctx.cfg.style)
-                else:
-                    if not self.nodes_only_code[0].force_newline:
-                        self.nodes_only_code[0].force_newline = True
-                        self.nodes_only_code[0].force_newline_soft = True
-
-        # Disable newlines for individual items where possible.
-        for i, node_only_code in enumerate(self.nodes_only_code):
-            if nl[i] is False and node_only_code.force_newline is True:
-                node_only_code.force_newline = False
-                assert ctx.line_terminate == -1
-                if self.fmt_check_exceeds_colum_max(
-                        ctx.cfg,
-                        level,
-                        trailing_parens,
-                        calc_score=False,
-                        test_node_terminate=node_only_code,
-                ):
-                    node_only_code.force_newline = True
-                    node_only_code.force_newline_soft = True
-                else:
-                    break
 
         node_trailing_parens = self.node_last_for_trailing_parens_test()
 
         force_newline = False
 
-        level_next_data = self.calc_nodes_level_next(ctx.cfg, level)
+        level_next_data = self.calc_nodes_level_next(cfg, level)
         level_next_data_last = len(level_next_data) - 1
         for i, node in enumerate(self.nodes):
             if isinstance(node, NdSexp):
                 level_next = level_next_data[min(i, level_next_data_last)]
-                node.fmt_pre_wrap(ctx, level_next, trailing_parens + 1 if node is node_trailing_parens else 0)
+                node.fmt_pre_wrap(cfg, level_next, trailing_parens + 1 if node is node_trailing_parens else 0)
             force_newline |= node.force_newline
 
-        use_native = ctx.cfg.style.use_native
+        use_native = cfg.style.use_native
 
         if use_native:
             pass
@@ -1917,23 +1887,10 @@ def parse_file(cfg: FormatConfig, fh: TextIO) -> Tuple[str, NdSexp]:
 
     apply_comment_force_newline(root)
 
-    if USE_WRAP_LINES:
-
-        if USE_EXTRACT_DEFS:
-            if not cfg.defs._has_local:
-                parse_local_defs(cfg.defs, root)
-                cfg.defs._has_local = True
-
-        apply_rules(cfg, root)
-
-        apply_pre_indent(cfg, root, -1, 0)
-
-        if cfg.style.use_native:
-            apply_pre_indent_unwrap_recursive(cfg, root, -1, 0, [])
-
-        # All root level nodes get their own line always.
-        for node in root.nodes_only_code:
-            node.force_newline = True
+    if USE_EXTRACT_DEFS:
+        if not cfg.defs._has_local:
+            parse_local_defs(cfg.defs, root)
+            cfg.defs._has_local = True
 
     return first_line_unparsed, root
 
@@ -1947,8 +1904,6 @@ def write_file(
 
     ctx = WriteCtx(cfg)
 
-    if USE_WRAP_LINES:
-        root.fmt_pre_wrap(ctx, -1, 0)
     if first_line:
         fh.write(first_line)
     root.fmt(ctx, fh.write, -1)
@@ -1975,6 +1930,23 @@ def format_file(
 
     # Redundant but needed for the assertion not to fail in the case when `len(root.nodes_only_code) == 1`.
     root.force_newline = True
+
+    if USE_WRAP_LINES:
+
+        # All root level nodes get their own line always.
+        for node in root.nodes_only_code:
+            node.force_newline = True
+
+        apply_rules(cfg, root)
+
+        apply_pre_indent(cfg, root, -1, 0)
+
+        root.fmt_pre_wrap(cfg, -1, 0)
+
+        apply_pre_indent_unwrap(cfg, root, -1, 0)
+
+        # FIXME: would be good to avoid running this twice!
+        root.fmt_pre_wrap(cfg, -1, 0)
 
     if cfg.style.use_native:
         root.flush_newlines_from_nodes_recursive_for_native()
