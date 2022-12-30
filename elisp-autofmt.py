@@ -823,6 +823,13 @@ class Node:
     def calc_force_newline(self, style: FormatStyle) -> None:
         raise Exception('All subclasses must define this')
 
+    def __repr__(self) -> str:
+        return 'force_newline={:d} force_newline_soft={:d} line={:d}'.format(
+            self.force_newline,
+            self.force_newline_soft,
+            self.original_line,
+        )
+
     def fmt(
             self,
             ctx: WriteCtx,
@@ -888,12 +895,12 @@ class NdSexp(Node):
         self.hints: HintType = {}
 
     def __repr__(self) -> str:
-        return '{}(line={} prefix=({}) newline={}\n  {}\n)'.format(
+        import textwrap
+        return '{:s}({:s} prefix=({:s})\n{:s})'.format(
             self.__class__.__name__,
-            self.original_line,
+            Node.__repr__(self),
             self.prefix,
-            self.force_newline,
-            '\n  '.join(repr(node) for node in self.nodes),
+            '\n'.join(textwrap.indent(repr(node), '  ') for node in self.nodes),
         )
 
     def is_multiline(self) -> bool:
@@ -1551,9 +1558,9 @@ class NdWs(Node):
         self.original_line = line
 
     def __repr__(self) -> str:
-        return '{}(line={})'.format(
+        return '{:s}({:s} type=blank_line)'.format(
             self.__class__.__name__,
-            self.original_line,
+            Node.__repr__(self),
         )
 
     def calc_force_newline(self, style: FormatStyle) -> None:
@@ -1590,9 +1597,9 @@ class NdComment(Node):
         self.is_own_line = is_own_line
 
     def __repr__(self) -> str:
-        return '{}(line={} \'{}\')'.format(
+        return '{:s}({:s} data=\'{:s}\')'.format(
             self.__class__.__name__,
-            self.original_line,
+            Node.__repr__(self),
             self.data,
         )
 
@@ -1629,9 +1636,9 @@ class NdString(Node):
         self.lines = self.data.count('\n')
 
     def __repr__(self) -> str:
-        return '{}(line={} \'{}\')'.format(
+        return '{:s}({:s} \'{:s}\')'.format(
             self.__class__.__name__,
-            self.original_line,
+            Node.__repr__(self),
             self.data,
         )
 
@@ -1670,9 +1677,9 @@ class NdSymbol(Node):
         self.data = data
 
     def __repr__(self) -> str:
-        return '{}(line={} \'{}\')'.format(
+        return '{:s}({:s} data=\'{:s}\')'.format(
             self.__class__.__name__,
-            self.original_line,
+            Node.__repr__(self),
             self.data,
         )
 
