@@ -21,7 +21,6 @@ from typing import (
 )
 from types import (
     ModuleType,
-    TracebackType,
 )
 
 
@@ -30,7 +29,7 @@ import os
 import argparse
 
 HintType = Dict[str, Union[str, int, Tuple[int, int]]]
-NdSexp_WrapState = Tuple[Tuple[bool, bool], ...]
+NdSexp_WrapState = Tuple[bool, ...]
 
 # ------------------------------------------------------------------------------
 # Globals
@@ -95,40 +94,6 @@ def is_hash_prefix_special_case(text: str) -> bool:
 
 # ------------------------------------------------------------------------------
 # Formatting Utilities
-
-class NdSexp_SoftWrap:
-    '''
-    Track any newly enabled nodes ``force_newline``,
-    setting ``force_newline_soft`` so they may can be used as candidates to remove later.
-
-    This is done parent level nodes that are wrapped may remove wrapping added to child nodes.
-    '''
-    __slots__ = (
-        'force_newline_orig',
-        'node_parent',
-    )
-
-    def __init__(self, node_parent: NdSexp):
-        self.node_parent = node_parent
-
-    def __enter__(self) -> None:
-        self.force_newline_orig = tuple(node.force_newline for node in self.node_parent.nodes_only_code)
-
-    def __exit__(
-            self,
-            exc_type: Optional[type[BaseException]],
-            exc_value: Optional[BaseException],
-            exc_traceback: Optional[TracebackType],
-    ) -> None:
-        # NOTE: use `strict=True` for Python 3.10+.
-        for node, force_newline_orig in zip(self.node_parent.nodes_only_code, self.force_newline_orig):
-            if (
-                    (not node.force_newline_soft) and
-                    (not force_newline_orig) and
-                    (node.force_newline is True)
-            ):
-                node.force_newline_soft = True
-
 
 def apply_comment_force_newline(root: NdSexp) -> None:
     # Special calculation for lines with comments on same line,
@@ -497,17 +462,16 @@ def apply_rules(cfg: FormatConfig, node_parent: NdSexp) -> None:
 
 
 def node_state_get(node: NdSexp) -> NdSexp_WrapState:
-    return tuple((n.force_newline, n.force_newline_soft) for n in node.nodes)
+    return tuple(n.force_newline for n in node.nodes)
 
 
 def node_state_set(node: NdSexp, state: NdSexp_WrapState) -> None:
     for data, n in zip(state, node.nodes):
-        n.force_newline, n.force_newline_soft = data
+        n.force_newline = data
 
 
 def apply_pre_indent_1(cfg: FormatConfig, node_parent: NdSexp, level: int, trailing_parens: int) -> None:
     # First be relaxed, then again if it fails.
-    # NOTE: The caller should use a `NdSexp_SoftWrap` context manager.
     if node_parent.fmt_check_exceeds_colum_max(cfg, level, trailing_parens, calc_score=False):
         if not node_parent.wrap_all_or_nothing_hint:
             a = node_state_get(node_parent)
@@ -523,7 +487,6 @@ def apply_pre_indent_1(cfg: FormatConfig, node_parent: NdSexp, level: int, trail
 
 
 def apply_pre_indent_2(cfg: FormatConfig, node_parent: NdSexp, level: int, trailing_parens: int) -> None:
-    # NOTE: The caller should use a `NdSexp_SoftWrap` context manager.
     assert node_parent.index_wrap_hint != 0
     assert len(node_parent.nodes_only_code) > 1
 
@@ -665,18 +628,13 @@ def apply_pre_indent(cfg: FormatConfig, node_parent: NdSexp, level: int, trailin
     state_init = node_state_get(node_parent)
 
     if len(node_parent.nodes_only_code) > 1:
-        with NdSexp_SoftWrap(node_parent):
-            apply_pre_indent_1(cfg, node_parent, level, trailing_parens)
-            apply_pre_indent_2(cfg, node_parent, level, trailing_parens)
+        apply_pre_indent_1(cfg, node_parent, level, trailing_parens)
+        apply_pre_indent_2(cfg, node_parent, level, trailing_parens)
 
     # Some blocks don't allow mixed wrapping.
     if node_parent.wrap_all_or_nothing_hint:
         if node_parent_is_multiline_prev or node_parent.is_multiline():
-            if node_parent_is_multiline_prev:
-                apply_relaxed_wrap(node_parent, cfg.style)
-            else:
-                with NdSexp_SoftWrap(node_parent):
-                    apply_relaxed_wrap(node_parent, cfg.style)
+            apply_relaxed_wrap(node_parent, cfg.style)
 
     state_test = node_state_get(node_parent)
     if state_init != state_test:
@@ -856,21 +814,18 @@ class Node:
     '''Base class for all kinds of Lisp elements.'''
     __slots__ = (
         'force_newline',
-        'force_newline_soft',
         'original_line',
     )
 
     force_newline: bool
-    force_newline_soft: bool
     original_line: int
 
     def calc_force_newline(self, style: FormatStyle) -> None:
         raise Exception('All subclasses must define this')
 
     def __repr__(self) -> str:
-        return 'force_newline={:d} force_newline_soft={:d} line={:d}'.format(
+        return 'force_newline={:d} line={:d}'.format(
             self.force_newline,
-            self.force_newline_soft,
             self.original_line,
         )
 
@@ -1207,7 +1162,6 @@ class NdSexp(Node):
             self.force_newline = force_newline
         else:
             self.force_newline = False
-        self.force_newline_soft = False
 
     def finalize(self, cfg: FormatConfig) -> None:
         # Connect: ' (  to '(
@@ -1573,7 +1527,6 @@ class NdWs(Node):
     def calc_force_newline(self, style: FormatStyle) -> None:
         # False because this forces it's own newline
         self.force_newline = True
-        self.force_newline_soft = False
 
     def fmt(
             self,
@@ -1612,7 +1565,6 @@ class NdComment(Node):
 
     def calc_force_newline(self, style: FormatStyle) -> None:
         self.force_newline = self.is_own_line
-        self.force_newline_soft = False
 
     def fmt(
             self,
@@ -1654,7 +1606,6 @@ class NdString(Node):
             self.force_newline = ((not self.data.startswith('\n')) and self.lines > 0)
         else:
             self.force_newline = False
-        self.force_newline_soft = False
 
     def fmt(
             self,
@@ -1692,7 +1643,6 @@ class NdSymbol(Node):
 
     def calc_force_newline(self, style: FormatStyle) -> None:
         self.force_newline = False
-        self.force_newline_soft = False
 
     def fmt(
             self,
