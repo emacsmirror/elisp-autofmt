@@ -159,7 +159,10 @@ Any `stderr' is output a message and is interpreted as failure."
                       (with-current-buffer stderr-buffer
                         (goto-char (point-min))
                         (save-match-data
-                          (when (search-forward (concat "Process " proc-id " stderr finished")
+                          (when (search-forward (concat
+                                                 "Process "
+                                                 proc-id
+                                                 " stderr finished")
                                                 nil t)
                             (replace-match "" t nil nil)))
                         (goto-char (point-max))
@@ -336,7 +339,9 @@ When INCLUDE-PRIVATE is nil, exclude functions with \"--\" in their names."
                     (subrp sym-fn)
                     (or (null auto-load-pkg)
                         (not
-                         (member auto-load-pkg elisp-autofmt-ignore-autoload-packages))))
+                         (member
+                          auto-load-pkg
+                          elisp-autofmt-ignore-autoload-packages))))
                  ;; (autoload sym-id)
 
                  ;; Note that we could check for C-source only using.

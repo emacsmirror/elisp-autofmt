@@ -659,11 +659,19 @@ def apply_pre_indent(cfg: FormatConfig, node_parent: NdSexp, level: int, trailin
                     apply_relaxed_wrap(node_parent, cfg.style)
 
 
-def apply_pre_indent_unwrap_recursive(cfg: FormatConfig, node_parent: NdSexp, level: int, trailing_parens: int) -> None:
+def apply_pre_indent_unwrap_recursive(
+        cfg: FormatConfig,
+        node_parent: NdSexp,
+        level: int,
+        trailing_parens: int,
+        parent_chain: List[Tuple[NdSexp, int, int]],
+) -> None:
     if not node_parent.nodes_only_code:
         return
 
     node_trailing_parens = node_parent.node_last_for_trailing_parens_test()
+
+    parent_chain.append((node_parent, level, trailing_parens))
 
     level_next_data = node_parent.calc_nodes_level_next(cfg, level)
     level_next_data_last = len(level_next_data) - 1
@@ -679,12 +687,29 @@ def apply_pre_indent_unwrap_recursive(cfg: FormatConfig, node_parent: NdSexp, le
                 node,
                 level_next,
                 trailing_parens + 1 if node is node_trailing_parens else 0,
+                parent_chain,
             )
 
         force_newline_soft_any |= node.force_newline_soft
 
     # Check if any of these nodes that were wrapped to fit into the fill-column could be unwrapped.
     if force_newline_soft_any:
+
+        node_leading = node_parent
+        level_leading = level
+        trailing_parens_leading = trailing_parens
+        for leading_data in reversed(parent_chain):
+            if leading_data[0].force_newline:
+                node_leading, level_leading, trailing_parens_leading = leading_data
+                break
+
+        score_orig = node_leading.fmt_check_exceeds_colum_max(
+            cfg,
+            level_leading,
+            trailing_parens_leading,
+            calc_score=True,
+        )
+
         nl = [
             (node.force_newline, node.force_newline_soft)
             for node in node_parent.nodes_only_code
@@ -694,10 +719,22 @@ def apply_pre_indent_unwrap_recursive(cfg: FormatConfig, node_parent: NdSexp, le
                 node.force_newline = False
                 node.force_newline_soft = False
 
-        if node_parent.fmt_check_exceeds_colum_max(cfg, level, trailing_parens, calc_score=False):
+        score_test = node_leading.fmt_check_exceeds_colum_max(
+            cfg,
+            level_leading,
+            trailing_parens_leading,
+            calc_score=True,
+        )
+
+        if score_test <= score_orig:
+            # Success (at least no worse).
+            pass
+        else:
             # Failure, restore the previous state.
             for i, node in enumerate(node_parent.nodes_only_code):
                 node.force_newline, node.force_newline_soft = nl[i]
+
+    parent_chain.pop()
 
 
 # ------------------------------------------------------------------------------
@@ -1892,7 +1929,7 @@ def parse_file(cfg: FormatConfig, fh: TextIO) -> Tuple[str, NdSexp]:
         apply_pre_indent(cfg, root, -1, 0)
 
         if cfg.style.use_native:
-            apply_pre_indent_unwrap_recursive(cfg, root, -1, 0)
+            apply_pre_indent_unwrap_recursive(cfg, root, -1, 0, [])
 
         # All root level nodes get their own line always.
         for node in root.nodes_only_code:
