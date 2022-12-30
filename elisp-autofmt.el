@@ -159,10 +159,7 @@ Any `stderr' is output a message and is interpreted as failure."
                       (with-current-buffer stderr-buffer
                         (goto-char (point-min))
                         (save-match-data
-                          (when (search-forward (concat
-                                                 "Process "
-                                                 proc-id
-                                                 " stderr finished")
+                          (when (search-forward (concat "Process " proc-id " stderr finished")
                                                 nil t)
                             (replace-match "" t nil nil)))
                         (goto-char (point-max))
@@ -330,18 +327,14 @@ When INCLUDE-PRIVATE is nil, exclude functions with \"--\" in their names."
              (let ((auto-load-pkg (and (autoloadp sym-fn) (cadr sym-fn)))
                    (sym-ty (elisp-autofmt--fn-type sym-id)))
 
-               (when
-                   (and
-                    sym-ty
-                    ;; Is it non-interactive?
-                    ;; (not (commandp (symbol-function sym-id)))
-                    ;; Is it built-in? (speeds up accessing the file-path which is slow).
-                    (subrp sym-fn)
-                    (or (null auto-load-pkg)
-                        (not
-                         (member
-                          auto-load-pkg
-                          elisp-autofmt-ignore-autoload-packages))))
+               (when (and sym-ty
+                          ;; Is it non-interactive?
+                          ;; (not (commandp (symbol-function sym-id)))
+                          ;; Is it built-in? (speeds up accessing the file-path which is slow).
+                          (subrp sym-fn)
+                          (or (null auto-load-pkg)
+                              (not
+                               (member auto-load-pkg elisp-autofmt-ignore-autoload-packages))))
                  ;; (autoload sym-id)
 
                  ;; Note that we could check for C-source only using.
@@ -445,8 +438,7 @@ Call an external Emacs when USE-EXTERNAL-EMACS is non-nil."
          (filename (expand-file-name invocation-name invocation-directory))
          (filename-cache-name-only (elisp-autofmt--cache-api-encode-name filename))
          (filename-cache-name-full
-          (file-name-concat elisp-autofmt-cache-directory
-                            filename-cache-name-only)))
+          (file-name-concat elisp-autofmt-cache-directory filename-cache-name-only)))
     (when (or (not (file-exists-p filename-cache-name-full))
               (elisp-autofmt--cache-api-file-is-older filename-cache-name-full filename))
 
@@ -489,8 +481,7 @@ When SKIP-REQUIRE is set, don't require the package."
       (let* ((filename (find-library-name package-id))
              (filename-cache-name-only (elisp-autofmt--cache-api-encode-name filename))
              (filename-cache-name-full
-              (file-name-concat elisp-autofmt-cache-directory
-                                filename-cache-name-only)))
+              (file-name-concat elisp-autofmt-cache-directory filename-cache-name-only)))
 
         ;; Ensure the cache is newer than it's source.
         (when (or (not (file-exists-p filename-cache-name-full))
@@ -505,8 +496,7 @@ When SKIP-REQUIRE is set, don't require the package."
   "Generate cache for FILEPATH."
   (let* ((filename-cache-name-only (elisp-autofmt--cache-api-encode-name-external filepath))
          (filename-cache-name-full
-          (file-name-concat elisp-autofmt-cache-directory
-                            filename-cache-name-only)))
+          (file-name-concat elisp-autofmt-cache-directory filename-cache-name-only)))
 
     (when (or (not (file-exists-p filename-cache-name-full))
               (elisp-autofmt--cache-api-file-is-older filename-cache-name-full filepath))
@@ -643,8 +633,7 @@ Optional argument ASSUME-FILE-NAME overrides the file name used for this buffer.
 
            ;; Optionally read in definitions.
            (cond
-            ((or elisp-autofmt-use-function-defs
-                 elisp-autofmt-use-default-override-defs)
+            ((or elisp-autofmt-use-function-defs elisp-autofmt-use-default-override-defs)
              (list
               (concat
                "--fmt-defs-dir="
@@ -653,21 +642,18 @@ Optional argument ASSUME-FILE-NAME overrides the file name used for this buffer.
                  elisp-autofmt-cache-directory)))
               (concat
                "--fmt-defs="
-               (mapconcat
-                #'identity
-                (append
-                 ;; May be nil (skipped).
-                 cache-defs
-                 ;; Optionally
-                 (cond
-                  (elisp-autofmt-use-default-override-defs
-                   (list
-                    (concat
-                     elisp-autofmt--base
-                     ".overrides.json")))
-                  (t
-                   (list))))
-                path-separator))))
+               (mapconcat #'identity
+                          (append
+                           ;; May be nil (skipped).
+                           cache-defs
+                           ;; Optionally
+                           (cond
+                            (elisp-autofmt-use-default-override-defs
+                             (list
+                              (concat elisp-autofmt--base ".overrides.json")))
+                            (t
+                             (list))))
+                          path-separator))))
             (t
              (list))))))
     ;; (printf "CMD: %S\n" (mapconcat 'identity command-with-args " "))
