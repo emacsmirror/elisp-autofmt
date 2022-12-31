@@ -461,27 +461,18 @@ def apply_rules(cfg: FormatConfig, node_parent: NdSexp) -> None:
         node_parent.flush_newlines_from_nodes()
 
 
-def node_state_get(node: NdSexp) -> NdSexp_WrapState:
-    return tuple(n.force_newline for n in node.nodes)
-
-
-def node_state_set(node: NdSexp, state: NdSexp_WrapState) -> None:
-    for data, n in zip(state, node.nodes):
-        n.force_newline = data
-
-
 def apply_pre_indent_1(cfg: FormatConfig, node_parent: NdSexp, level: int, trailing_parens: int) -> None:
     # First be relaxed, then again if it fails.
     if node_parent.fmt_check_exceeds_colum_max(cfg, level, trailing_parens, calc_score=False):
         if not node_parent.wrap_all_or_nothing_hint:
-            a = node_state_get(node_parent)
+            state_init = node_parent.newline_state_get()
 
         apply_relaxed_wrap(node_parent, cfg.style)
 
         if not node_parent.wrap_all_or_nothing_hint:
-            b = node_state_get(node_parent)
-            if a != b:
-                node_parent.prior_states.append(a)
+            state_test = node_parent.newline_state_get()
+            if state_init != state_test:
+                node_parent.prior_states.append(state_init)
         if not cfg.style.use_native:
             node_parent.force_newline = True
 
@@ -625,7 +616,7 @@ def apply_pre_indent(cfg: FormatConfig, node_parent: NdSexp, level: int, trailin
                 if node.force_newline:
                     node_parent.force_newline = True
 
-    state_init = node_state_get(node_parent)
+    state_init = node_parent.newline_state_get()
 
     if len(node_parent.nodes_only_code) > 1:
         apply_pre_indent_1(cfg, node_parent, level, trailing_parens)
@@ -636,7 +627,7 @@ def apply_pre_indent(cfg: FormatConfig, node_parent: NdSexp, level: int, trailin
         if node_parent_is_multiline_prev or node_parent.is_multiline():
             apply_relaxed_wrap(node_parent, cfg.style)
 
-    state_test = node_state_get(node_parent)
+    state_test = node_parent.newline_state_get()
     if state_init != state_test:
         node_parent.prior_states.append(state_init)
 
@@ -682,9 +673,9 @@ def apply_pre_indent_unwrap(cfg: FormatConfig, node_parent: NdSexp, level: int, 
                 if parent_score_curr == 0:
                     calc_score = False
 
-            state_curr = node_state_get(node)
+            state_curr = node.newline_state_get()
             for state_test in node.prior_states:
-                node_state_set(node, state_test)
+                node.newline_state_set(state_test)
                 parent_score_test = node_parent.fmt_check_exceeds_colum_max(
                     cfg,
                     level,
@@ -697,7 +688,7 @@ def apply_pre_indent_unwrap(cfg: FormatConfig, node_parent: NdSexp, level: int, 
                     # The most ambitious (early) states are first, no need to try others.
                     break
 
-                node_state_set(node, state_curr)
+                node.newline_state_set(state_curr)
             # Avoid checking these ever again - either they were useful or not.
             node.prior_states.clear()
 
@@ -931,6 +922,13 @@ class NdSexp(Node):
             yield (node, self)
             if isinstance(node, NdSexp):
                 yield from node.iter_nodes_recursive_with_parent()
+
+    def newline_state_get(self) -> NdSexp_WrapState:
+        return tuple(node.force_newline for node in self.nodes)
+
+    def newline_state_set(self, state: NdSexp_WrapState) -> None:
+        for data, node in zip(state, self.nodes):
+            node.force_newline = data
 
     def calc_nodes_level_next(self, cfg: FormatConfig, level: int) -> List[int]:
         '''
