@@ -132,7 +132,10 @@ This is intended to be set from file or directory locals and is marked safe.")
   "Run COMMAND-WITH-ARGS, returning t on success.
 
 Any `stderr' is output a message and is interpreted as failure."
-  ;; (printf "CMD: %S\n" (mapconcat 'identity command-with-args " "))
+
+  (when elisp-autofmt-extra-debug-info
+    (message "elisp-autofmt: running command: %s" (mapconcat 'identity command-with-args " ")))
+
   (let ((sentinel-called nil)
         (this-buffer (current-buffer))
         (stdout-buffer nil)
@@ -656,7 +659,11 @@ Optional argument ASSUME-FILE-NAME overrides the file name used for this buffer.
                           path-separator))))
             (t
              (list))))))
-    ;; (printf "CMD: %S\n" (mapconcat 'identity command-with-args " "))
+
+    (when elisp-autofmt-extra-debug-info
+      (message "elisp-autofmt: running piped process: %s"
+               (mapconcat 'identity command-with-args " ")))
+
     (let ((proc
            (make-process
             :name "elisp-autofmt"
