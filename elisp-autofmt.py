@@ -56,6 +56,9 @@ class FmtException(Exception):
     '''An exception raised for malformed files, where formatting cannot complete.'''
 
 
+class FmtEarlyExit(Exception):
+    '''Early exit from within callbacks.'''
+
 # ------------------------------------------------------------------------------
 # Utilities
 
@@ -90,6 +93,94 @@ def is_hash_prefix_special_case(text: str) -> bool:
         text.startswith('#') and
         (not text.startswith('#\''))
     )
+
+
+# ------------------------------------------------------------------------------
+# Line Length Checks
+
+def calc_over_long_line_score(data: str, fill_column: int, trailing_parens: int, line_terminate: int) -> int:
+
+    # Step over `\n` characters instead of data.split('\n')
+    # so multiple characters are handled separately.
+    line_step = 0
+    i = 0
+
+    score = 0
+    if line_terminate != -1:
+        while line_step != -1:
+            line_step_next = data.find('\n', line_step)
+            if line_step_next == -1:
+                line_length = len(data) - line_step
+                line_step = -1
+            else:
+                line_length = line_step_next - line_step
+                line_step = line_step_next + 1
+
+            if line_terminate == i:
+                line_length += trailing_parens
+                if line_length > fill_column:
+                    score += 2 ** (line_length - fill_column)
+                break
+            if line_length > fill_column:
+                score += 2 ** (line_length - fill_column)
+            i += 1
+    else:
+        while line_step != -1:
+            line_step_next = data.find('\n', line_step)
+            if line_step_next == -1:
+                line_length = len(data) - line_step
+                line_step = -1
+            else:
+                line_length = line_step_next - line_step
+                line_step = line_step_next + 1
+
+            if line_length > fill_column:
+                score += 2 ** (line_length - fill_column)
+            i += 1
+
+    return score
+
+
+def calc_over_long_line_length_test(data: str, fill_column: int, trailing_parens: int, line_terminate: int) -> int:
+
+    # Step over `\n` characters instead of data.split('\n')
+    # so multiple characters are handled separately.
+    line_step = 0
+    i = 0
+
+    if line_terminate != -1:
+        while line_step != -1:
+            line_step_next = data.find('\n', line_step)
+            if line_step_next == -1:
+                line_length = len(data) - line_step
+                line_step = -1
+            else:
+                line_length = line_step_next - line_step
+                line_step = line_step_next + 1
+
+            if line_terminate == i:
+                line_length += trailing_parens
+                if line_length > fill_column:
+                    return 1
+                break
+            if line_length > fill_column:
+                return 1
+            i += 1
+    else:
+        while line_step != -1:
+            line_step_next = data.find('\n', line_step)
+            if line_step_next == -1:
+                line_length = len(data) - line_step
+                line_step = -1
+            else:
+                line_length = line_step_next - line_step
+                line_step = line_step_next + 1
+
+            if line_length > fill_column:
+                return 1
+            i += 1
+
+    return 0
 
 
 # ------------------------------------------------------------------------------
@@ -1226,62 +1317,24 @@ class NdSexp(Node):
         '''
 
         # Simple optimization, don't calculate excess white-space.
-        fill_column_offset = level
-        fill_column = cfg.fill_column - fill_column_offset
+        fill_column = cfg.fill_column - level
         level = 0
-
         _ctx = WriteCtx(cfg)
+
         _data: List[str] = []
-        self.fmt_with_terminate_node(_ctx, _data.append, level, test=True, test_node_terminate=test_node_terminate)
-        data = ''.join(_data)
-        del _data
+        write_fn = _data.append
 
-        # Step over `\n` characters instead of data.split('\n')
-        # so multiple characters are handled separately.
-        line_step = 0
-        i = 0
-
-        score = 0
+        self.fmt_with_terminate_node(_ctx, write_fn, level, test=True, test_node_terminate=test_node_terminate)
         if (not cfg.use_trailing_parens) and (_ctx.line_terminate == _ctx.line):
             line_terminate = _ctx.line_terminate
-            while line_step != -1:
-                line_step_next = data.find('\n', line_step)
-                if line_step_next == -1:
-                    line_length = len(data) - line_step
-                    line_step = -1
-                else:
-                    line_length = line_step_next - line_step
-                    line_step = line_step_next + 1
-
-                if line_terminate == i:
-                    line_length += trailing_parens
-                    if line_length > fill_column:
-                        if not calc_score:
-                            return 1
-                        score += 2 ** (line_length - fill_column)
-                    break
-                if line_length > fill_column:
-                    if not calc_score:
-                        return 1
-                    score += 2 ** (line_length - fill_column)
-                i += 1
         else:
-            while line_step != -1:
-                line_step_next = data.find('\n', line_step)
-                if line_step_next == -1:
-                    line_length = len(data) - line_step
-                    line_step = -1
-                else:
-                    line_length = line_step_next - line_step
-                    line_step = line_step_next + 1
+            line_terminate = -1
 
-                if line_length > fill_column:
-                    if not calc_score:
-                        return 1
-                    score += 2 ** (line_length - fill_column)
-                i += 1
+        data = ''.join(_data)
 
-        return score
+        if calc_score:
+            return calc_over_long_line_score(data, fill_column, trailing_parens, line_terminate)
+        return calc_over_long_line_length_test(data, fill_column, trailing_parens, line_terminate)
 
     def fmt_pre_wrap(self, cfg: FormatConfig, level: int, trailing_parens: int) -> None:
         # First handle Sexpr's one at a time, then all of them.
