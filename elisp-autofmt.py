@@ -1013,6 +1013,7 @@ class NdSexp(Node):
         'wrap_all_or_nothing_hint',
         'hints',
         'prior_states',
+        'fmt_cache',
     )
 
     def __init__(self, line: int, brackets: str, nodes: Optional[List[Node]] = None):
@@ -1024,6 +1025,7 @@ class NdSexp(Node):
         self.wrap_all_or_nothing_hint: bool = False
         self.hints: HintType = {}
         self.prior_states: List[NdSexp_WrapState] = []
+        self.fmt_cache = ''
 
     def __repr__(self) -> str:
         import textwrap
@@ -1545,6 +1547,9 @@ class NdSexp(Node):
             *,
             test: bool = False,
             ) -> None:
+        if self.fmt_cache:
+            write_fn(self.fmt_cache)
+            return
         self.fmt_with_terminate_node(ctx, write_fn, level, test=test)
 
     def fmt_with_terminate_node(
@@ -2037,6 +2042,8 @@ def write_file(
 
 
 def root_node_wrap(cfg: FormatConfig, node: NdSexp) -> None:
+    apply_rules(cfg, node)
+
     apply_pre_indent(cfg, node, 0, 0)
     node.fmt_pre_wrap(cfg, 0, 0)
 
@@ -2048,12 +2055,16 @@ def root_node_wrap(cfg: FormatConfig, node: NdSexp) -> None:
     node.flush_newlines_from_nodes_recursive_for_native()
 
 
-def root_node_wrap_group_for_multiprocessing(cfg: FormatConfig, node_group: List[NdSexp]) -> List[List[bool]]:
-    result = []
+def root_node_wrap_group_for_multiprocessing(cfg: FormatConfig, node_group: List[NdSexp]) -> List[str]:
+    result_group = []
+    ctx = WriteCtx(cfg)
     for node in node_group:
         root_node_wrap(cfg, node)
-        result.append([n.force_newline for n in node.iter_nodes_recursive_with_self()])
-    return result
+        data: List[str] = []
+        node.fmt(ctx, data.append, 0)
+        result_group.append(''.join(data))
+        del data
+    return result_group
 
 
 def do_wrap_level_0(cfg: FormatConfig, root: NdSexp) -> None:
@@ -2107,8 +2118,7 @@ def do_wrap_level_0_multiprocessing(cfg: FormatConfig, root: NdSexp, job_size: i
         result_group_list = pool.starmap(root_node_wrap_group_for_multiprocessing, args)
         for node_group, result_group in zip(node_group_list, result_group_list):
             for node, result in zip(node_group, result_group):
-                for n, force_newline in zip(node.iter_nodes_recursive_with_self(), result):
-                    n.force_newline = force_newline
+                node.fmt_cache = result
 
 
 def format_file(
@@ -2139,8 +2149,6 @@ def format_file(
         for node in root.nodes_only_code:
             node.force_newline = True
 
-        apply_rules(cfg, root)
-
         if cfg.use_multiprocessing:
             do_wrap_level_0_multiprocessing(cfg, root, job_size)
         else:
@@ -2154,7 +2162,8 @@ def format_file(
     if cfg.style.use_native:
         pass
     else:
-        assert root.flush_newlines_from_nodes_recursive() is False
+        if not cfg.use_multiprocessing:
+            assert root.flush_newlines_from_nodes_recursive() is False
 
     if use_stdout:
         write_file(cfg, sys.stdout, root, first_line)
