@@ -15,6 +15,7 @@ from typing import (
     List,
     NamedTuple,
     Optional,
+    Set,
     TextIO,
     Tuple,
     Union,
@@ -45,6 +46,9 @@ USE_EXTRACT_DEFS = True
 
 # Report missing definitions.
 LOG_MISSING_DEFS = None  # '/tmp/out.log'
+
+# Asserts that incur performance penalties which should not be enabled by default.
+USE_PARANOID_ASSERT = False
 
 # ------------------------------------------------------------------------------
 # Exceptions
@@ -757,7 +761,14 @@ def apply_pre_indent_unwrap(
     calc_score = True
     state_curr: NdSexp_WrapState = ()
     if node_parent.force_newline:
-        for node in node_parent.iter_nodes_recursive_with_prior_state(visited):
+        if level == 0:
+            # When at level zero, include ourself,
+            # needed unless this function is called with a single `root` node.
+            nodes_with_prior_state = node_parent.iter_nodes_recursive_with_prior_state_and_self
+        else:
+            nodes_with_prior_state = node_parent.iter_nodes_recursive_with_prior_state
+
+        for node in nodes_with_prior_state(visited):
             if parent_score_curr == -1:
                 parent_score_curr = node_parent.fmt_check_exceeds_colum_max(
                     cfg,
@@ -1016,6 +1027,13 @@ class NdSexp(Node):
             if isinstance(node, NdSexp):
                 yield from node.iter_nodes_recursive()
 
+    def iter_nodes_recursive_with_self(self) -> Generator[Node, None, None]:
+        yield self
+        for node in self.nodes:
+            yield node
+            if isinstance(node, NdSexp):
+                yield from node.iter_nodes_recursive()
+
     def iter_nodes_recursive_with_parent(self) -> Generator[Tuple[Node, NdSexp], None, None]:
         for node in self.nodes:
             yield (node, self)
@@ -1031,6 +1049,14 @@ class NdSexp(Node):
                     if node.prior_states:
                         yield node
                     yield from node.iter_nodes_recursive_with_prior_state(visited)
+
+    def iter_nodes_recursive_with_prior_state_and_self(self, visited: Set[int]) -> Generator[NdSexp, None, None]:
+        yield from self.iter_nodes_recursive_with_prior_state(visited)
+        visited_len = len(visited)
+        visited.add(id(self))
+        if visited_len != len(visited):
+            if self.prior_states:
+                yield self
 
     def newline_state_get(self) -> NdSexp_WrapState:
         return tuple(node.force_newline for node in self.nodes)
@@ -1968,6 +1994,24 @@ def write_file(
     fh.write('\n')
 
 
+def root_node_wrap(cfg: FormatConfig, node: NdSexp) -> None:
+    apply_pre_indent(cfg, node, 0, 0)
+    node.fmt_pre_wrap(cfg, 0, 0)
+
+    apply_pre_indent_unwrap(cfg, node, 0, 0, set())
+
+    # FIXME: would be good to avoid running this twice!
+    node.fmt_pre_wrap(cfg, 0, 0)
+
+    node.flush_newlines_from_nodes_recursive_for_native()
+
+
+def do_wrap_level_0(cfg: FormatConfig, root: NdSexp) -> None:
+    for node in root.nodes_only_code:
+        if isinstance(node, NdSexp):
+            root_node_wrap(cfg, node)
+
+
 def format_file(
         filepath: str,
         cfg: FormatConfig,
@@ -1997,17 +2041,15 @@ def format_file(
 
         apply_rules(cfg, root)
 
-        apply_pre_indent(cfg, root, -1, 0)
+        do_wrap_level_0(cfg, root)
 
-        root.fmt_pre_wrap(cfg, -1, 0)
-
-        apply_pre_indent_unwrap(cfg, root, -1, 0, set())
-
-        # FIXME: would be good to avoid running this twice!
-        root.fmt_pre_wrap(cfg, -1, 0)
+        if USE_PARANOID_ASSERT:
+            for node in root.iter_nodes_recursive():
+                if isinstance(node, NdSexp):
+                    assert bool(node.prior_states) is False
 
     if cfg.style.use_native:
-        root.flush_newlines_from_nodes_recursive_for_native()
+        pass
     else:
         assert root.flush_newlines_from_nodes_recursive() is False
 
