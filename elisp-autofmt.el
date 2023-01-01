@@ -61,6 +61,12 @@ Otherwise you can set this to a user defined function."
   "When non nil, make opinionated changes to how line breaks are handled."
   :type 'boolean)
 
+(defcustom elisp-autofmt-job-size 1024
+  "The number of S-expression elements to include in each job.
+This is used to define the job size when performing calculations
+in parallel. Zero disables parallel processing."
+  :type 'int)
+
 (defcustom elisp-autofmt-python-bin nil
   "The Python binary to call to run the auto-formatting utility."
   :type 'string)
@@ -631,6 +637,7 @@ Optional argument ASSUME-FILE-NAME overrides the file name used for this buffer.
             (format "--fmt-fill-column=%d" fill-column)
             (format "--fmt-empty-lines=%d" elisp-autofmt-empty-line-max)
             (format "--fmt-style=%s" (symbol-name elisp-autofmt-style))
+            (format "--job-size=%d" elisp-autofmt-job-size)
             ;; Not 0 or 1.
             "--exit-code=2")
 

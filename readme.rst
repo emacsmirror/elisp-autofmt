@@ -61,6 +61,7 @@ Features
 - Keeps trailing comments at the end of lines (without joining lines which may change their meaning).
 - Extracts function arguments from locally defined functions,
   with support for including definitions from external files.
+- Parallel computation.
 
 
 Usage
@@ -128,6 +129,10 @@ Customization
 
 ``elisp-autofmt-empty-line-max`` (``2``)
    The maximum number of empty lines to keep.
+
+``elisp-autofmt-job-size`` (``1024``)
+   Number of elements to include in each job.
+   *Zero to disable parallel computation.*
 
 ``elisp-autofmt-python-bin`` (``nil``)
    Optionally set the Python binary, use when Python is not in your ``PATH``.
