@@ -723,7 +723,13 @@ def apply_pre_indent(cfg: FormatConfig, node_parent: NdSexp, level: int, trailin
         node_parent.prior_states.append(state_init)
 
 
-def apply_pre_indent_unwrap(cfg: FormatConfig, node_parent: NdSexp, level: int, trailing_parens: int) -> None:
+def apply_pre_indent_unwrap(
+        cfg: FormatConfig,
+        node_parent: NdSexp,
+        level: int,
+        trailing_parens: int,
+        visited: Set[int],
+) -> None:
     if not node_parent.nodes_only_code:
         return
 
@@ -734,7 +740,13 @@ def apply_pre_indent_unwrap(cfg: FormatConfig, node_parent: NdSexp, level: int, 
     for i, node in enumerate(node_parent.nodes):
         if isinstance(node, NdSexp):
             level_next = level_next_data[min(i, level_next_data_last)]
-            apply_pre_indent_unwrap(cfg, node, level_next, trailing_parens + 1 if node is node_trailing_parens else 0)
+            apply_pre_indent_unwrap(
+                cfg,
+                node,
+                level_next,
+                trailing_parens + 1 if node is node_trailing_parens else 0,
+                visited,
+            )
             if not cfg.style.use_native:
                 if node.force_newline:
                     node_parent.force_newline = True
@@ -745,11 +757,7 @@ def apply_pre_indent_unwrap(cfg: FormatConfig, node_parent: NdSexp, level: int, 
     calc_score = True
     state_curr: NdSexp_WrapState = ()
     if node_parent.force_newline:
-        for node in node_parent.iter_nodes_recursive():
-            if not isinstance(node, NdSexp):
-                continue
-            if not node.prior_states:
-                continue
+        for node in node_parent.iter_nodes_recursive_with_prior_state(visited):
             if parent_score_curr == -1:
                 parent_score_curr = node_parent.fmt_check_exceeds_colum_max(
                     cfg,
@@ -1013,6 +1021,16 @@ class NdSexp(Node):
             yield (node, self)
             if isinstance(node, NdSexp):
                 yield from node.iter_nodes_recursive_with_parent()
+
+    def iter_nodes_recursive_with_prior_state(self, visited: Set[int]) -> Generator[NdSexp, None, None]:
+        for node in self.nodes:
+            if isinstance(node, NdSexp):
+                visited_len = len(visited)
+                visited.add(id(node))
+                if visited_len != len(visited):
+                    if node.prior_states:
+                        yield node
+                    yield from node.iter_nodes_recursive_with_prior_state(visited)
 
     def newline_state_get(self) -> NdSexp_WrapState:
         return tuple(node.force_newline for node in self.nodes)
@@ -1983,7 +2001,7 @@ def format_file(
 
         root.fmt_pre_wrap(cfg, -1, 0)
 
-        apply_pre_indent_unwrap(cfg, root, -1, 0)
+        apply_pre_indent_unwrap(cfg, root, -1, 0, set())
 
         # FIXME: would be good to avoid running this twice!
         root.fmt_pre_wrap(cfg, -1, 0)
