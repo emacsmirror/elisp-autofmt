@@ -656,6 +656,10 @@ Argument IS-INTERACTIVE is set when running interactively."
 
             (format "--parallel-jobs=%d"
                     (cond
+                     ;; Disable multi-processing on MS-Windows,
+                     ;; seems to cause performance issues which need investigating.
+                     ((memq system-type '(ms-dos windows-nt))
+                      -1)
                      ((<= (buffer-size) elisp-autofmt-parallel-threshold)
                       -1)
                      (t

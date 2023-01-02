@@ -61,7 +61,7 @@ Features
 - Keeps trailing comments at the end of lines (without joining lines which may change their meaning).
 - Extracts function arguments from locally defined functions,
   with support for including definitions from external files.
-- Parallel computation.
+- Parallel computation *(disabled on MS-Windows until performance issues can be investigated).*
 
 
 Usage
@@ -148,6 +148,7 @@ Customization (Parallel Computation)
    - ``0`` to set this automatically.
    - ``-1`` disables parallel computation.
 
+Note that this is disabled on MS-Windows currently until performance issues can be investigated.
 
 Customization (API Definitions)
 -------------------------------
