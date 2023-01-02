@@ -519,7 +519,7 @@ When SKIP-REQUIRE is set, don't require the package."
 
       (elisp-autofmt--call-checked
        (list
-        (or elisp-autofmt-python-bin "python3")
+        (or elisp-autofmt-python-bin "python")
         elisp-autofmt--bin
         "--gen-defs"
         filepath
@@ -632,7 +632,7 @@ Optional argument ASSUME-FILE-NAME overrides the file name used for this buffer.
          (command-with-args
           (append
            (list
-            (or elisp-autofmt-python-bin "python3")
+            (or elisp-autofmt-python-bin "python")
             elisp-autofmt--bin
             ;; No messages.
             "--quiet"
