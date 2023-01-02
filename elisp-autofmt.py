@@ -50,12 +50,12 @@ LOG_MISSING_DEFS = None  # '/tmp/out.log'
 # Asserts that incur performance penalties which should not be enabled by default.
 USE_PARANOID_ASSERT = False
 
+
 # ------------------------------------------------------------------------------
 # Exceptions
 
-
 # Exception for failure to parse the file,
-# show this in the command line wite.
+# show this in the command line output.
 class FmtException(Exception):
     '''An exception raised for malformed files, where formatting cannot complete.'''
 
@@ -63,9 +63,9 @@ class FmtException(Exception):
 class FmtEarlyExit(Exception):
     '''Early exit from within callbacks.'''
 
+
 # ------------------------------------------------------------------------------
 # Utilities
-
 
 def _function_id(num_frames_up: int) -> str:
     '''
@@ -104,7 +104,7 @@ def is_hash_prefix_special_case(text: str) -> bool:
 
 def calc_over_long_line_score(data: str, fill_column: int, trailing_parens: int, line_terminate: int) -> int:
 
-    # Step over `\n` characters instead of data.split('\n')
+    # Step over `\n` characters instead of `data.split('\n')`
     # so multiple characters are handled separately.
     line_step = 0
     i = 0
@@ -147,7 +147,7 @@ def calc_over_long_line_score(data: str, fill_column: int, trailing_parens: int,
 
 def calc_over_long_line_length_test(data: str, fill_column: int, trailing_parens: int, line_terminate: int) -> int:
 
-    # Step over `\n` characters instead of data.split('\n')
+    # Step over `\n` characters instead of `data.split('\n')`
     # so multiple characters are handled separately.
     line_step = 0
     i = 0
@@ -279,7 +279,7 @@ def apply_relaxed_wrap(node_parent: NdSexp, style: FormatStyle) -> None:
             #
             # .. Better for use-package 'config' sections.
             #
-            # But but... keep ther pairs in the case of a blank line or comment.
+            # But keep their pairs in the case of a blank line or comment.
             #     (foo
             #       :keyword value
             #
@@ -620,15 +620,15 @@ def apply_pre_indent_2(cfg: FormatConfig, node_parent: NdSexp, level: int, trail
         # as this will simply push it onto the line below.
         #
         # This:
-        #   (arg "Long string that does not fit")
+        #   (argument "Long string that does not fit")
         #
         # Gets converted to this:
         #   (
-        #     arg
+        #     argument
         #     "Long string that does not fit")
         #
         # Where as we would prefer this:
-        #   (arg
+        #   (argument
         #     "Long string that does not fit")
         #
         while i != 0:
@@ -1264,7 +1264,7 @@ class NdSexp(Node):
         return level_next_data
 
     def flush_newlines_from_nodes(self) -> bool:
-        # assert not cfg.use_native
+        # `assert not cfg.use_native` (if we had `cfg`).
         changed = False
         if not self.force_newline:
             for node in self.nodes_only_code:
@@ -1288,7 +1288,7 @@ class NdSexp(Node):
         #        g))
         #
         # While this could be supported currently it's not and I feel this adds awkward right shift.
-        # assert cfg.use_native
+        # `assert cfg.use_native` # If we have `cfg`.
         changed = False
         for i, node in enumerate(self.nodes_only_code):
             if i > 1 and isinstance(node, NdSexp) and not node.force_newline and node.is_multiline():
@@ -1301,7 +1301,7 @@ class NdSexp(Node):
         return changed
 
     def flush_newlines_from_nodes_recursive(self) -> bool:
-        # assert not cfg.use_native
+        # `assert cfg.use_native` # If we have `cfg`.
         changed = False
         for node in self.nodes_only_code:
             if node.force_newline:
@@ -1352,7 +1352,7 @@ class NdSexp(Node):
                         i -= 1
             i -= 1
 
-        # Strip blank lines at the start or end of Sexpr's.
+        # Strip blank lines at the start or end of S-expressions.
         for i in (-1, 0):
             while self.nodes and isinstance(self.nodes[i], NdWs):
                 del self.nodes[i]
@@ -1458,7 +1458,7 @@ class NdSexp(Node):
         return calc_over_long_line_length_test(data, fill_column, trailing_parens, line_terminate)
 
     def fmt_pre_wrap(self, cfg: FormatConfig, level: int, trailing_parens: int) -> None:
-        # First handle Sexpr's one at a time, then all of them.
+        # First handle S-expressions one at a time, then all of them.
         # not very efficient, but it avoids over wrapping.
 
         node_trailing_parens = self.node_last_for_trailing_parens_test()
@@ -1486,15 +1486,15 @@ class NdSexp(Node):
         # Ensures we don't get:
         #     (or foo
         #        (bar
-        #          baz))
+        #          bob))
         #
         # Instead it's all one line:
-        #     (or foo (bar baz))
+        #     (or foo (bar bob))
         #
         # Or both are wrapped onto a new line:
         #     (or
         #       foo
-        #       (bar baz))
+        #       (bar bob))
         #
         # ... respecting the hint for where to split.
         #
@@ -2178,7 +2178,7 @@ def format_file(
 
 def argparse_create() -> argparse.ArgumentParser:
 
-    # When --help or no args are given, print this help
+    # When `--help` or no arguments are given, print this help.
     usage_text = 'Format emacs-lisp.'
 
     epilog = (
@@ -2309,7 +2309,6 @@ def argparse_create() -> argparse.ArgumentParser:
 
 # ------------------------------------------------------------------------------
 # Main Function
-
 
 def main_generate_defs() -> bool:
     try:
