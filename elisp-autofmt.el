@@ -564,10 +564,11 @@ When SKIP-REQUIRE is set, don't require the package."
 ;; ---------------------------------------------------------------------------
 ;; Internal Functions
 
-(defun elisp-autofmt--replace-buffer-contents-with-fastpath (buf)
+(defun elisp-autofmt--replace-buffer-contents-with-fastpath (buf is-interactive)
   "Replace buffer contents with BUF, fast-path when undo is disabled.
 
-Useful for fast operation, especially for automated conversion or tests."
+Useful for fast operation, especially for automated conversion or tests.
+Argument IS-INTERACTIVE is set when running interactively."
   (let ((is-beg (bobp))
         (is-end (eobp)))
     (cond
@@ -582,11 +583,19 @@ Useful for fast operation, especially for automated conversion or tests."
        (is-end
         (goto-char (point-max)))))
      (t
-      (replace-buffer-contents buf)))))
+      (cond
+       (is-interactive
+        ;; When run interactively replace the buffer contents if this takes over 1 second.
+        (replace-buffer-contents buf 1.0))
+       (t
+        (replace-buffer-contents buf)))))))
 
-(defun elisp-autofmt--region-impl (stdout-buffer stderr-buffer &optional assume-file-name)
+(defun elisp-autofmt--region-impl
+    (stdout-buffer stderr-buffer is-interactive &optional assume-file-name)
   "Auto format the current region using temporary STDOUT-BUFFER & STDERR-BUFFER.
-Optional argument ASSUME-FILE-NAME overrides the file name used for this buffer."
+Optional argument ASSUME-FILE-NAME overrides the file name used for this buffer.
+
+Argument IS-INTERACTIVE is set when running interactively."
 
   ;; TODO, add support for auto-formatting a sub-region,
   ;; until this is supported keep this private.
@@ -737,11 +746,13 @@ Optional argument ASSUME-FILE-NAME overrides the file name used for this buffer.
                      exit-code))
           nil)
          (t
-          (elisp-autofmt--replace-buffer-contents-with-fastpath stdout-buffer)))))))
+          (elisp-autofmt--replace-buffer-contents-with-fastpath stdout-buffer is-interactive)))))))
 
-(defun elisp-autofmt--region (&optional assume-file-name)
+(defun elisp-autofmt--region (is-interactive &optional assume-file-name)
   "Auto format the current region.
-Optional argument ASSUME-FILE-NAME overrides the file name used for this buffer."
+Optional argument ASSUME-FILE-NAME overrides the file name used for this buffer.
+
+Argument IS-INTERACTIVE is set when running interactively."
   (let ((stdout-buffer nil)
         (stderr-buffer nil)
         (this-buffer (current-buffer)))
@@ -750,12 +761,14 @@ Optional argument ASSUME-FILE-NAME overrides the file name used for this buffer.
       (with-temp-buffer
         (setq stderr-buffer (current-buffer))
         (with-current-buffer this-buffer
-          (elisp-autofmt--region-impl stdout-buffer stderr-buffer assume-file-name))))))
+          (elisp-autofmt--region-impl stdout-buffer stderr-buffer is-interactive assume-file-name))))))
 
-(defun elisp-autofmt--buffer-impl (buf)
-  "Auto-format the entire buffer BUF."
+(defun elisp-autofmt--buffer-impl (buf is-interactive)
+  "Auto-format the entire buffer BUF.
+
+Argument IS-INTERACTIVE is set when running interactively."
   (with-current-buffer buf
-    (elisp-autofmt--region)))
+    (elisp-autofmt--region is-interactive)))
 
 (defun elisp-autofmt--buffer-format-for-save-hook ()
   "The hook to run on buffer saving to format the buffer."
@@ -783,7 +796,8 @@ Optional argument ASSUME-FILE-NAME overrides the file name used for this buffer.
 (defun elisp-autofmt-buffer ()
   "Auto format the current buffer."
   (interactive)
-  (elisp-autofmt--buffer-impl (current-buffer)))
+  (let ((is-interactive (called-interactively-p 'interactive)))
+    (elisp-autofmt--buffer-impl (current-buffer) is-interactive)))
 
 ;;;###autoload
 (defun elisp-autofmt-check-elisp-autofmt-exists ()
