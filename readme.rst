@@ -130,12 +130,23 @@ Customization
 ``elisp-autofmt-empty-line-max`` (``2``)
    The maximum number of empty lines to keep.
 
-``elisp-autofmt-job-size`` (``1024``)
-   Number of elements to include in each job.
-   *Zero to disable parallel computation.*
-
 ``elisp-autofmt-python-bin`` (``nil``)
    Optionally set the Python binary, use when Python is not in your ``PATH``.
+
+
+Customization (Parallel Computation)
+------------------------------------
+
+``elisp-autofmt-parallel-threshold`` (``32768`` 32 kilobytes)
+   Buffers below this size will not use parallel computation.
+
+   - ``0`` to use parallel computation for all buffers.
+
+``elisp-autofmt-parallel-jobs`` (``0``)
+   Number of jobs to run in parallel.
+
+   - ``0`` to set this automatically.
+   - ``-1`` disables parallel computation.
 
 
 Customization (API Definitions)

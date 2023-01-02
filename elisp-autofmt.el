@@ -61,10 +61,17 @@ Otherwise you can set this to a user defined function."
   "When non nil, make opinionated changes to how line breaks are handled."
   :type 'boolean)
 
-(defcustom elisp-autofmt-job-size 1024
-  "The number of S-expression elements to include in each job.
-This is used to define the job size when performing calculations
-in parallel. Zero disables parallel processing."
+(defcustom elisp-autofmt-parallel-jobs 0
+  "The number of jobs to run in parallel.
+
+- Use 0 to select automatically.
+- Use -1 to disable parallel computation entirely."
+  :type 'int)
+
+(defcustom elisp-autofmt-parallel-threshold 32768
+  "Buffers under this size will not use parallel computation.
+
+- Use 0 to enable parallel computation for buffers of any size."
   :type 'int)
 
 (defcustom elisp-autofmt-python-bin nil
@@ -637,7 +644,14 @@ Optional argument ASSUME-FILE-NAME overrides the file name used for this buffer.
             (format "--fmt-fill-column=%d" fill-column)
             (format "--fmt-empty-lines=%d" elisp-autofmt-empty-line-max)
             (format "--fmt-style=%s" (symbol-name elisp-autofmt-style))
-            (format "--job-size=%d" elisp-autofmt-job-size)
+
+            (format "--parallel-jobs=%d"
+                    (cond
+                     ((<= (buffer-size) elisp-autofmt-parallel-threshold)
+                      -1)
+                     (t
+                      elisp-autofmt-parallel-jobs)))
+
             ;; Not 0 or 1.
             "--exit-code=2")
 

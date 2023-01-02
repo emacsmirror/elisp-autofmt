@@ -2107,14 +2107,17 @@ def node_group_by_count(root: NdSexp, *, chunk_size_limit: int) -> List[List[NdS
     return node_group_list
 
 
-def do_wrap_level_0_multiprocessing(cfg: FormatConfig, root: NdSexp, job_size: int) -> None:
-    node_group_list = node_group_by_count(root, chunk_size_limit=job_size)
+def do_wrap_level_0_multiprocessing(cfg: FormatConfig, root: NdSexp, parallel_jobs: int) -> None:
+    node_group_list = node_group_by_count(root, chunk_size_limit=256)
 
     args = [(cfg, node_group) for node_group in node_group_list]
 
     import multiprocessing
-    job_total = multiprocessing.cpu_count()
-    with multiprocessing.Pool(processes=job_total) as pool:
+
+    if parallel_jobs == 0:
+        parallel_jobs = multiprocessing.cpu_count()
+
+    with multiprocessing.Pool(processes=parallel_jobs) as pool:
         result_group_list = pool.starmap(root_node_wrap_group_for_multiprocessing, args)
         for node_group, result_group in zip(node_group_list, result_group_list):
             for node, result in zip(node_group, result_group):
@@ -2125,7 +2128,7 @@ def format_file(
         filepath: str,
         cfg: FormatConfig,
         *,
-        job_size: int = 0,
+        parallel_jobs: int = 0,
         use_stdin: bool = False,
         use_stdout: bool = False,
 ) -> None:
@@ -2150,7 +2153,7 @@ def format_file(
             node.force_newline = True
 
         if cfg.use_multiprocessing:
-            do_wrap_level_0_multiprocessing(cfg, root, job_size)
+            do_wrap_level_0_multiprocessing(cfg, root, parallel_jobs)
         else:
             do_wrap_level_0(cfg, root)
 
@@ -2262,13 +2265,13 @@ def argparse_create() -> argparse.ArgumentParser:
     )
 
     parser.add_argument(
-        '--job-size',
-        dest='job_size',
+        '--parallel-jobs',
+        dest='parallel_jobs',
         default=0,
         nargs='?',
         type=int,
         required=False,
-        help='The number of S-expression elements to include in each job (zero to disable computing in parallel).',
+        help='The number of parallel processes to use (zero to select automatically).',
     )
 
     parser.add_argument(
@@ -2398,7 +2401,7 @@ def main_no_except() -> None:
             use_native=args.fmt_style == 'native',
         ),
         use_trailing_parens=args.fmt_use_trailing_parens,
-        use_multiprocessing=args.job_size > 0,
+        use_multiprocessing=args.parallel_jobs >= 0,
         fill_column=args.fmt_fill_column,
         empty_lines=args.fmt_empty_lines,
         defs=defs,
@@ -2412,7 +2415,7 @@ def main_no_except() -> None:
         format_file(
             filepath,
             cfg=cfg,
-            job_size=args.job_size,
+            parallel_jobs=args.parallel_jobs,
             use_stdin=args.use_stdin,
             use_stdout=args.use_stdout,
         )
