@@ -946,6 +946,9 @@ class Defs:
         self._is_complete = is_complete
         self._has_local: bool = False
 
+    def copy(self) -> Defs:
+        return Defs(fn_arity=self.fn_arity.copy(), is_complete=self._is_complete)
+
     def prune_unused(self, fn_used: Set[str]) -> None:
         fn_arity = self.fn_arity
         self.fn_arity = {k: v for k, v in fn_arity.items() if k in fn_used}
@@ -2509,28 +2512,37 @@ def main_no_except() -> None:
         sys.exit(1)
 
     if args.fmt_defs:
-        defs = Defs.from_json_files(
+        defs_orig = Defs.from_json_files(
             os.path.join(args.fmt_defs_dir, filename) if (os.sep not in filename) else filename
             for filename in args.fmt_defs.split(os.pathsep)
         )
     else:
-        defs = Defs(fn_arity={}, is_complete=False)
+        defs_orig = Defs(fn_arity={}, is_complete=False)
 
-    cfg = FormatConfig(
-        style=FormatStyle(
-            use_native=args.fmt_style == 'native',
-        ),
-        use_trailing_parens=args.fmt_use_trailing_parens,
-        use_multiprocessing=args.parallel_jobs >= 0,
-        fill_column=args.fmt_fill_column,
-        empty_lines=args.fmt_empty_lines,
-        defs=defs,
-    )
+    for i, filepath in enumerate(args.files or ('',)):
 
-    for filepath in (args.files or ['']):
+        # Make a copy of the original definition if this is one of many files.
+        if i == 0:
+            defs = defs_orig if len(args.files) <= 1 else defs_orig.copy()
+        elif i + 1 < len(args.files):
+            defs = defs_orig.copy()
+        else:
+            defs = defs_orig  # Last iteration, no need to copy.
+
         # Use the `stderr` to avoid conflicting with `stdout` when it's set.
         if (not args.use_quiet) and (not args.use_stdout):
             sys.stdout.write('{:s}\n'.format(filepath))
+
+        cfg = FormatConfig(
+            style=FormatStyle(
+                use_native=args.fmt_style == 'native',
+            ),
+            use_trailing_parens=args.fmt_use_trailing_parens,
+            use_multiprocessing=args.parallel_jobs >= 0,
+            fill_column=args.fmt_fill_column,
+            empty_lines=args.fmt_empty_lines,
+            defs=defs,
+        )
 
         format_file(
             filepath,
