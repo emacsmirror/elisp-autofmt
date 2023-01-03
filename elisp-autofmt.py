@@ -1481,7 +1481,7 @@ class NdSexp(Node):
         else:
             self.force_newline = False
 
-    def finalize(self, cfg: FormatConfig) -> None:
+    def finalize_parse(self) -> None:
         '''
         Perform final operations after parsing.
         '''
@@ -1502,6 +1502,18 @@ class NdSexp(Node):
                         i -= 1
             i -= 1
 
+        self.nodes_only_code: List[Node] = [
+            node for node in self.nodes
+            if isinstance(node, NODE_CODE_TYPES)
+        ]
+        for node in self.nodes_only_code:
+            if isinstance(node, NdSexp):
+                node.finalize_parse()
+
+    def finalize_style(self, cfg: FormatConfig) -> None:
+        '''
+        Perform final operations after parsing.
+        '''
         # Strip blank lines at the start or end of S-expressions.
         for i in (-1, 0):
             while self.nodes and isinstance(self.nodes[i], NdWs):
@@ -1523,13 +1535,9 @@ class NdSexp(Node):
             i -= 1
         del count
 
-        self.nodes_only_code: List[Node] = [
-            node for node in self.nodes
-            if isinstance(node, NODE_CODE_TYPES)
-        ]
         for node in self.nodes_only_code:
             if isinstance(node, NdSexp):
-                node.finalize(cfg)
+                node.finalize_style(cfg)
 
     def fmt_check_exceeds_colum_max(
             self,
@@ -2000,7 +2008,7 @@ NODE_CODE_TYPES = (NdSymbol, NdString, NdSexp)
 # ------------------------------------------------------------------------------
 # File Parsing
 
-def parse_file(cfg: FormatConfig, fh: TextIO) -> Tuple[str, NdSexp]:
+def parse_file(fh: TextIO) -> Tuple[str, NdSexp]:
     '''
     Parse the file ``fh``, returning:
     - The first un-parsed line (for ELISP files starting with a bang (``#!``)).
@@ -2161,20 +2169,7 @@ def parse_file(cfg: FormatConfig, fh: TextIO) -> Tuple[str, NdSexp]:
     if sexp_level != 0:
         raise FmtException('unbalanced S-expressions at file-end, found {} levels, expected 0'.format(sexp_level))
 
-    # Has newline at file start?
-    # it will disable the settings such as lexical binding.
-    # The intention of re-formatting is not to make any functional changes,
-    # so it's important to add the blank line back.
-    stars_with_bank_line = False
-    if root.nodes:
-        if isinstance(root.nodes[0], NdWs):
-            stars_with_bank_line = True
-
-    root.finalize(cfg)
-
-    if stars_with_bank_line:
-        # Add back the blank line.
-        root.nodes.insert(0, NdWs(0))
+    root.finalize_parse()
 
     return first_line_unparsed, root
 
@@ -2312,13 +2307,28 @@ def format_file(
     newline = '\r\n' if (os.name == 'nt') else '\n'
 
     if use_stdin:
-        first_line, root = parse_file(cfg, sys.stdin)
+        first_line, root = parse_file(sys.stdin)
     else:
         with open(filepath, 'r', encoding='utf-8', newline=newline) as fh:
-            first_line, root = parse_file(cfg, fh)
+            first_line, root = parse_file(fh)
 
     if USE_EXTRACT_DEFS:
         parse_local_defs(cfg.defs, root)
+
+    # Has newline at file start?
+    # it will disable the settings such as lexical binding.
+    # The intention of re-formatting is not to make any functional changes,
+    # so it's important to add the blank line back.
+    stars_with_bank_line = False
+    if root.nodes:
+        if isinstance(root.nodes[0], NdWs):
+            stars_with_bank_line = True
+
+    root.finalize_style(cfg)
+
+    if stars_with_bank_line:
+        # Add back the blank line.
+        root.nodes.insert(0, NdWs(0))
 
     root.calc_force_newline(cfg.style)
 
@@ -2524,22 +2534,10 @@ def main_generate_defs() -> bool:
 
         defs = Defs(fn_arity={})
 
-        # Only for `defs`.
-        cfg = FormatConfig(
-            style=FormatStyle(
-                use_native=False,
-            ),
-            use_trailing_parens=False,  # Ignored.
-            use_multiprocessing=False,  # Ignored.
-            fill_column=80,  # Ignored.
-            empty_lines=0,  # Ignored.
-            defs=defs,
-        )
-
         with open(file_input, 'r', encoding='utf-8') as fh:
-            _, root = parse_file(cfg, fh)
+            _, root = parse_file(fh)
 
-            parse_local_defs(cfg.defs, root)
+            parse_local_defs(defs, root)
 
         with open(file_output, 'w', encoding='utf-8') as fh:
             fh.write('{\n')
