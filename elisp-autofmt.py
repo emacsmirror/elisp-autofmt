@@ -2486,9 +2486,10 @@ def main_generate_defs() -> bool:
     return True
 
 
-def main_no_except() -> None:
+def main() -> None:
     '''
-    The main function (without graceful exception handling).
+    The main function which handles problems parsing the document gracefully.
+    Other kinds of errors are not expected so will show a typical (less user friendly) trace-back.
     '''
 
     if main_generate_defs():
@@ -2519,6 +2520,9 @@ def main_no_except() -> None:
     else:
         defs_orig = Defs(fn_arity={}, is_complete=False)
 
+    count_files_error = 0
+    count_files_total = 0
+
     for i, filepath in enumerate(args.files or ('',)):
 
         # Make a copy of the original definition if this is one of many files.
@@ -2544,27 +2548,32 @@ def main_no_except() -> None:
             defs=defs,
         )
 
-        format_file(
-            filepath,
-            cfg=cfg,
-            parallel_jobs=args.parallel_jobs,
-            use_stdin=args.use_stdin,
-            use_stdout=args.use_stdout,
-        )
+        try:
+            format_file(
+                filepath,
+                cfg=cfg,
+                parallel_jobs=args.parallel_jobs,
+                use_stdin=args.use_stdin,
+                use_stdout=args.use_stdout,
+            )
+        except FmtException as ex:
+            if filepath:
+                sys.stderr.write('Error: {:s} in {:s}\n'.format(str(ex), filepath))
+            else:
+                sys.stderr.write('Error: {:s}\n'.format(str(ex)))
+            count_files_error += 1
+
+        count_files_total += 1
+
+    if count_files_error:
+        if count_files_total > 1:
+            sys.stderr.write('Error: {:d} of {:d} files failed to format!\n'.format(
+                count_files_error,
+                count_files_total,
+            ))
+        sys.exit(1)
 
     sys.exit(args.exit_code)
-
-
-def main() -> None:
-    '''
-    The main function which handles problems parsing the document gracefully.
-    Other kinds of errors are not expected so will show a typical (less user friendly) trace-back.
-    '''
-    try:
-        main_no_except()
-    except FmtException as ex:
-        sys.stderr.write('Error: {}\n'.format(str(ex)))
-        sys.exit(1)
 
 
 if __name__ == '__main__':
