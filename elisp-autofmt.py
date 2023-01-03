@@ -53,18 +53,24 @@ USE_PARANOID_ASSERT = False
 # Exception for failure to parse the file,
 # show this in the command line output.
 class FmtException(Exception):
-    '''An exception raised for malformed files, where formatting cannot complete.'''
+    '''
+    An exception raised for malformed files, where formatting cannot complete.
+    '''
 
 
 class FmtEarlyExit(Exception):
-    '''Early exit from within callbacks.'''
+    '''
+    Early exit from within callbacks.
+    '''
 
 
 # ------------------------------------------------------------------------------
 # Utilities
 
 def is_hash_prefix_special_case(text: str) -> bool:
-    '''Return true if the hash should be connected to the following text.'''
+    '''
+    Return true if the hash should be connected to the following text.
+    '''
     return (
         text.startswith('#') and
         (not text.startswith('#\''))
@@ -895,12 +901,16 @@ def apply_pre_indent_unwrap(
 
 
 class FormatStyle(NamedTuple):
-    '''Details relating to formatting style.'''
+    '''
+    Details relating to formatting style.
+    '''
     use_native: bool
 
 
 class FormatConfig(NamedTuple):
-    '''Configuration options relating to how the file should be formatted.'''
+    '''
+    Configuration options relating to how the file should be formatted.
+    '''
     style: FormatStyle
     use_trailing_parens: bool
     use_multiprocessing: bool
@@ -910,7 +920,9 @@ class FormatConfig(NamedTuple):
 
 
 class FnArity(NamedTuple):
-    '''Data associated with a function.'''
+    '''
+    Data associated with a function.
+    '''
     # Type in: [`macro`, `func`, `special`].
     symbol_type: str
     # Minimum number of arguments.
@@ -943,22 +955,31 @@ class Defs:
         self._has_local: bool = False
 
     def copy(self) -> Defs:
+        '''
+        Return a copy of ``self``.
+        '''
         return Defs(fn_arity=self.fn_arity.copy(), is_complete=self._is_complete)
 
     def prune_unused(self, fn_used: Set[str]) -> None:
+        '''
+        Remove unused identifiers using a ``fn_used`` set.
+        '''
         fn_arity = self.fn_arity
         self.fn_arity = {k: v for k, v in fn_arity.items() if k in fn_used}
         fn_arity.clear()
 
     @staticmethod
     def from_json_files(fmt_defs: Iterable[str]) -> Defs:
+        '''
+        Load definitions from JSON files.
+        '''
         import json
         functions = {}
         for filepath in fmt_defs:
             with open(filepath, 'r', encoding='utf-8') as fh:
                 try:
                     fh_as_json = json.load(fh)
-                except BaseException as ex:
+                except Exception as ex:  # pylint: disable=W0703
                     sys.stderr.write('JSON definition: error ({:s}) parsing {!r}!\n'.format(str(ex), filepath))
                     continue
 
@@ -981,7 +1002,9 @@ class Defs:
 
 
 class WriteCtx:
-    '''Track context while writing.'''
+    '''
+    Track context while writing.
+    '''
     __slots__ = (
         'last_node',
         'is_newline',
@@ -1005,7 +1028,9 @@ class WriteCtx:
 
 
 class Node:
-    '''Base class for all kinds of Lisp elements.'''
+    '''
+    Base class for all kinds of Lisp elements.
+    '''
     __slots__ = (
         'force_newline',
         'original_line',
@@ -1015,6 +1040,9 @@ class Node:
     original_line: int
 
     def calc_force_newline(self, style: FormatStyle) -> None:
+        '''
+        Function which must be overridden.
+        '''
         raise Exception('All subclasses must define this')
 
     def __repr__(self) -> str:
@@ -1031,6 +1059,9 @@ class Node:
             *,
             test: bool = False,
     ) -> None:
+        '''
+        Format function which must be overridden.
+        '''
         raise Exception('All subclasses must define this')
 
 
@@ -1049,7 +1080,9 @@ if USE_DEBUG_TRACE_NEWLINES:
     del Node
 
     class NodeTraceLines(_Node):
-        '''Base class for all kinds of Lisp elements.'''
+        '''
+        Base class for all kinds of Lisp elements.
+        '''
         __slots__ = (
             '_force_newline',
             '_force_newline_tracepoint',
@@ -1059,6 +1092,9 @@ if USE_DEBUG_TRACE_NEWLINES:
 
         @property
         def force_newline(self) -> bool:
+            '''
+            Wrapper for ``_force_newline`` internal property.
+            '''
             return self._force_newline
 
         @force_newline.setter
@@ -1076,7 +1112,9 @@ if USE_DEBUG_TRACE_NEWLINES:
 
 
 class NdSexp(Node):
-    '''Represents S-expressions (lists with curved or square brackets).'''
+    '''
+    Represents S-expressions (lists with curved or square brackets).
+    '''
     __slots__ = (
         'prefix',
         'brackets',
@@ -1110,12 +1148,18 @@ class NdSexp(Node):
         )
 
     def is_multiline(self) -> bool:
+        '''
+        Return true if this S-expression spans multiple lines.
+        '''
         for node in self.iter_nodes_recursive():
             if node.force_newline:
                 return True
         return False
 
     def count_recursive(self) -> int:
+        '''
+        Return the number of elements within this node (recursively), excluding it's self.
+        '''
         count = len(self.nodes)
         for node in self.nodes_only_code:
             if isinstance(node, NdSexp):
@@ -1188,11 +1232,15 @@ class NdSexp(Node):
                 yield self
 
     def newline_state_get(self) -> NdSexp_WrapState:
-        '''Return the wrapped state of this S-expressions nodes.'''
+        '''
+        Return the wrapped state of this S-expressions nodes.
+        '''
         return tuple(node.force_newline for node in self.nodes)
 
     def newline_state_set(self, state: NdSexp_WrapState) -> None:
-        '''Set the wrapped state of this S-expressions nodes.'''
+        '''
+        Set the wrapped state of this S-expressions nodes.
+        '''
         for data, node in zip(state, self.nodes):
             node.force_newline = data
 
@@ -1357,6 +1405,9 @@ class NdSexp(Node):
         return level_next_data
 
     def flush_newlines_from_nodes(self) -> bool:
+        '''
+        Ensure parent nodes are on their own-line when any of their children are multi-line.
+        '''
         # `assert not cfg.use_native` (if we had `cfg`).
         changed = False
         if not self.force_newline:
@@ -1368,6 +1419,9 @@ class NdSexp(Node):
         return changed
 
     def flush_newlines_from_nodes_recursive_for_native(self) -> bool:
+        '''
+        Ensure some kinds of expressions are wrapped onto new files.
+        '''
         # Ensure There is never trailing non-wrapped S-expressions: e.g:
         #
         #    (a b c d (e
@@ -1394,7 +1448,10 @@ class NdSexp(Node):
         return changed
 
     def flush_newlines_from_nodes_recursive(self) -> bool:
-        # `assert cfg.use_native` # If we have `cfg`.
+        '''
+        Flush new-lines from children to parents.
+        '''
+        # `assert not cfg.use_native` # If we have `cfg`.
         changed = False
         for node in self.nodes_only_code:
             if node.force_newline:
@@ -1428,6 +1485,9 @@ class NdSexp(Node):
             self.force_newline = False
 
     def finalize(self, cfg: FormatConfig) -> None:
+        '''
+        Perform final operations after parsing.
+        '''
         # Connect: ' (  to '(
         i = len(self.nodes) - 1
         while i > 0:
@@ -1547,6 +1607,9 @@ class NdSexp(Node):
         return calc_over_long_line_length_test(data, fill_column, trailing_parens, line_terminate)
 
     def fmt_pre_wrap(self, cfg: FormatConfig, level: int, trailing_parens: int) -> None:
+        '''
+        Perform line wrapping, taking indent-levels into account.
+        '''
         # First handle S-expressions one at a time, then all of them.
         # not very efficient, but it avoids over wrapping.
 
@@ -1636,6 +1699,9 @@ class NdSexp(Node):
             *,
             test: bool = False,
             ) -> None:
+        '''
+        Write this node to a file.
+        '''
         if self.fmt_cache:
             write_fn(self.fmt_cache)
             return
@@ -1650,6 +1716,9 @@ class NdSexp(Node):
             test: bool = False,
             test_node_terminate: Optional[Node] = None,
     ) -> None:
+        '''
+        Write this node to a file with support for terminating early.
+        '''
 
         line_sexpr_prev = ctx.line
 
@@ -1776,7 +1845,9 @@ class NdSexp(Node):
 
 # Currently this always represents a blank line.
 class NdWs(Node):
-    '''This represents white-space to be kept in the output.'''
+    '''
+    This represents white-space to be kept in the output.
+    '''
     __slots__ = ()
 
     def __init__(self, line: int):
@@ -1806,7 +1877,9 @@ class NdWs(Node):
 
 
 class NdComment(Node):
-    '''Code-comment.'''
+    '''
+    Code-comment.
+    '''
     __slots__ = (
         'data',
         'is_own_line',
@@ -1844,7 +1917,9 @@ class NdComment(Node):
 
 
 class NdString(Node):
-    '''A string literal.'''
+    '''
+    A string literal.
+    '''
     __slots__ = (
         'data',
         'lines',
@@ -1887,7 +1962,9 @@ class NdString(Node):
 
 
 class NdSymbol(Node):
-    '''This represents any identifier that isn't an S-expression, string, comment or white-space.'''
+    '''
+    This represents any identifier that isn't an S-expression, string, comment or white-space.
+    '''
     __slots__ = (
         'data',
     )
@@ -2128,6 +2205,9 @@ def write_file(
 
 
 def root_node_wrap(cfg: FormatConfig, node: NdSexp) -> None:
+    '''
+    Calculate line wrapping for top-level nodes.
+    '''
     apply_rules(cfg, node)
 
     apply_pre_indent(cfg, node, 0, 0)
@@ -2142,6 +2222,9 @@ def root_node_wrap(cfg: FormatConfig, node: NdSexp) -> None:
 
 
 def root_node_wrap_group_for_multiprocessing(cfg: FormatConfig, node_group: List[NdSexp]) -> List[str]:
+    '''
+    A version of ``root_node_wrap`` which supports multi-processing.
+    '''
     result_group = []
     ctx = WriteCtx(cfg)
     for node in node_group:
@@ -2154,6 +2237,9 @@ def root_node_wrap_group_for_multiprocessing(cfg: FormatConfig, node_group: List
 
 
 def node_group_by_count(root: NdSexp, *, chunk_size_limit: int) -> List[List[NdSexp]]:
+    '''
+    Return top-level nodes from ``root``, grouped by ``chunk_size_limit``.
+    '''
     assert chunk_size_limit > 0
 
     if chunk_size_limit == 1:
