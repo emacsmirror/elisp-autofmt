@@ -39,7 +39,7 @@ NdSexp_WrapState = Tuple[bool, ...]
 USE_WRAP_LINES = True
 
 # For debugging, check who added the newline.
-TRACE_NEWLINES = False
+USE_DEBUG_TRACE_NEWLINES = False
 
 # Extract argument count from functions and macros.
 USE_EXTRACT_DEFS = True
@@ -970,7 +970,7 @@ class Node:
         raise Exception('All subclasses must define this')
 
 
-if TRACE_NEWLINES:
+if USE_DEBUG_TRACE_NEWLINES:
     _Node = Node
     Node.__slots__ = tuple(s for s in Node.__slots__ if s != 'force_newline')  # type: ignore
     del Node
@@ -1579,7 +1579,7 @@ class NdSexp(Node):
                     if (not is_hash_prefix_special_case(self.prefix)) and self.is_multiline():
                         write_fn('\n')
 
-                        if TRACE_NEWLINES:
+                        if USE_DEBUG_TRACE_NEWLINES:
                             if self.force_newline:
                                 if not test:
                                     write_fn(' $' + self._force_newline_tracepoint)  # type: ignore
@@ -1628,7 +1628,7 @@ class NdSexp(Node):
             else:
                 if ctx.is_newline:
 
-                    if TRACE_NEWLINES:
+                    if USE_DEBUG_TRACE_NEWLINES:
                         if node.force_newline:
                             if not test:
                                 write_fn(' $' + node._force_newline_tracepoint)  # type: ignore
