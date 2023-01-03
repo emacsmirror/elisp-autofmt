@@ -20,10 +20,6 @@ from typing import (
     Tuple,
     Union,
 )
-from types import (
-    ModuleType,
-)
-
 
 import sys
 import os
