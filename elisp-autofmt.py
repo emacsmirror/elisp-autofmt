@@ -2573,7 +2573,6 @@ def main() -> None:
     The main function which handles problems parsing the document gracefully.
     Other kinds of errors are not expected so will show a typical (less user friendly) trace-back.
     '''
-
     if main_generate_defs():
         return
 

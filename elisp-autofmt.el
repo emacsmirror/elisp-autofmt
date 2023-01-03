@@ -116,8 +116,11 @@ This is intended to be set from file or directory locals and is marked safe.")
 ;;;###autoload
 (put 'elisp-autofmt-load-packages-local 'safe-local-variable #'elisp-autofmt-list-of-strings-p)
 
-(defvar-local elisp-autofmt-extra-debug-info nil
+(defvar elisp-autofmt-debug-extra-info nil
   "Show additional debug information.")
+
+(defvar elisp-autofmt-debug-mode nil
+  "Enable additional checks when formatting (enabled for tests).")
 
 
 ;; ---------------------------------------------------------------------------
@@ -146,7 +149,7 @@ This is intended to be set from file or directory locals and is marked safe.")
 
 Any `stderr' is output a message and is interpreted as failure."
 
-  (when elisp-autofmt-extra-debug-info
+  (when elisp-autofmt-debug-extra-info
     (message "elisp-autofmt: running command: %s" (mapconcat 'identity command-with-args " ")))
 
   (let ((sentinel-called nil)
@@ -517,13 +520,24 @@ When SKIP-REQUIRE is set, don't require the package."
     (when (or (not (file-exists-p filename-cache-name-full))
               (elisp-autofmt--cache-api-file-is-older filename-cache-name-full filepath))
 
-      (elisp-autofmt--call-checked
-       (list
-        (or elisp-autofmt-python-bin "python")
-        elisp-autofmt--bin
-        "--gen-defs"
-        filepath
-        (expand-file-name filename-cache-name-full))))))
+      (let ((command-with-args
+             (append
+              ;; Python command.
+              (list (or elisp-autofmt-python-bin "python"))
+              ;; Debug mode.
+              (cond
+               (elisp-autofmt-debug-mode
+                (list))
+               (t
+                (list "-OO")))
+              ;; Main command.
+              (list
+               elisp-autofmt--bin
+               "--gen-defs"
+               filepath
+               (expand-file-name filename-cache-name-full)))))
+
+        (elisp-autofmt--call-checked command-with-args)))))
 
 (defun elisp-autofmt--cache-api-cache-update (buffer-directory)
   "Ensure packages are up to date for `current-buffer' in BUFFER-DIRECTORY."
@@ -640,8 +654,16 @@ Argument IS-INTERACTIVE is set when running interactively."
 
          (command-with-args
           (append
+           ;; Python command.
+           (list (or elisp-autofmt-python-bin "python"))
+           ;; Debug mode.
+           (cond
+            (elisp-autofmt-debug-mode
+             (list))
+            (t
+             (list "-OO")))
+           ;; Main command.
            (list
-            (or elisp-autofmt-python-bin "python")
             elisp-autofmt--bin
             ;; No messages.
             "--quiet"
@@ -694,7 +716,7 @@ Argument IS-INTERACTIVE is set when running interactively."
             (t
              (list))))))
 
-    (when elisp-autofmt-extra-debug-info
+    (when elisp-autofmt-debug-extra-info
       (message "elisp-autofmt: running piped process: %s"
                (mapconcat 'identity command-with-args " ")))
 
@@ -744,7 +766,7 @@ Argument IS-INTERACTIVE is set when running interactively."
           (when stderr-as-string
             (message "elisp-autofmt: error code %d, output\n%s" exit-code stderr-as-string))
 
-          (when elisp-autofmt-extra-debug-info
+          (when elisp-autofmt-debug-extra-info
             (message "elisp-autofmt: Command %S failed with exit code %d!"
                      command-with-args
                      exit-code))

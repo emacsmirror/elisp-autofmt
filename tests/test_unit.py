@@ -58,6 +58,7 @@ def emacs_elisp_autofmt_str_as_str(
                 "(setq buffer-undo-list t)"
                 "(setq-local fill-column " + str(fill_column) + ")"
                 "(setq elisp-autofmt-style '" + style + ")"
+                "(setq elisp-autofmt-debug-mode t)"
                 "(elisp-autofmt-buffer)"
                 "(write-region nil nil (buffer-file-name) nil 0))"
             ),
