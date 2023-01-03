@@ -35,8 +35,8 @@
   :type
   (list
    'choice
-   (list 'const :tag "Native (Emacs indentation, slow)" 'native)
-   (list 'const :tag "Fixed (Fixed indentation, fast)" 'fixed)))
+   (list 'const :tag "Native (Emacs indentation)" 'native)
+   (list 'const :tag "Fixed (Fixed indentation)" 'fixed)))
 
 (defcustom elisp-autofmt-empty-line-max 2
   "The maximum number of blank lines to preserve."
