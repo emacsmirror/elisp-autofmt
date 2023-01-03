@@ -16,6 +16,7 @@ from typing import (
     NamedTuple,
     Optional,
     Set,
+    Sequence,
     TextIO,
     Tuple,
     Union,
@@ -1249,7 +1250,7 @@ class NdSexp(Node):
         for data, node in zip(state, self.nodes):
             node.force_newline = data
 
-    def calc_nodes_level_next(self, cfg: FormatConfig, level: int) -> List[int]:
+    def calc_nodes_level_next(self, cfg: FormatConfig, level: int) -> Sequence[int]:
         '''
         Return a ``self.nodes`` aligned list of next levels.
         The list may be shorter, in this case the last element should be used
@@ -2226,7 +2227,7 @@ def root_node_wrap(cfg: FormatConfig, node: NdSexp) -> None:
     node.flush_newlines_from_nodes_recursive_for_native()
 
 
-def root_node_wrap_group_for_multiprocessing(cfg: FormatConfig, node_group: List[NdSexp]) -> List[str]:
+def root_node_wrap_group_for_multiprocessing(cfg: FormatConfig, node_group: Sequence[NdSexp]) -> Sequence[str]:
     '''
     A version of ``root_node_wrap`` which supports multi-processing.
     '''
@@ -2241,7 +2242,7 @@ def root_node_wrap_group_for_multiprocessing(cfg: FormatConfig, node_group: List
     return result_group
 
 
-def node_group_by_count(root: NdSexp, *, chunk_size_limit: int) -> List[List[NdSexp]]:
+def node_group_by_count(root: NdSexp, *, chunk_size_limit: int) -> Sequence[Sequence[NdSexp]]:
     '''
     Return top-level nodes from ``root``, grouped by ``chunk_size_limit``.
     '''
