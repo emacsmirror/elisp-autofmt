@@ -2091,17 +2091,6 @@ def parse_file(cfg: FormatConfig, fh: TextIO) -> Tuple[str, NdSexp]:
 
     apply_comment_force_newline(root)
 
-    if USE_EXTRACT_DEFS:
-        if not cfg.defs._has_local:
-            parse_local_defs(cfg.defs, root)
-            cfg.defs._has_local = True
-
-    if cfg.use_multiprocessing:
-        # Copying this information can be quite slow, prune unused items first.
-        fn_used: Set[str] = set()
-        scan_used_fn_defs(cfg.defs, root, fn_used)
-        cfg.defs.prune_unused(fn_used)
-
     return first_line_unparsed, root
 
 
@@ -2234,6 +2223,11 @@ def format_file(
         with open(filepath, 'r', encoding='utf-8', newline=newline) as fh:
             first_line, root = parse_file(cfg, fh)
 
+    if USE_EXTRACT_DEFS:
+        if not cfg.defs._has_local:
+            parse_local_defs(cfg.defs, root)
+            cfg.defs._has_local = True
+
     # Redundant but needed for the assertion not to fail in the case when `len(root.nodes_only_code) == 1`.
     root.force_newline = True
 
@@ -2244,6 +2238,11 @@ def format_file(
             node.force_newline = True
 
         if cfg.use_multiprocessing:
+            # Copying this information can be quite slow, prune unused items first.
+            fn_used: Set[str] = set()
+            scan_used_fn_defs(cfg.defs, root, fn_used)
+            cfg.defs.prune_unused(fn_used)
+
             do_wrap_level_0_multiprocessing(cfg, root, parallel_jobs)
         else:
             do_wrap_level_0(cfg, root)
