@@ -67,32 +67,8 @@ class FmtEarlyExit(Exception):
 # ------------------------------------------------------------------------------
 # Utilities
 
-def _function_id(num_frames_up: int) -> str:
-    '''
-    Create a string naming the function n frames up on the stack.
-    '''
-    co = sys._getframe(num_frames_up + 1).f_code
-    return '{:d} {:s}'.format(co.co_firstlineno, co.co_name)
-
-
-def execfile(filepath: str, mod: Optional[ModuleType] = None) -> ModuleType:
-    # module name isn't used or added to 'sys.modules'.
-    # passing in 'mod' allows re-execution without having to reload.
-
-    import importlib.util
-    from importlib.abc import Loader
-    mod_spec = importlib.util.spec_from_file_location('__main__', filepath)
-    if mod_spec is None:
-        raise Exception('unable to load {:s}'.format(filepath))
-    if mod is None:
-        mod = importlib.util.module_from_spec(mod_spec)
-    # Make 'mypy' happy.
-    assert isinstance(mod_spec.loader, Loader)
-    mod_spec.loader.exec_module(mod)
-    return mod
-
-
 def is_hash_prefix_special_case(text: str) -> bool:
+    '''Return true if the hash should be connected to the following text.'''
     return (
         text.startswith('#') and
         (not text.startswith('#\''))
@@ -103,6 +79,15 @@ def is_hash_prefix_special_case(text: str) -> bool:
 # Line Length Checks
 
 def calc_over_long_line_score(data: str, fill_column: int, trailing_parens: int, line_terminate: int) -> int:
+    '''
+    The resulting score is zero when all values are within the fill column.
+    Otherwise a score will be returned which is used to compare the state of wrapped lines
+    (bigger is worse).
+    '''
+
+    # This is the accumulated ``2 ** overflow``.
+    # Note that the power is used so breaking a single line into two which both overflow
+    # return a better (lower) score than a single line that overflows.
 
     # Step over `\n` characters instead of `data.split('\n')`
     # so multiple characters are handled separately.
@@ -146,6 +131,9 @@ def calc_over_long_line_score(data: str, fill_column: int, trailing_parens: int,
 
 
 def calc_over_long_line_length_test(data: str, fill_column: int, trailing_parens: int, line_terminate: int) -> int:
+    '''
+    Return zero when all lines are within the ``fill_column``, otherwise 1.
+    '''
 
     # Step over `\n` characters instead of `data.split('\n')`
     # so multiple characters are handled separately.
@@ -191,6 +179,11 @@ def calc_over_long_line_length_test(data: str, fill_column: int, trailing_parens
 # Formatting Utilities
 
 def apply_comment_force_newline(root: NdSexp) -> None:
+    '''
+    Ensure new-lines are properly inserted
+    to prevent code being placed at the end of a comment (turning it into a comment).
+    '''
+
     # Special calculation for lines with comments on same line,
     # don't merge these lines since it would make it seem as if
     # the comment applies to the statements on that line.
@@ -214,6 +207,17 @@ def apply_comment_force_newline(root: NdSexp) -> None:
 
 
 def apply_relaxed_wrap(node_parent: NdSexp, style: FormatStyle) -> None:
+    '''
+    Wrap nodes in ``node_parent``, without taking the fill column into account.
+    Some rules of thumb are applied such as:
+    - Grouping :key value pairs.
+    - Grouping as a hint (needed for ``setq`` argument pairing).
+
+    This is done since every argument having it's own line is often not what users want,
+    especially for keyword-value pairs. So it's best to first perform a relaxed wrap,
+    then only further wrap arguments if they exceed the fill-column (which must be done as a separate step).
+    '''
+
     node_prev = None
     force_newline = False
 
@@ -309,11 +313,23 @@ def apply_relaxed_wrap(node_parent: NdSexp, style: FormatStyle) -> None:
 
 
 def apply_relaxed_wrap_when_multiple_args(node_parent: NdSexp, style: FormatStyle) -> None:
+    '''
+    Relaxed wrap when the S-expression as 2 or more arguments passed in.
+    '''
     if len(node_parent.nodes_only_code) - node_parent.index_wrap_hint > 1:
         apply_relaxed_wrap(node_parent, style)
 
 
 def parse_local_defs(defs: Defs, node_parent: NdSexp) -> None:
+    '''
+    Extract definitions from the file being formatted.
+
+    While it's possible to store definitions for all files and load them in from JSON,
+    this isn't practical when the file being edited would have to re-generate definitions
+    every time.
+
+    So extract definitions from ourselves (function properties and function argument counts).
+    '''
     # Extract the number of functions from local definitions.
     # Currently only used so we can break the number of arguments at '&rest'
     # since it's nearly always where we have the body of macros which is logically
@@ -414,6 +430,10 @@ def parse_local_defs(defs: Defs, node_parent: NdSexp) -> None:
 
 
 def scan_used_fn_defs(defs: Defs, node_parent: NdSexp, fn_used: Set[str]) -> None:
+    '''
+    Fill ``fn_used`` with a list of definitions used in this document.
+    Used to implement ``Defs.prune_unused``.
+    '''
     if node_parent.nodes_only_code:
         node = node_parent.nodes_only_code[0]
         if isinstance(node, NdSymbol):
@@ -437,6 +457,16 @@ def scan_used_fn_defs(defs: Defs, node_parent: NdSexp, fn_used: Set[str]) -> Non
 
 
 def apply_rules(cfg: FormatConfig, node_parent: NdSexp) -> None:
+    '''
+    Define line breaks using rules set by:
+
+    - Function properties.
+    - Function argument count.
+    - Hard coded checks (``let`` for e.g.).
+      NOTE: ideally there would be no hard coded checks, remove wherever possible.
+
+    Without this, the LISP will be correct but not formatted in a way users might expect.
+    '''
     use_native = cfg.style.use_native
 
     # Optional
@@ -579,7 +609,10 @@ def apply_rules(cfg: FormatConfig, node_parent: NdSexp) -> None:
         node_parent.flush_newlines_from_nodes()
 
 
-def apply_pre_indent_1(cfg: FormatConfig, node_parent: NdSexp, level: int, trailing_parens: int) -> None:
+def apply_pre_indent_1_relaxed(cfg: FormatConfig, node_parent: NdSexp, level: int, trailing_parens: int) -> None:
+    '''
+    Perform relaxed wrapping for blocks where any lines exceed the fill-column.
+    '''
     # First be relaxed, then again if it fails.
     if node_parent.fmt_check_exceeds_colum_max(cfg, level, trailing_parens, calc_score=False):
         if not node_parent.wrap_all_or_nothing_hint:
@@ -595,7 +628,12 @@ def apply_pre_indent_1(cfg: FormatConfig, node_parent: NdSexp, level: int, trail
             node_parent.force_newline = True
 
 
-def apply_pre_indent_2(cfg: FormatConfig, node_parent: NdSexp, level: int, trailing_parens: int) -> None:
+def apply_pre_indent_2_each_argument(cfg: FormatConfig, node_parent: NdSexp, level: int, trailing_parens: int) -> None:
+    '''
+    Check that each argument fits within the fill-column,
+    wrapping as necessary.
+    Note that this uses much more involved checks than ``apply_pre_indent_1_relaxed``.
+    '''
     assert node_parent.index_wrap_hint != 0
     assert len(node_parent.nodes_only_code) > 1
 
@@ -737,8 +775,8 @@ def apply_pre_indent(cfg: FormatConfig, node_parent: NdSexp, level: int, trailin
     state_init = node_parent.newline_state_get()
 
     if len(node_parent.nodes_only_code) > 1:
-        apply_pre_indent_1(cfg, node_parent, level, trailing_parens)
-        apply_pre_indent_2(cfg, node_parent, level, trailing_parens)
+        apply_pre_indent_1_relaxed(cfg, node_parent, level, trailing_parens)
+        apply_pre_indent_2_each_argument(cfg, node_parent, level, trailing_parens)
 
     # Some blocks don't allow mixed wrapping.
     if node_parent.wrap_all_or_nothing_hint:
@@ -757,6 +795,17 @@ def apply_pre_indent_unwrap(
         trailing_parens: int,
         visited: Set[int],
 ) -> None:
+    '''
+    Wrap lines that were split back onto the same line.
+    In some cases this is useful because:
+
+    - A nested S-expression is wrapped to fit.
+    - On of the S-expressions containing it is later wrapped onto multiple lines (de-indenting in some cases).
+    - There is no longer a need for the original nested S-expression to be wrapped.
+
+    In this case it makes sense to set the wrapping to previously known valid states.
+    Note that testing this is quite computationally expensive, so add additional checks with care.
+    '''
     if not node_parent.nodes_only_code:
         return
 
@@ -970,7 +1019,16 @@ class Node:
         raise Exception('All subclasses must define this')
 
 
+# This is not enabled by default, hack for debugging only.
 if USE_DEBUG_TRACE_NEWLINES:
+
+    def _function_id(num_frames_up: int) -> str:
+        '''
+        Create a string naming the function n frames up on the stack.
+        '''
+        co = sys._getframe(num_frames_up + 1).f_code
+        return '{:d} {:s}'.format(co.co_firstlineno, co.co_name)
+
     _Node = Node
     Node.__slots__ = tuple(s for s in Node.__slots__ if s != 'force_newline')  # type: ignore
     del Node
@@ -1060,12 +1118,18 @@ class NdSexp(Node):
         return None
 
     def iter_nodes_recursive(self) -> Generator[Node, None, None]:
+        '''
+        Iterate over all nodes recursively.
+        '''
         for node in self.nodes:
             yield node
             if isinstance(node, NdSexp):
                 yield from node.iter_nodes_recursive()
 
     def iter_nodes_recursive_with_self(self) -> Generator[Node, None, None]:
+        '''
+        Iterate over all nodes recursively, including this node (first).
+        '''
         yield self
         for node in self.nodes:
             yield node
@@ -1073,12 +1137,21 @@ class NdSexp(Node):
                 yield from node.iter_nodes_recursive()
 
     def iter_nodes_recursive_with_parent(self) -> Generator[Tuple[Node, NdSexp], None, None]:
+        '''
+        Iterate over all nodes recursively, with the parent node as well.
+        '''
         for node in self.nodes:
             yield (node, self)
             if isinstance(node, NdSexp):
                 yield from node.iter_nodes_recursive_with_parent()
 
     def iter_nodes_recursive_with_prior_state(self, visited: Set[int]) -> Generator[NdSexp, None, None]:
+        '''
+        Specialized iterator for looping over nodes that have a ``prior_state`` set.
+
+        This takes a ``visited`` argument to prevent over-iteration, so this can be called multiple times
+        on different levels of the S-expression tree, without re-looping over data a large number of times.
+        '''
         for node in self.nodes:
             if isinstance(node, NdSexp):
                 visited_len = len(visited)
@@ -1089,6 +1162,9 @@ class NdSexp(Node):
                     yield from node.iter_nodes_recursive_with_prior_state(visited)
 
     def iter_nodes_recursive_with_prior_state_and_self(self, visited: Set[int]) -> Generator[NdSexp, None, None]:
+        '''
+        A version of ``iter_nodes_recursive_with_prior_state`` that includes ``self`` (last).
+        '''
         yield from self.iter_nodes_recursive_with_prior_state(visited)
         visited_len = len(visited)
         visited.add(id(self))
@@ -1097,9 +1173,11 @@ class NdSexp(Node):
                 yield self
 
     def newline_state_get(self) -> NdSexp_WrapState:
+        '''Return the wrapped state of this S-expressions nodes.'''
         return tuple(node.force_newline for node in self.nodes)
 
     def newline_state_set(self, state: NdSexp_WrapState) -> None:
+        '''Set the wrapped state of this S-expressions nodes.'''
         for data, node in zip(state, self.nodes):
             node.force_newline = data
 
@@ -1391,11 +1469,7 @@ class NdSexp(Node):
             test_node_terminate: Optional[Node] = None,
     ) -> int:
         '''
-        :arg calc_score: When true, the return value is a score,
-           zero when all values are within the fill column.
-           This is the accumulated ``2 ** overflow``.
-           The power is used so breaking a single line into two which both overflow
-           return a better (lower) score than a single line that overflows.
+        :arg calc_score: When true, the return value is a score.
         '''
 
         # Simple optimization, don't calculate excess white-space.
@@ -1838,6 +1912,11 @@ NODE_CODE_TYPES = (NdSymbol, NdString, NdSexp)
 # File Parsing
 
 def parse_file(cfg: FormatConfig, fh: TextIO) -> Tuple[str, NdSexp]:
+    '''
+    Parse the file ``fh``, returning:
+    - The first un-parsed line (for ELISP files starting with a bang (``#!``)).
+    - The ``NdSexp`` (root node of the S-expression tree).
+    '''
     from io import StringIO
 
     line = 0
@@ -2032,6 +2111,9 @@ def write_file(
         root: NdSexp,
         first_line: str,
 ) -> None:
+    '''
+    Write the ``root`` S-expression into ``fh``.
+    '''
 
     ctx = WriteCtx(cfg)
 
@@ -2065,12 +2147,6 @@ def root_node_wrap_group_for_multiprocessing(cfg: FormatConfig, node_group: List
         result_group.append(''.join(data))
         del data
     return result_group
-
-
-def do_wrap_level_0(cfg: FormatConfig, root: NdSexp) -> None:
-    for node in root.nodes_only_code:
-        if isinstance(node, NdSexp):
-            root_node_wrap(cfg, node)
 
 
 def node_group_by_count(root: NdSexp, *, chunk_size_limit: int) -> List[List[NdSexp]]:
@@ -2108,6 +2184,9 @@ def node_group_by_count(root: NdSexp, *, chunk_size_limit: int) -> List[List[NdS
 
 
 def do_wrap_level_0_multiprocessing(cfg: FormatConfig, root: NdSexp, parallel_jobs: int) -> None:
+    '''
+    A version of ``do_wrap_level_0`` which uses multi-processing.
+    '''
     node_group_list = node_group_by_count(root, chunk_size_limit=256)
 
     args = [(cfg, node_group) for node_group in node_group_list]
@@ -2124,6 +2203,15 @@ def do_wrap_level_0_multiprocessing(cfg: FormatConfig, root: NdSexp, parallel_jo
                 node.fmt_cache = result
 
 
+def do_wrap_level_0(cfg: FormatConfig, root: NdSexp) -> None:
+    '''
+    Calculate wrapping for all nodes.
+    '''
+    for node in root.nodes_only_code:
+        if isinstance(node, NdSexp):
+            root_node_wrap(cfg, node)
+
+
 def format_file(
         filepath: str,
         cfg: FormatConfig,
@@ -2132,6 +2220,9 @@ def format_file(
         use_stdin: bool = False,
         use_stdout: bool = False,
 ) -> None:
+    '''
+    Main file formatting function.
+    '''
 
     # Needed as files may contain '\r' only, see emacs own:
     # `lisp/cedet/semantic/grammar-wy.el`
@@ -2180,6 +2271,9 @@ def format_file(
 
 
 def argparse_create() -> argparse.ArgumentParser:
+    '''
+    Create the argument parser used to format from the command line.
+    '''
 
     # When `--help` or no arguments are given, print this help.
     usage_text = 'Format emacs-lisp.'
@@ -2314,6 +2408,14 @@ def argparse_create() -> argparse.ArgumentParser:
 # Main Function
 
 def main_generate_defs() -> bool:
+    '''
+    A utility to generate definitions from a file without loading it.
+    Needed when definitions are requested but the code may not be loaded into emacs.
+
+    As it's not expected that a formatting tool would executed arbitrary (untrusted)
+    LISP code. It's necessary to extract definitions of untrusted code so that formatting
+    can be correctly performed.
+    '''
     try:
         i = sys.argv.index('--gen-defs')
     except ValueError:
@@ -2367,6 +2469,9 @@ def main_generate_defs() -> bool:
 
 
 def main_no_except() -> None:
+    '''
+    The main function (without graceful exception handling).
+    '''
 
     if main_generate_defs():
         return
@@ -2424,6 +2529,10 @@ def main_no_except() -> None:
 
 
 def main() -> None:
+    '''
+    The main function which handles problems parsing the document gracefully.
+    Other kinds of errors are not expected so will show a typical (less user friendly) trace-back.
+    '''
     try:
         main_no_except()
     except FmtException as ex:
