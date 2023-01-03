@@ -945,8 +945,6 @@ class Defs:
     '''
     __slots__ = (
         'fn_arity',
-        '_is_complete',
-        '_has_local',
     )
 
     def __init__(
@@ -954,17 +952,14 @@ class Defs:
             *,
             # The key is the function name.
             fn_arity: Dict[str, FnArity],
-            is_complete: bool,
     ):
         self.fn_arity = fn_arity
-        self._is_complete = is_complete
-        self._has_local: bool = False
 
     def copy(self) -> Defs:
         '''
         Return a copy of ``self``.
         '''
-        return Defs(fn_arity=self.fn_arity.copy(), is_complete=self._is_complete)
+        return Defs(fn_arity=self.fn_arity.copy())
 
     def prune_unused(self, fn_used: Set[str]) -> None:
         '''
@@ -974,13 +969,11 @@ class Defs:
         self.fn_arity = {k: v for k, v in fn_arity.items() if k in fn_used}
         fn_arity.clear()
 
-    @staticmethod
-    def from_json_files(fmt_defs: Iterable[str]) -> Defs:
+    def from_json_files(self, fmt_defs: Iterable[str]) -> None:
         '''
         Load definitions from JSON files.
         '''
         import json
-        functions = {}
         for filepath in fmt_defs:
             with open(filepath, 'r', encoding='utf-8') as fh:
                 try:
@@ -1002,9 +995,7 @@ class Defs:
                     )
                     continue
 
-                functions.update(functions_from_json)
-
-        return Defs(fn_arity=functions, is_complete=True)
+                self.fn_arity.update(functions_from_json)
 
 
 class WriteCtx:
@@ -2331,9 +2322,7 @@ def format_file(
             first_line, root = parse_file(cfg, fh)
 
     if USE_EXTRACT_DEFS:
-        if not cfg.defs._has_local:
-            parse_local_defs(cfg.defs, root)
-            cfg.defs._has_local = True
+        parse_local_defs(cfg.defs, root)
 
     # Redundant but needed for the assertion not to fail in the case when `len(root.nodes_only_code) == 1`.
     root.force_newline = True
@@ -2529,23 +2518,23 @@ def main_generate_defs() -> bool:
 
     args_rest = sys.argv[i + 1:]
 
-    defs = Defs(fn_arity={}, is_complete=False)
-
-    # Only for `defs`.
-    cfg = FormatConfig(
-        style=FormatStyle(
-            use_native=False,
-        ),
-        use_trailing_parens=False,  # Ignored.
-        use_multiprocessing=False,  # Ignored.
-        fill_column=80,  # Ignored.
-        empty_lines=0,  # Ignored.
-        defs=defs,
-    )
-
     while args_rest:
         file_input = args_rest.pop(0)
         file_output = args_rest.pop(0)
+
+        defs = Defs(fn_arity={})
+
+        # Only for `defs`.
+        cfg = FormatConfig(
+            style=FormatStyle(
+                use_native=False,
+            ),
+            use_trailing_parens=False,  # Ignored.
+            use_multiprocessing=False,  # Ignored.
+            fill_column=80,  # Ignored.
+            empty_lines=0,  # Ignored.
+            defs=defs,
+        )
 
         with open(file_input, 'r', encoding='utf-8') as fh:
             _, root = parse_file(cfg, fh)
@@ -2599,13 +2588,13 @@ def main() -> None:
             'No files passed in, pass in files or use both \'--stdin\' & \'--stdout\'\n')
         sys.exit(1)
 
+    defs_orig = Defs(fn_arity={})
+
     if args.fmt_defs:
-        defs_orig = Defs.from_json_files(
+        defs_orig.from_json_files(
             os.path.join(args.fmt_defs_dir, filename) if (os.sep not in filename) else filename
             for filename in args.fmt_defs.split(os.pathsep)
         )
-    else:
-        defs_orig = Defs(fn_arity={}, is_complete=False)
 
     count_files_error = 0
     count_files_total = 0
