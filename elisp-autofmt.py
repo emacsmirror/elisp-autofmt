@@ -28,6 +28,11 @@ import argparse
 HintType = Dict[str, Union[str, int, Tuple[int, int]]]
 NdSexp_WrapState = Tuple[bool, ...]
 
+__all__ = (
+    'main',
+)
+
+
 # ------------------------------------------------------------------------------
 # Globals
 
