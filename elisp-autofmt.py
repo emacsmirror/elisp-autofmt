@@ -72,7 +72,7 @@ def _function_id(num_frames_up: int) -> str:
     Create a string naming the function n frames up on the stack.
     '''
     co = sys._getframe(num_frames_up + 1).f_code
-    return '%d %s' % (co.co_firstlineno, co.co_name)
+    return '{:d} {:s}'.format(co.co_firstlineno, co.co_name)
 
 
 def execfile(filepath: str, mod: Optional[ModuleType] = None) -> ModuleType:
@@ -2410,7 +2410,7 @@ def main_no_except() -> None:
     for filepath in (args.files or ['']):
         # Use the `stderr` to avoid conflicting with `stdout` when it's set.
         if (not args.use_quiet) and (not args.use_stdout):
-            sys.stdout.write('%s\n' % filepath)
+            sys.stdout.write('{:s}\n'.format(filepath))
 
         format_file(
             filepath,
