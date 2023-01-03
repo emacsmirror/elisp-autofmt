@@ -67,11 +67,27 @@ Features
 Usage
 =====
 
-Enable the ``elisp-autofmt-mode`` minor mode,
-this will format emacs-lisp buffers on save (depending on the ``elisp-autofmt-on-save-p`` function).
+Format Buffer Command
+---------------------
 
-Since it's likely you will work on code-bases that *don't* have auto-formatting enabled,
-this checks for the existence of an ``.elisp-autofmt`` file in the buffers directory (including parent paths).
+To try out auto-formatting you may wish to run the command directly.
+
+In this case simply run ``elisp-autofmt-buffer`` on the buffer you wish to format.
+
+
+Minor Mode
+----------
+
+The ``elisp-autofmt-mode`` minor mode is intended for developers who work on projects which are entirely auto-formatted.
+
+This will format emacs-lisp buffers on save which is more convenient than having to remember
+to run for format command after performing each edit.
+
+Since you may work on code-bases that *don't* have auto-formatting enabled,
+the default behavior is to check for the existence of an ``.elisp-autofmt`` file
+in the buffers directory (including parent paths).
+
+This behavior can be configured by changing ``elisp-autofmt-on-save-p``.
 
 .. note::
 
@@ -83,13 +99,6 @@ Requirements
 
 - Emacs 27.2 (or newer).
 - Python 3.8 (or newer).
-
-
-Performance
------------
-
-The first re-format may be slow as there are likely to be a large number of changes be applied back into Emacs.
-Running again is typically fast enough to be enabled on save without noticeable interruption.
 
 
 Commands
@@ -105,13 +114,13 @@ Commands
 Customization
 -------------
 
-``elisp-autofmt-style`` (``native``)
+``elisp-autofmt-style`` (``'native``)
    Style to use for formatting, currently the options are:
 
-   ``native``
+   ``'native``
       Follow Emacs default indentation style.
 
-   ``fixed``
+   ``'fixed``
       Use fixed (2 space) indentation (simple behavior).
 
       For Emacs to match this formatting set the defaults:
@@ -131,16 +140,11 @@ Customization
    The maximum number of empty lines to keep.
 
 ``elisp-autofmt-python-bin`` (``nil``)
-   Optionally set the Python binary, use when Python is not in your ``PATH``.
+   Optionally set the Python binary, use when ``python`` is not in your ``PATH``.
 
 
 Customization (Parallel Computation)
 ------------------------------------
-
-``elisp-autofmt-parallel-threshold`` (``32768`` 32 kilobytes)
-   Buffers below this size will not use parallel computation.
-
-   - ``0`` to use parallel computation for all buffers.
 
 ``elisp-autofmt-parallel-jobs`` (``0``)
    Number of jobs to run in parallel.
@@ -148,7 +152,13 @@ Customization (Parallel Computation)
    - ``0`` to set this automatically.
    - ``-1`` disables parallel computation.
 
+``elisp-autofmt-parallel-threshold`` (``32768`` 32 kilobytes)
+   Buffers below this size will not use parallel computation.
+
+   - ``0`` to use parallel computation for all buffers.
+
 Note that this is disabled on MS-Windows currently until performance issues can be investigated.
+
 
 Customization (API Definitions)
 -------------------------------
