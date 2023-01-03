@@ -2176,10 +2176,6 @@ def parse_file(cfg: FormatConfig, fh: TextIO) -> Tuple[str, NdSexp]:
         # Add back the blank line.
         root.nodes.insert(0, NdWs(0))
 
-    root.calc_force_newline(cfg.style)
-
-    apply_comment_force_newline(root)
-
     return first_line_unparsed, root
 
 
@@ -2323,6 +2319,10 @@ def format_file(
 
     if USE_EXTRACT_DEFS:
         parse_local_defs(cfg.defs, root)
+
+    root.calc_force_newline(cfg.style)
+
+    apply_comment_force_newline(root)
 
     # Redundant but needed for the assertion not to fail in the case when `len(root.nodes_only_code) == 1`.
     root.force_newline = True
