@@ -855,8 +855,21 @@ def apply_pre_indent_unwrap(
                 if parent_score_curr == 0:
                     calc_score = False
 
+            # While in general duplicates states are not added,
+            # it's also not guaranteed that this can never happen. And it in-fact does sometimes.
+            # Since it's fairly rare, track states here which have already been tested.
+            #
+            # This avoids the need to de-duplicate when adding, and means if the first unwrap is successful
+            # then there is no need to track visited states at all.
+            state_visit = set()
+
             state_curr = node.newline_state_get()
+
             for state_test in node.prior_states:
+
+                if state_test in state_visit:
+                    continue
+
                 node.newline_state_set(state_test)
                 parent_score_test = node_parent.fmt_check_exceeds_colum_max(
                     cfg,
@@ -869,6 +882,9 @@ def apply_pre_indent_unwrap(
                     state_curr = state_test
                     # The most ambitious (early) states are first, no need to try others.
                     break
+
+                # This state was unsuccessful, don't attempt to test it again.
+                state_visit.add(state_test)
 
                 node.newline_state_set(state_curr)
             # Avoid checking these ever again - either they were useful or not.
