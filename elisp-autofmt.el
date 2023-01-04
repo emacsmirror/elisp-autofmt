@@ -605,10 +605,11 @@ Argument IS-INTERACTIVE is set when running interactively."
         (replace-buffer-contents buf)))))))
 
 (defun elisp-autofmt--region-impl
-    (stdout-buffer stderr-buffer is-interactive &optional assume-file-name)
+    (stdout-buffer stderr-buffer to-file is-interactive &optional assume-file-name)
   "Auto format the current region using temporary STDOUT-BUFFER & STDERR-BUFFER.
 Optional argument ASSUME-FILE-NAME overrides the file name used for this buffer.
 
+Argument TO-FILE writes to the file directly, without updating the buffer.
 Argument IS-INTERACTIVE is set when running interactively."
 
   ;; TODO, add support for auto-formatting a sub-region,
@@ -772,13 +773,18 @@ Argument IS-INTERACTIVE is set when running interactively."
                      exit-code))
           nil)
          (t
-          (elisp-autofmt--replace-buffer-contents-with-fastpath stdout-buffer is-interactive)))))))
+          (cond
+           (to-file
+            (with-current-buffer stdout-buffer
+              (write-region (point-min) (point-max) assume-file-name)))
+           (t
+            (elisp-autofmt--replace-buffer-contents-with-fastpath stdout-buffer is-interactive)))))))))
 
-(defun elisp-autofmt--region (is-interactive &optional assume-file-name)
+(defun elisp-autofmt--region (to-file is-interactive &optional assume-file-name)
   "Auto format the current region.
 Optional argument ASSUME-FILE-NAME overrides the file name used for this buffer.
 
-Argument IS-INTERACTIVE is set when running interactively."
+See `elisp-autofmt--region-impl' for TO-FILE and IS-INTERACTIVE doc-strings."
   (let ((stdout-buffer nil)
         (stderr-buffer nil)
         (this-buffer (current-buffer)))
@@ -787,14 +793,15 @@ Argument IS-INTERACTIVE is set when running interactively."
       (with-temp-buffer
         (setq stderr-buffer (current-buffer))
         (with-current-buffer this-buffer
-          (elisp-autofmt--region-impl stdout-buffer stderr-buffer is-interactive assume-file-name))))))
+          (elisp-autofmt--region-impl stdout-buffer stderr-buffer to-file is-interactive
+                                      assume-file-name))))))
 
-(defun elisp-autofmt--buffer-impl (buf is-interactive)
+(defun elisp-autofmt--buffer-impl (buf to-file is-interactive)
   "Auto-format the entire buffer BUF.
 
-Argument IS-INTERACTIVE is set when running interactively."
+See `elisp-autofmt--region-impl' for TO-FILE and IS-INTERACTIVE doc-strings."
   (with-current-buffer buf
-    (elisp-autofmt--region is-interactive)))
+    (elisp-autofmt--region to-file is-interactive)))
 
 (defun elisp-autofmt--buffer-format-for-save-hook ()
   "The hook to run on buffer saving to format the buffer."
@@ -818,12 +825,23 @@ Argument IS-INTERACTIVE is set when running interactively."
 ;; ---------------------------------------------------------------------------
 ;; Public Functions
 
+
+;;;###autoload
+(defun elisp-autofmt-buffer-to-file ()
+  "Auto format the current buffer, writing it's output to a file.
+
+This is intended for use by batch processing scripts,
+where loading changes back into the buffer is not important."
+  (unless buffer-file-name
+    (error "A buffer with a valid file-name expected!"))
+  (elisp-autofmt--buffer-impl (current-buffer) t nil))
+
 ;;;###autoload
 (defun elisp-autofmt-buffer ()
   "Auto format the current buffer."
   (interactive)
   (let ((is-interactive (called-interactively-p 'interactive)))
-    (elisp-autofmt--buffer-impl (current-buffer) is-interactive)))
+    (elisp-autofmt--buffer-impl (current-buffer) nil is-interactive)))
 
 ;;;###autoload
 (defun elisp-autofmt-check-elisp-autofmt-exists ()
