@@ -64,7 +64,7 @@ class FmtException(Exception):
     '''
 
 
-class FmtEarlyExit(Exception):
+class FmtExceptionEarlyExit(Exception):
     '''
     Early exit from within callbacks.
     '''
@@ -214,7 +214,7 @@ def apply_comment_force_newline(root: NdSexp) -> None:
             node_line_start = node
 
 
-def apply_relaxed_wrap(node_parent: NdSexp, style: FormatStyle) -> None:
+def apply_relaxed_wrap(node_parent: NdSexp, style: FmtStyle) -> None:
     '''
     Wrap nodes in ``node_parent``, without taking the fill column into account.
     Some rules of thumb are applied such as:
@@ -320,7 +320,7 @@ def apply_relaxed_wrap(node_parent: NdSexp, style: FormatStyle) -> None:
             node_parent.force_newline = True
 
 
-def apply_relaxed_wrap_when_multiple_args(node_parent: NdSexp, style: FormatStyle) -> None:
+def apply_relaxed_wrap_when_multiple_args(node_parent: NdSexp, style: FmtStyle) -> None:
     '''
     Relaxed wrap when the S-expression as 2 or more arguments passed in.
     '''
@@ -328,7 +328,7 @@ def apply_relaxed_wrap_when_multiple_args(node_parent: NdSexp, style: FormatStyl
         apply_relaxed_wrap(node_parent, style)
 
 
-def parse_local_defs(defs: Defs, node_parent: NdSexp) -> None:
+def parse_local_defs(defs: FmtDefs, node_parent: NdSexp) -> None:
     '''
     Extract definitions from the file being formatted.
 
@@ -437,10 +437,10 @@ def parse_local_defs(defs: Defs, node_parent: NdSexp) -> None:
             parse_local_defs(defs, node)
 
 
-def scan_used_fn_defs(defs: Defs, node_parent: NdSexp, fn_used: Set[str]) -> None:
+def scan_used_fn_defs(defs: FmtDefs, node_parent: NdSexp, fn_used: Set[str]) -> None:
     '''
     Fill ``fn_used`` with a list of definitions used in this document.
-    Used to implement ``Defs.prune_unused``.
+    Used to implement ``FmtDefs.prune_unused``.
     '''
     if node_parent.nodes_only_code:
         node = node_parent.nodes_only_code[0]
@@ -464,7 +464,7 @@ def scan_used_fn_defs(defs: Defs, node_parent: NdSexp, fn_used: Set[str]) -> Non
             scan_used_fn_defs(defs, node, fn_used)
 
 
-def apply_rules(cfg: FormatConfig, node_parent: NdSexp) -> None:
+def apply_rules(cfg: FmtConfig, node_parent: NdSexp) -> None:
     '''
     Define line breaks using rules set by:
 
@@ -617,7 +617,7 @@ def apply_rules(cfg: FormatConfig, node_parent: NdSexp) -> None:
         node_parent.flush_newlines_from_nodes()
 
 
-def apply_pre_indent_1_relaxed(cfg: FormatConfig, node_parent: NdSexp, level: int, trailing_parens: int) -> None:
+def apply_pre_indent_1_relaxed(cfg: FmtConfig, node_parent: NdSexp, level: int, trailing_parens: int) -> None:
     '''
     Perform relaxed wrapping for blocks where any lines exceed the fill-column.
     '''
@@ -636,7 +636,7 @@ def apply_pre_indent_1_relaxed(cfg: FormatConfig, node_parent: NdSexp, level: in
             node_parent.force_newline = True
 
 
-def apply_pre_indent_2_each_argument(cfg: FormatConfig, node_parent: NdSexp, level: int, trailing_parens: int) -> None:
+def apply_pre_indent_2_each_argument(cfg: FmtConfig, node_parent: NdSexp, level: int, trailing_parens: int) -> None:
     '''
     Check that each argument fits within the fill-column,
     wrapping as necessary.
@@ -758,7 +758,7 @@ def apply_pre_indent_2_each_argument(cfg: FormatConfig, node_parent: NdSexp, lev
                     node.force_newline = False
 
 
-def apply_pre_indent(cfg: FormatConfig, node_parent: NdSexp, level: int, trailing_parens: int) -> None:
+def apply_pre_indent(cfg: FmtConfig, node_parent: NdSexp, level: int, trailing_parens: int) -> None:
     '''
     For lists that will need wrapping even when all parents are wrapped,
     wrap these beforehand.
@@ -797,7 +797,7 @@ def apply_pre_indent(cfg: FormatConfig, node_parent: NdSexp, level: int, trailin
 
 
 def apply_pre_indent_unwrap(
-        cfg: FormatConfig,
+        cfg: FmtConfig,
         node_parent: NdSexp,
         level: int,
         trailing_parens: int,
@@ -906,23 +906,23 @@ def apply_pre_indent_unwrap(
 # created from command line arguments.
 
 
-class FormatStyle(NamedTuple):
+class FmtStyle(NamedTuple):
     '''
     Details relating to formatting style.
     '''
     use_native: bool
 
 
-class FormatConfig(NamedTuple):
+class FmtConfig(NamedTuple):
     '''
     Configuration options relating to how the file should be formatted.
     '''
-    style: FormatStyle
+    style: FmtStyle
     use_trailing_parens: bool
     use_multiprocessing: bool
     fill_column: int
     empty_lines: int
-    defs: Defs
+    defs: FmtDefs
 
 
 class FnArity(NamedTuple):
@@ -939,7 +939,7 @@ class FnArity(NamedTuple):
     hints: Optional[HintType]
 
 
-class Defs:
+class FmtDefs:
     '''
     Function definition data, hints about when to wrap arguments.
     '''
@@ -955,11 +955,11 @@ class Defs:
     ):
         self.fn_arity = fn_arity
 
-    def copy(self) -> Defs:
+    def copy(self) -> FmtDefs:
         '''
         Return a copy of ``self``.
         '''
-        return Defs(fn_arity=self.fn_arity.copy())
+        return FmtDefs(fn_arity=self.fn_arity.copy())
 
     def prune_unused(self, fn_used: Set[str]) -> None:
         '''
@@ -998,7 +998,7 @@ class Defs:
                 self.fn_arity.update(functions_from_json)
 
 
-class WriteCtx:
+class FmtWriteCtx:
     '''
     Track context while writing.
     '''
@@ -1014,9 +1014,9 @@ class WriteCtx:
     is_newline: bool
     line: int
     line_terminate: int
-    cfg: FormatConfig
+    cfg: FmtConfig
 
-    def __init__(self, cfg: FormatConfig):
+    def __init__(self, cfg: FmtConfig):
         self.last_node = None
         self.is_newline = True
         self.line = 0
@@ -1036,7 +1036,7 @@ class Node:
     force_newline: bool
     original_line: int
 
-    def calc_force_newline(self, style: FormatStyle) -> None:
+    def calc_force_newline(self, style: FmtStyle) -> None:
         '''
         Function which must be overridden.
         '''
@@ -1050,7 +1050,7 @@ class Node:
 
     def fmt(
             self,
-            ctx: WriteCtx,
+            ctx: FmtWriteCtx,
             write_fn: Callable[[str], Any],
             level: int,
             *,
@@ -1241,7 +1241,7 @@ class NdSexp(Node):
         for data, node in zip(state, self.nodes):
             node.force_newline = data
 
-    def calc_nodes_level_next(self, cfg: FormatConfig, level: int) -> Sequence[int]:
+    def calc_nodes_level_next(self, cfg: FmtConfig, level: int) -> Sequence[int]:
         '''
         Return a ``self.nodes`` aligned list of next levels.
         The list may be shorter, in this case the last element should be used
@@ -1459,7 +1459,7 @@ class NdSexp(Node):
                 changed |= node.flush_newlines_from_nodes_recursive()
         return changed
 
-    def calc_force_newline(self, style: FormatStyle) -> None:
+    def calc_force_newline(self, style: FmtStyle) -> None:
         force_newline = False
         node_prev = None
         for node in self.nodes:
@@ -1510,7 +1510,7 @@ class NdSexp(Node):
             if isinstance(node, NdSexp):
                 node.finalize_parse()
 
-    def finalize_style(self, cfg: FormatConfig) -> None:
+    def finalize_style(self, cfg: FmtConfig) -> None:
         '''
         Perform final operations after parsing.
         '''
@@ -1541,7 +1541,7 @@ class NdSexp(Node):
 
     def fmt_check_exceeds_colum_max(
             self,
-            cfg: FormatConfig,
+            cfg: FmtConfig,
             level: int,
             trailing_parens: int,
             *,
@@ -1555,7 +1555,7 @@ class NdSexp(Node):
         # Simple optimization, don't calculate excess white-space.
         fill_column = cfg.fill_column - level
         level = 0
-        _ctx = WriteCtx(cfg)
+        _ctx = FmtWriteCtx(cfg)
 
         # Avoid writing the string, early exit with an exception on the first over-length line found.
         # This block can be removed without causing any problems, it just avoids some excessive work.
@@ -1572,19 +1572,19 @@ class NdSexp(Node):
                 if i == -1:
                     line_length += len(text)
                     if line_length > fill_column:
-                        raise FmtEarlyExit
+                        raise FmtExceptionEarlyExit
                 else:
                     i_prev = 0
                     while True:
                         if i == -1:
                             line_length += len(text) - i_prev
                             if line_length > fill_column:
-                                raise FmtEarlyExit
+                                raise FmtExceptionEarlyExit
                             break
 
                         line_length += i - i_prev
                         if line_length > fill_column:
-                            raise FmtEarlyExit
+                            raise FmtExceptionEarlyExit
 
                         i_prev = i + 1
                         line_length = 0
@@ -1592,7 +1592,7 @@ class NdSexp(Node):
 
             try:
                 self.fmt_with_terminate_node(_ctx, write_fn_fast, level, test=True)
-            except FmtEarlyExit:
+            except FmtExceptionEarlyExit:
                 return 1
             return 0
 
@@ -1611,7 +1611,7 @@ class NdSexp(Node):
             return calc_over_long_line_score(data, fill_column, trailing_parens, line_terminate)
         return calc_over_long_line_length_test(data, fill_column, trailing_parens, line_terminate)
 
-    def fmt_pre_wrap(self, cfg: FormatConfig, level: int, trailing_parens: int) -> None:
+    def fmt_pre_wrap(self, cfg: FmtConfig, level: int, trailing_parens: int) -> None:
         '''
         Perform line wrapping, taking indent-levels into account.
         '''
@@ -1698,7 +1698,7 @@ class NdSexp(Node):
                 # node_prev = node
 
     def fmt(self,
-            ctx: WriteCtx,
+            ctx: FmtWriteCtx,
             write_fn: Callable[[str], Any],
             level: int,
             *,
@@ -1714,7 +1714,7 @@ class NdSexp(Node):
 
     def fmt_with_terminate_node(
             self,
-            ctx: WriteCtx,
+            ctx: FmtWriteCtx,
             write_fn: Callable[[str], Any],
             level: int,
             *,
@@ -1864,13 +1864,13 @@ class NdWs(Node):
             Node.__repr__(self),
         )
 
-    def calc_force_newline(self, style: FormatStyle) -> None:
+    def calc_force_newline(self, style: FmtStyle) -> None:
         # False because this forces it's own newline
         self.force_newline = True
 
     def fmt(
             self,
-            ctx: WriteCtx,
+            ctx: FmtWriteCtx,
             write_fn: Callable[[str], Any],
             level: int,
             *,
@@ -1905,12 +1905,12 @@ class NdComment(Node):
             self.data,
         )
 
-    def calc_force_newline(self, style: FormatStyle) -> None:
+    def calc_force_newline(self, style: FmtStyle) -> None:
         self.force_newline = self.is_own_line
 
     def fmt(
             self,
-            ctx: WriteCtx,
+            ctx: FmtWriteCtx,
             write_fn: Callable[[str], Any],
             level: int,
             *,
@@ -1945,7 +1945,7 @@ class NdString(Node):
             self.data,
         )
 
-    def calc_force_newline(self, style: FormatStyle) -> None:
+    def calc_force_newline(self, style: FmtStyle) -> None:
         if USE_WRAP_LINES:
             self.force_newline = ((not self.data.startswith('\n')) and self.lines > 0)
         else:
@@ -1953,7 +1953,7 @@ class NdString(Node):
 
     def fmt(
             self,
-            ctx: WriteCtx,
+            ctx: FmtWriteCtx,
             write_fn: Callable[[str], Any],
             level: int,
             *,
@@ -1987,12 +1987,12 @@ class NdSymbol(Node):
             self.data,
         )
 
-    def calc_force_newline(self, style: FormatStyle) -> None:
+    def calc_force_newline(self, style: FmtStyle) -> None:
         self.force_newline = False
 
     def fmt(
             self,
-            ctx: WriteCtx,
+            ctx: FmtWriteCtx,
             write_fn: Callable[[str], Any],
             level: int,
             *,
@@ -2174,17 +2174,12 @@ def parse_file(fh: TextIO) -> Tuple[str, NdSexp]:
     return first_line_unparsed, root
 
 
-def write_file(
-        cfg: FormatConfig,
-        fh: TextIO,
-        root: NdSexp,
-        first_line: str,
-) -> None:
+def write_file(cfg: FmtConfig, fh: TextIO, root: NdSexp, first_line: str) -> None:
     '''
     Write the ``root`` S-expression into ``fh``.
     '''
 
-    ctx = WriteCtx(cfg)
+    ctx = FmtWriteCtx(cfg)
 
     if first_line:
         fh.write(first_line)
@@ -2192,7 +2187,7 @@ def write_file(
     fh.write('\n')
 
 
-def root_node_wrap(cfg: FormatConfig, node: NdSexp) -> None:
+def root_node_wrap(cfg: FmtConfig, node: NdSexp) -> None:
     '''
     Calculate line wrapping for top-level nodes.
     '''
@@ -2209,12 +2204,12 @@ def root_node_wrap(cfg: FormatConfig, node: NdSexp) -> None:
     node.flush_newlines_from_nodes_recursive_for_native()
 
 
-def root_node_wrap_group_for_multiprocessing(cfg: FormatConfig, node_group: Sequence[NdSexp]) -> Sequence[str]:
+def root_node_wrap_group_for_multiprocessing(cfg: FmtConfig, node_group: Sequence[NdSexp]) -> Sequence[str]:
     '''
     A version of ``root_node_wrap`` which supports multi-processing.
     '''
     result_group = []
-    ctx = WriteCtx(cfg)
+    ctx = FmtWriteCtx(cfg)
     for node in node_group:
         root_node_wrap(cfg, node)
         data: List[str] = []
@@ -2261,7 +2256,7 @@ def node_group_by_count(root: NdSexp, *, chunk_size_limit: int) -> Sequence[Sequ
     return node_group_list
 
 
-def do_wrap_level_0_multiprocessing(cfg: FormatConfig, root: NdSexp, parallel_jobs: int) -> None:
+def do_wrap_level_0_multiprocessing(cfg: FmtConfig, root: NdSexp, parallel_jobs: int) -> None:
     '''
     A version of ``do_wrap_level_0`` which uses multi-processing.
     '''
@@ -2281,7 +2276,7 @@ def do_wrap_level_0_multiprocessing(cfg: FormatConfig, root: NdSexp, parallel_jo
                 node.fmt_cache = result
 
 
-def do_wrap_level_0(cfg: FormatConfig, root: NdSexp) -> None:
+def do_wrap_level_0(cfg: FmtConfig, root: NdSexp) -> None:
     '''
     Calculate wrapping for all nodes.
     '''
@@ -2292,7 +2287,7 @@ def do_wrap_level_0(cfg: FormatConfig, root: NdSexp) -> None:
 
 def format_file(
         filepath: str,
-        cfg: FormatConfig,
+        cfg: FmtConfig,
         *,
         parallel_jobs: int = 0,
         use_stdin: bool = False,
@@ -2532,7 +2527,7 @@ def main_generate_defs() -> bool:
         file_input = args_rest.pop(0)
         file_output = args_rest.pop(0)
 
-        defs = Defs(fn_arity={})
+        defs = FmtDefs(fn_arity={})
 
         with open(file_input, 'r', encoding='utf-8') as fh:
             _, root = parse_file(fh)
@@ -2586,7 +2581,7 @@ def main() -> None:
             'No files passed in, pass in files or use both \'--stdin\' & \'--stdout\'\n')
         sys.exit(1)
 
-    defs_orig = Defs(fn_arity={})
+    defs_orig = FmtDefs(fn_arity={})
 
     if args.fmt_defs:
         defs_orig.from_json_files(
@@ -2611,8 +2606,8 @@ def main() -> None:
         if (not args.use_quiet) and (not args.use_stdout):
             sys.stdout.write('{:s}\n'.format(filepath))
 
-        cfg = FormatConfig(
-            style=FormatStyle(
+        cfg = FmtConfig(
+            style=FmtStyle(
                 use_native=args.fmt_style == 'native',
             ),
             use_trailing_parens=args.fmt_use_trailing_parens,
