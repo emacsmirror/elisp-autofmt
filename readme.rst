@@ -94,6 +94,15 @@ This behavior can be configured by changing ``elisp-autofmt-on-save-p``.
    ``.elisp-autofmt`` will eventually be used for configuration, for now it should be left empty.
 
 
+Command Line
+------------
+
+You may wish to format a directory of files, in this case there is a command line utility: ``elisp-autofmt-cmd.py``
+this takes Emacs-Lisp files as an arguments, formatting them and exiting.
+
+This may be preferred if you wish to batch format files without having to load each file into Emacs manually.
+
+
 Requirements
 ------------
 

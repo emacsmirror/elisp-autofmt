@@ -50,55 +50,51 @@ def colorize_lisp(text: str, error_on_no_color: bool) -> str:
     )
 
 
-def py_to_lisp_bool(val: bool) -> str:
-    '''
-    Represent val as a LISP boolean.
-    '''
-    return 't' if val else 'nil'
-
-
 def emacs_elisp_autofmt_file_as_str(
         emacs_bin: str,
         filepaths: Sequence[str],
-        to_file: bool,
+        use_stdout: bool,
 ) -> Tuple[int, bytes, bytes]:
     '''
     Take a path and return a string representing the formatted text.
-    Or write into ``filepaths`` when ``to_file`` is True.
+    Or write into ``filepaths`` when ``use_stdout`` is False.
     '''
     cmd = (
         emacs_bin,
         '--batch',
         '-l', os.path.join(THIS_DIR, 'elisp-autofmt.el'),
         *filepaths,
-        '--eval', f'''
-(dolist (buf (buffer-list))
-  (with-current-buffer buf
-    (when (buffer-file-name)
-      (setq buffer-undo-list t) ;; Disable undo.
-      (setq elisp-autofmt-python-bin (getenv "PYTHON_BIN"))
-      (cond
-        ({py_to_lisp_bool(to_file):s}
+        '--eval', '''
+(setq elisp-autofmt-python-bin (getenv "PYTHON_BIN"))
+(let ((use-stdout (string-equal "1" (getenv "USE_STDOUT"))))
+  (dolist (buf (buffer-list))
+    (with-current-buffer buf
+      (when (buffer-file-name)
+        (setq buffer-undo-list t) ;; Disable undo.
+        (cond
+         (use-stdout
           (princ buffer-file-name)
           (princ "\n")
           (elisp-autofmt-buffer-to-file))
-        (t
+         (t
           (elisp-autofmt-buffer)
-          (princ (buffer-substring-no-properties (point-min) (point-max))))))))''',
+          (princ (buffer-substring-no-properties (point-min) (point-max)))))))))
+''',
     )
 
     env = os.environ.copy()
     env['PYTHON_BIN'] = sys.executable
+    env['USE_STDOUT'] = str(int(use_stdout))
 
     completed_proc = subprocess.run(
         cmd,
-        capture_output=not to_file,
+        capture_output=use_stdout,
         check=False,
     )
     return (
         completed_proc.returncode,
-        b'' if to_file else completed_proc.stdout,
-        b'' if to_file else completed_proc.stderr,
+        completed_proc.stdout if use_stdout else b'',
+        completed_proc.stderr if use_stdout else b'',
     )
 
 
@@ -161,24 +157,22 @@ def main() -> None:
         print('No files passed in for formatting, see "--help" for details.')
         return
 
-    to_file = not args.use_stdout
-    returncode, stdout, stderr = emacs_elisp_autofmt_file_as_str(args.emacs_bin, args.files, to_file)
+    use_stdout = args.use_stdout
+
+    returncode, stdout, stderr = emacs_elisp_autofmt_file_as_str(args.emacs_bin, args.files, use_stdout)
     if returncode != 0:
         sys.stderr.write(stderr.decode('utf-8'))
         return
     if stderr:
         sys.stderr.write(stderr.decode('utf-8'))
 
-    if not to_file:
+    if use_stdout:
         output = stdout.decode('utf-8')
-
         if args.color == 'never':
             use_color = False
             error_on_no_color = False
         elif args.color == 'auto':
             use_color = True
-            if to_file:
-                use_color = False
             if not sys.stdout.isatty():
                 use_color = False
             error_on_no_color = False
