@@ -179,7 +179,8 @@ Any `stderr' is output a message and is interpreted as failure."
                         (goto-char (point-min))
                         (save-match-data
                           (when (search-forward (concat "Process " proc-id " stderr finished")
-                                                nil t)
+                                                nil
+                                                t)
                             (replace-match "" t nil nil)))
                         (goto-char (point-max))
                         (skip-chars-backward " \t\n" (point-min))
@@ -352,8 +353,7 @@ When INCLUDE-PRIVATE is nil, exclude functions with \"--\" in their names."
                           ;; Is it built-in? (speeds up accessing the file-path which is slow).
                           (subrp sym-fn)
                           (or (null auto-load-pkg)
-                              (not
-                               (member auto-load-pkg elisp-autofmt-ignore-autoload-packages))))
+                              (not (member auto-load-pkg elisp-autofmt-ignore-autoload-packages))))
                  ;; (autoload sym-id)
 
                  ;; Note that we could check for C-source only using.
@@ -362,9 +362,7 @@ When INCLUDE-PRIVATE is nil, exclude functions with \"--\" in their names."
                  (when t
                    ;; (eq file 'C-source)
                    (elisp-autofmt--cache-api-insert-function-to-file
-                    sym-id
-                    (symbol-name sym-id)
-                    sym-ty
+                    sym-id (symbol-name sym-id) sym-ty
                     (cond
                      ((subrp sym-fn)
                       (subr-arity sym-fn))
@@ -697,9 +695,7 @@ Argument IS-INTERACTIVE is set when running interactively."
              (list
               (concat
                "--fmt-defs-dir="
-               (convert-standard-filename
-                (expand-file-name
-                 elisp-autofmt-cache-directory)))
+               (convert-standard-filename (expand-file-name elisp-autofmt-cache-directory)))
               (concat
                "--fmt-defs="
                (mapconcat #'identity
@@ -709,8 +705,7 @@ Argument IS-INTERACTIVE is set when running interactively."
                            ;; Optionally
                            (cond
                             (elisp-autofmt-use-default-override-defs
-                             (list
-                              (concat elisp-autofmt--base ".overrides.json")))
+                             (list (concat elisp-autofmt--base ".overrides.json")))
                             (t
                              (list))))
                           path-separator))))
