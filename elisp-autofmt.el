@@ -150,7 +150,7 @@ This is intended to be set from file or directory locals and is marked safe.")
 Any `stderr' is output a message and is interpreted as failure."
 
   (when elisp-autofmt-debug-extra-info
-    (message "elisp-autofmt: running command: %s" (mapconcat 'identity command-with-args " ")))
+    (message "elisp-autofmt: running command: %s" (mapconcat #'identity command-with-args " ")))
 
   (let ((sentinel-called nil)
         (this-buffer (current-buffer))
@@ -714,7 +714,7 @@ Argument IS-INTERACTIVE is set when running interactively."
 
     (when elisp-autofmt-debug-extra-info
       (message "elisp-autofmt: running piped process: %s"
-               (mapconcat 'identity command-with-args " ")))
+               (mapconcat #'identity command-with-args " ")))
 
     (let ((proc
            (make-process
