@@ -623,15 +623,19 @@ def apply_pre_indent_1_relaxed(cfg: FmtConfig, node_parent: NdSexp, level: int, 
     '''
     # First be relaxed, then again if it fails.
     if node_parent.fmt_check_exceeds_colum_max(cfg, level, trailing_parens, calc_score=False):
-        if not node_parent.wrap_all_or_nothing_hint:
-            state_init = node_parent.newline_state_get()
+
+        if cfg.fill_column != 0:
+            if not node_parent.wrap_all_or_nothing_hint:
+                state_init = node_parent.newline_state_get()
 
         apply_relaxed_wrap(node_parent, cfg.style)
 
-        if not node_parent.wrap_all_or_nothing_hint:
-            state_test = node_parent.newline_state_get()
-            if state_init != state_test:
-                node_parent.prior_states.append(state_init)
+        if cfg.fill_column != 0:
+            if not node_parent.wrap_all_or_nothing_hint:
+                state_test = node_parent.newline_state_get()
+                if state_init != state_test:
+                    node_parent.prior_states.append(state_init)
+
         if not cfg.style.use_native:
             node_parent.force_newline = True
 
@@ -780,20 +784,22 @@ def apply_pre_indent(cfg: FmtConfig, node_parent: NdSexp, level: int, trailing_p
                 if node.force_newline:
                     node_parent.force_newline = True
 
-    state_init = node_parent.newline_state_get()
+    if cfg.fill_column != 0:
+        state_init = node_parent.newline_state_get()
 
-    if len(node_parent.nodes_only_code) > 1:
-        apply_pre_indent_1_relaxed(cfg, node_parent, level, trailing_parens)
-        apply_pre_indent_2_each_argument(cfg, node_parent, level, trailing_parens)
+        if len(node_parent.nodes_only_code) > 1:
+            apply_pre_indent_1_relaxed(cfg, node_parent, level, trailing_parens)
+            apply_pre_indent_2_each_argument(cfg, node_parent, level, trailing_parens)
 
     # Some blocks don't allow mixed wrapping.
     if node_parent.wrap_all_or_nothing_hint:
         if node_parent_is_multiline_prev or node_parent.is_multiline():
             apply_relaxed_wrap(node_parent, cfg.style)
 
-    state_test = node_parent.newline_state_get()
-    if state_init != state_test:
-        node_parent.prior_states.append(state_init)
+    if cfg.fill_column != 0:
+        state_test = node_parent.newline_state_get()
+        if state_init != state_test:
+            node_parent.prior_states.append(state_init)
 
 
 def apply_pre_indent_unwrap(
@@ -854,7 +860,7 @@ def apply_pre_indent_unwrap(
                     cfg,
                     level,
                     trailing_parens,
-                    calc_score=calc_score,
+                    calc_score=True,
                 )
                 # If the current state has no over-length lines (such as long comments).
                 # There is no need to do extra work. Any over-long line caused by the state being
@@ -869,9 +875,8 @@ def apply_pre_indent_unwrap(
             #
             # This avoids the need to de-duplicate when adding, and means if the first unwrap is successful
             # then there is no need to track visited states at all.
-            state_visit = set()
-
             state_curr = node.newline_state_get()
+            state_visit = {state_curr}
 
             for state_test in node.prior_states:
 
@@ -879,6 +884,14 @@ def apply_pre_indent_unwrap(
                     continue
 
                 node.newline_state_set(state_test)
+
+                # Apply these rules even while unwrapping.
+                if node.flush_newlines_from_nodes_for_native():
+                    state_test = node.newline_state_get()
+                    if state_test in state_visit:
+                        node.newline_state_set(state_curr)
+                        continue
+
                 parent_score_test = node_parent.fmt_check_exceeds_colum_max(
                     cfg,
                     level,
@@ -1247,7 +1260,7 @@ class NdSexp(Node):
         The list may be shorter, in this case the last element should be used
         for node indices that exceed this lists range.
         '''
-        if not cfg.style.use_native:
+        if not cfg.style.use_native or cfg.fill_column == 0:
             if level == -1:
                 return [0]
             return [level + 2]
@@ -1415,7 +1428,17 @@ class NdSexp(Node):
                     break
         return changed
 
-    def flush_newlines_from_nodes_recursive_for_native(self) -> bool:
+    def flush_newlines_from_nodes_for_native(self) -> bool:
+        changed = False
+        for i, node in enumerate(self.nodes_only_code):
+            if i > 1 and isinstance(node, NdSexp) and not node.force_newline and node.is_multiline():
+                node.force_newline = True
+                changed = True
+                # if not self.force_newline:
+                #     self.force_newline = True
+        return changed
+
+    def flush_newlines_from_nodes_for_native_recursive(self) -> bool:
         '''
         Ensure some kinds of expressions are wrapped onto new files.
         '''
@@ -1441,7 +1464,7 @@ class NdSexp(Node):
                 # if not self.force_newline:
                 #     self.force_newline = True
             if isinstance(node, NdSexp):
-                changed |= node.flush_newlines_from_nodes_recursive_for_native()
+                changed |= node.flush_newlines_from_nodes_for_native_recursive()
         return changed
 
     def flush_newlines_from_nodes_recursive(self) -> bool:
@@ -1551,6 +1574,8 @@ class NdSexp(Node):
         '''
         :arg calc_score: When true, the return value is a score.
         '''
+        if cfg.fill_column == 0:
+            raise Exception('internal error, this should not be called')
 
         # Simple optimization, don't calculate excess white-space.
         fill_column = cfg.fill_column - level
@@ -2187,21 +2212,47 @@ def write_file(cfg: FmtConfig, fh: TextIO, root: NdSexp, first_line: str) -> Non
     fh.write('\n')
 
 
-def root_node_wrap(cfg: FmtConfig, node: NdSexp) -> None:
+def root_node_wrap(cfg_base: FmtConfig, node: NdSexp) -> None:
     '''
     Calculate line wrapping for top-level nodes.
     '''
-    apply_rules(cfg, node)
+    apply_rules(cfg_base, node)
 
-    apply_pre_indent(cfg, node, 0, 0)
-    node.fmt_pre_wrap(cfg, 0, 0)
+    # This purpose of using two passes is as follows:
+    # - Perform all formatting without applying a fill-column.
+    # - Then wrap storing the `prior_states` which may be restored again when unwrapping.
+    #
+    # Using two passes ensures that we only ever restore into configurations
+    # that would be valid if the fill column allows for them to fit.
+    # Without this, it would be possible to restore into states that are not valid,
+    # or at least would not exist after all the logic for wrapping lines was applied.
+    for pass_index in (0, 1):
+        if pass_index == 0:
+            cfg_args = cfg_base._asdict()
+            cfg_args['fill_column'] = 0
+            cfg = FmtConfig(**cfg_args)
+        else:
+            cfg = cfg_base
 
-    apply_pre_indent_unwrap(cfg, node, 0, 0, set())
+            if USE_PARANOID_ASSERT:
+                # No stages should be added on the initial pass.
+                for n in node.iter_nodes_recursive_with_self():
+                    if isinstance(n, NdSexp):
+                        assert bool(n.prior_states) is False
 
-    # FIXME: would be good to avoid running this twice!
-    node.fmt_pre_wrap(cfg, 0, 0)
+        apply_pre_indent(cfg, node, 0, 0)
 
-    node.flush_newlines_from_nodes_recursive_for_native()
+        node.fmt_pre_wrap(cfg, 0, 0)
+
+        if cfg.style.use_native:
+            node.flush_newlines_from_nodes_for_native_recursive()
+
+        if pass_index != 0:
+            if cfg.style.use_native:
+                apply_pre_indent_unwrap(cfg_base, node, 0, 0, set())
+            if USE_PARANOID_ASSERT:
+                if node.flush_newlines_from_nodes_for_native_recursive():
+                    raise Exception("this should be maintained while unwrapping!")
 
 
 def root_node_wrap_group_for_multiprocessing(cfg: FmtConfig, node_group: Sequence[NdSexp]) -> Sequence[str]:

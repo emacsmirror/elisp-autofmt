@@ -475,7 +475,8 @@ Argument PENDING-LIST an `pending-undo-list' compatible list."
               (delete-file file-src-full)
               (setq count-complete (1+ count-complete)))
 
-            (error (message "Error: %s" (error-message-string err)))))))
+            (error
+              (message "Error: %s" (error-message-string err)))))))
 
     (message "Completed %d file(s) (size was %s, now %s)"
       count-complete

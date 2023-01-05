@@ -404,7 +404,9 @@ Return the blank text representing the indentation or nil if none is found."
                     ;; End group.
                     "\\)"
                     ;; The term.
-                    "\\(" (regexp-quote rst-role-data) "\\)"
+                    "\\("
+                    (regexp-quote rst-role-data)
+                    "\\)"
                     ;; Allow for keys (they're ignored, but support finding
                     ;; entries with keys).
                     "\\([[:blank:]]*\\|[[:blank:]]+:[[:blank:]]+.*\\)$")))
@@ -839,7 +841,8 @@ This is built from SYMBOL, FILE, LINE, COL and a raw LINE-TEXT result."
       (add-hook 'xref-backend-functions #'xref-rst-xref-backend
         nil t))
     (t
-      (remove-hook 'xref-backend-functions #'xref-rst-xref-backend t))))
+      (remove-hook 'xref-backend-functions #'xref-rst-xref-backend
+        t))))
 
 (provide 'xref-rst)
 

@@ -616,7 +616,8 @@ This only checks the text matching face rules."
                       pos-beg pos-end))
                   (ok-end-iter
                     (and (< point-end-iter pos-end)
-                      (spell-fu--check-faces-at-point point-end-iter))))
+                      (spell-fu--check-faces-at-point
+                        point-end-iter))))
 
                 ;; No need to check faces of each word
                 ;; as face-changes are being stepped over.
