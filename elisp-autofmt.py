@@ -1942,44 +1942,25 @@ def fmt_solver_newline_constraints_apply_recursive(node_parent: NdSexp, cfg: Fmt
             node_parent.force_newline = True
 
 
-def fmt_solver_for_root_node(cfg_base: FmtConfig, node: NdSexp) -> None:
+def fmt_solver_for_root_node(cfg: FmtConfig, node: NdSexp) -> None:
     '''
     Calculate line wrapping for top-level nodes.
     '''
-    apply_rules(cfg_base, node)
+    apply_rules(cfg, node)
+    fmt_solver_newline_constraints_apply_recursive(node, cfg)
 
-    # This purpose of using two passes is as follows:
-    # - Perform all formatting without applying a fill-column.
-    # - Then wrap storing the `prior_states` which may be restored again when unwrapping.
-    #
-    # Using two passes ensures that we only ever restore into configurations
-    # that would be valid if the fill column allows for them to fit.
-    # Without this, it would be possible to restore into states that are not valid,
-    # or at least would not exist after all the logic for wrapping lines was applied.
-    for pass_index in (0, 1):
-        if pass_index == 0:
-            cfg_args = cfg_base._asdict()
-            cfg_args['fill_column'] = 0
-            cfg = FmtConfig(**cfg_args)
-        else:
-            cfg = cfg_base
+    for n in node.iter_nodes_recursive_with_self():
+        if isinstance(n, NdSexp):
+            n.prior_states.append(n.newline_state_get())
 
-            if USE_PARANOID_ASSERT:
-                # No stages should be added on the initial pass.
-                for n in node.iter_nodes_recursive_with_self():
-                    if isinstance(n, NdSexp):
-                        assert bool(n.prior_states) is False
+    fmt_solver_fill_column_wrap(cfg, node, 0, 0)
+    fmt_solver_newline_constraints_apply_recursive(node, cfg)
 
-        fmt_solver_fill_column_wrap(cfg, node, 0, 0)
-
-        fmt_solver_newline_constraints_apply_recursive(node, cfg)
-
-        if pass_index != 0:
-            if cfg.style.use_native:
-                fmt_solver_fill_column_unwrap(cfg_base, node, 0, 0, set())
-            if USE_PARANOID_ASSERT:
-                if node.flush_newlines_from_nodes_for_native_recursive():
-                    raise Exception('this should be maintained while unwrapping!')
+    if cfg.style.use_native:
+        fmt_solver_fill_column_unwrap(cfg, node, 0, 0, set())
+    if USE_PARANOID_ASSERT:
+        if node.flush_newlines_from_nodes_for_native_recursive():
+            raise Exception('this should be maintained while unwrapping!')
 
 
 def fmt_solver_for_root_node_multiprocessing(cfg: FmtConfig, node_group: Sequence[NdSexp]) -> Sequence[str]:
