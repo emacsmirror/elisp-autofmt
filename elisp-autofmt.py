@@ -1637,23 +1637,18 @@ class NdSexp(Node):
             return calc_over_long_line_score(data, fill_column, trailing_parens, line_terminate)
         return calc_over_long_line_length_test(data, fill_column, trailing_parens, line_terminate)
 
-    def fmt_pre_wrap(self, cfg: FmtConfig, level: int, trailing_parens: int) -> None:
+    def fmt_pre_wrap(self, cfg: FmtConfig) -> None:
         '''
         Perform line wrapping, taking indent-levels into account.
         '''
         # First handle S-expressions one at a time, then all of them.
         # not very efficient, but it avoids over wrapping.
 
-        node_trailing_parens = self.node_last_for_trailing_parens_test()
-
         force_newline = False
 
-        level_next_data = self.calc_nodes_level_next(cfg, level)
-        level_next_data_last = len(level_next_data) - 1
         for i, node in enumerate(self.nodes):
             if isinstance(node, NdSexp):
-                level_next = level_next_data[min(i, level_next_data_last)]
-                node.fmt_pre_wrap(cfg, level_next, trailing_parens + 1 if node is node_trailing_parens else 0)
+                node.fmt_pre_wrap(cfg)
             force_newline |= node.force_newline
 
         use_native = cfg.style.use_native
@@ -2243,7 +2238,7 @@ def root_node_wrap(cfg_base: FmtConfig, node: NdSexp) -> None:
 
         apply_pre_indent(cfg, node, 0, 0)
 
-        node.fmt_pre_wrap(cfg, 0, 0)
+        node.fmt_pre_wrap(cfg)
 
         if cfg.style.use_native:
             node.flush_newlines_from_nodes_for_native_recursive()
