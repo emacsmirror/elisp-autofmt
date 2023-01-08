@@ -1671,8 +1671,8 @@ def fmt_solver_fill_column_wrap(cfg: FmtConfig, node_parent: NdSexp, level: int,
                 cfg,
                 node,
                 level_next,
-                trailing_parens +
-                1 if node is node_trailing_parens else 0)
+                trailing_parens + 1 if node is node_trailing_parens else 0,
+            )
             if not cfg.style.use_native:
                 if node.force_newline:
                     node_parent.force_newline = True
