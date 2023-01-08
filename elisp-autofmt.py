@@ -1287,46 +1287,82 @@ class NdSexp(Node):
         level = 0
         _ctx = FmtWriteCtx(cfg)
 
-        # Avoid writing the string, early exit with an exception on the first over-length line found.
+        # Avoid writing the string:
+        # Either calculate a score or early exit with an exception on the first over-length line found.
         # This block can be removed without causing any problems, it just avoids some excessive work.
-        if (
-                test_node_terminate is None and
-                calc_score is False
-        ):
-            # Simple, detect if the line length is exceeded.
+        if test_node_terminate is None:
+
             line_length = 0
 
-            def write_fn_fast(text: str) -> None:
-                nonlocal line_length
-                i = text.find('\n')
-                if i == -1:
-                    line_length += len(text)
-                    if line_length > fill_column:
-                        raise FmtExceptionEarlyExit
-                else:
-                    i_prev = 0
-                    while True:
-                        if i == -1:
-                            line_length += len(text) - i_prev
-                            if line_length > fill_column:
-                                raise FmtExceptionEarlyExit
-                            break
+            if calc_score:
+                # Accumulate a score.
+                score = 0
 
-                        line_length += i - i_prev
+                def write_fn_fast(text: str) -> None:
+                    nonlocal line_length
+                    nonlocal score
+                    i = text.find('\n')
+                    if i == -1:
+                        line_length += len(text)
+                        if line_length > fill_column:
+                            score += 2 ** (line_length - fill_column)
+                    else:
+                        i_prev = 0
+                        while True:
+                            if i == -1:
+                                line_length += len(text) - i_prev
+                                if line_length > fill_column:
+                                    score += 2 ** (line_length - fill_column)
+                                break
+
+                            line_length += i - i_prev
+                            if line_length > fill_column:
+                                score += 2 ** (line_length - fill_column)
+
+                            i_prev = i + 1
+                            line_length = 0
+                            i = text.find('\n', i + 1)
+
+                self.fmt_with_terminate_node(_ctx, write_fn_fast, level, test=True)
+                line_length += trailing_parens
+                if line_length > fill_column:
+                    score += 2 ** (line_length - fill_column)
+
+                return score
+            else:
+                # Simple, detect if the line length is exceeded.
+
+                def write_fn_fast(text: str) -> None:
+                    nonlocal line_length
+                    i = text.find('\n')
+                    if i == -1:
+                        line_length += len(text)
                         if line_length > fill_column:
                             raise FmtExceptionEarlyExit
+                    else:
+                        i_prev = 0
+                        while True:
+                            if i == -1:
+                                line_length += len(text) - i_prev
+                                if line_length > fill_column:
+                                    raise FmtExceptionEarlyExit
+                                break
 
-                        i_prev = i + 1
-                        line_length = 0
-                        i = text.find('\n', i + 1)
+                            line_length += i - i_prev
+                            if line_length > fill_column:
+                                raise FmtExceptionEarlyExit
 
-            try:
-                self.fmt_with_terminate_node(_ctx, write_fn_fast, level, test=True)
-            except FmtExceptionEarlyExit:
-                return 1
-            if line_length + trailing_parens > fill_column:
-                return 1
-            return 0
+                            i_prev = i + 1
+                            line_length = 0
+                            i = text.find('\n', i + 1)
+
+                try:
+                    self.fmt_with_terminate_node(_ctx, write_fn_fast, level, test=True)
+                except FmtExceptionEarlyExit:
+                    return 1
+                if line_length + trailing_parens > fill_column:
+                    return 1
+                return 0
 
         _data: List[str] = []
         write_fn = _data.append
