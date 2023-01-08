@@ -199,7 +199,8 @@ Notes:
   "Refresh internal list `spell-fu--cache-table-list'."
   (setq spell-fu--cache-table-list
     (mapcar
-      (lambda (dict) (symbol-value dict)) spell-fu-dictionaries)))
+      (lambda (dict) (symbol-value dict))
+      spell-fu-dictionaries)))
 
 (defun spell-fu--refresh ()
   "Reset spell-checked overlays in the current buffer."
@@ -613,7 +614,8 @@ This only checks the text matching face rules."
                 (
                   (point-end-iter
                     (spell-fu--next-faces-prop-change
-                      pos-beg pos-end))
+                      pos-beg
+                      pos-end))
                   (ok-end-iter
                     (and (< point-end-iter pos-end)
                       (spell-fu--check-faces-at-point

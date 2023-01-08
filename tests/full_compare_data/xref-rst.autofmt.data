@@ -254,7 +254,8 @@ Return the blank text representing the indentation or nil if none is found."
         (or (current-buffer)
           (user-error
             (concat
-              error-prefix "current buffer not found, exiting!"))))
+              error-prefix
+              "current buffer not found, exiting!"))))
       (current-filepath
         (or (buffer-file-name buf)
           (user-error
@@ -839,7 +840,8 @@ This is built from SYMBOL, FILE, LINE, COL and a raw LINE-TEXT result."
   (cond
     (xref-rst-mode
       (add-hook 'xref-backend-functions #'xref-rst-xref-backend
-        nil t))
+        nil
+        t))
     (t
       (remove-hook 'xref-backend-functions #'xref-rst-xref-backend
         t))))

@@ -1324,16 +1324,21 @@ class NdSexp(Node):
                 self.fmt_with_terminate_node(_ctx, write_fn_fast, level, test=True)
             except FmtExceptionEarlyExit:
                 return 1
+            if line_length + trailing_parens > fill_column:
+                return 1
             return 0
 
         _data: List[str] = []
         write_fn = _data.append
 
         self.fmt_with_terminate_node(_ctx, write_fn, level, test=True, test_node_terminate=test_node_terminate)
-        if (not cfg.use_trailing_parens) and (_ctx.line_terminate == _ctx.line):
-            line_terminate = _ctx.line_terminate
-        else:
-            line_terminate = -1
+
+        line_terminate = -1
+        if not cfg.use_trailing_parens:
+            if _ctx.line_terminate == _ctx.line:
+                line_terminate = _ctx.line_terminate
+            elif test_node_terminate is None:
+                line_terminate = _ctx.line
 
         data = ''.join(_data)
 

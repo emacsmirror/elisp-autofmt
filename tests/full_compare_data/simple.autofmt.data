@@ -1562,7 +1562,8 @@ doing any other command before the next \\[cycle-spacing]."
                   (funcall actual-action actual-n))
                 (t
                   (error
-                    "Don't know how to handle action %S" action)))))
+                    "Don't know how to handle action %S"
+                    action)))))
           (setf (plist-get cycle-spacing--context :last-action)
             action))))))
 
@@ -2246,7 +2247,13 @@ in *Help* buffer.  See also the command `describe-char'."
                 (single-key-description char)
                 (buffer-substring-no-properties (point) (1+ (point))))
               (single-key-description char))
-            bidi-fixer encoding-msg pos total percent col hscroll))))))
+            bidi-fixer
+            encoding-msg
+            pos
+            total
+            percent
+            col
+            hscroll))))))
 
 ;; Initialize read-expression-map.  It is defined at C level.
 (defvar read-expression-map
@@ -5288,7 +5295,8 @@ impose the use of a shell (with its need to quote arguments)."
                           (list
                             (format "COLUMNS=%d"
                               async-shell-command-width)))
-                        (comint-term-environment) process-environment)))
+                        (comint-term-environment)
+                        process-environment)))
                   (setq proc
                     (start-process-shell-command
                       "Shell"
@@ -5405,7 +5413,10 @@ and are used only if a pop-up buffer is displayed."
               (if (= (buffer-size) 0)
                 0
                 (count-screen-lines
-                  nil nil nil (minibuffer-window)))))
+                  nil
+                  nil
+                  nil
+                  (minibuffer-window)))))
           (cond
             ((= lines 0))
             (
@@ -5812,7 +5823,8 @@ File name handlers might not support pty association, if PROGRAM is nil."
     (
       (fh
         (find-file-name-handler
-          default-directory 'start-file-process)))
+          default-directory
+          'start-file-process)))
     (if fh
       (apply fh 'start-file-process name buffer program program-args)
       (apply 'start-process name buffer program program-args))))
@@ -6710,7 +6722,8 @@ of this sample text; it defaults to 40."
           (message "Copied text from \"%s\""
             (query-replace-descr
               (buffer-substring-no-properties
-                mark (+ mark len)))))))))
+                mark
+                (+ mark len)))))))))
 
 (defun append-next-kill (&optional interactive)
   "Cause following command, if it kills, to add to previous kill.
@@ -8029,7 +8042,9 @@ The overlay is returned by the function.")
               rol)))
         (unless (equal new rol)
           (set-window-parameter
-            window 'internal-region-overlay new))))))
+            window
+            'internal-region-overlay
+            new))))))
 
 (defcustom cursor-face-highlight-nonselected-window nil
   "Non-nil means highlight text with `cursor-face' even in nonselected windows.
@@ -10456,7 +10471,8 @@ The function should return non-nil if the two tokens do not match.")
                         (let ((code (syntax-after (point))))
                           (or (eq (syntax-class code) 6)
                             (eq
-                              (logand 1048576 (car code)) 1048576))))
+                              (logand 1048576 (car code))
+                              1048576))))
                       (forward-char 1))
                     (point))
                   (error nil))))))
@@ -11106,7 +11122,8 @@ Also see the `completion-wrap-movement' variable."
         (when (get-text-property (point) 'mouse-face)
           (goto-char
             (next-single-property-change (point) 'mouse-face
-              nil end)))
+              nil
+              end)))
         ;; If at the last completion option, wrap or skip to the
         ;; minibuffer, if requested. We can't use (eobp) because some
         ;; extra text may be after the last candidate: ex: when
@@ -11121,7 +11138,8 @@ Also see the `completion-wrap-movement' variable."
         (unless (get-text-property (point) 'mouse-face)
           (goto-char
             (next-single-property-change (point) 'mouse-face
-              nil end)))
+              nil
+              end)))
         (setq n (1- n)))
 
       (while (and (< n 0) (not (bobp)))
@@ -11288,7 +11306,8 @@ back on `completion-list-insert-choice-function' when nil."
         (not
           (and (active-minibuffer-window)
             (equal
-              buffer (window-buffer (active-minibuffer-window))))))
+              buffer
+              (window-buffer (active-minibuffer-window))))))
       (error "Minibuffer is not active for completion")
       ;; Set buffer so buffer-local choose-completion-string-functions works.
       (set-buffer buffer)
