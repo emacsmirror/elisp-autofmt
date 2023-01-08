@@ -773,7 +773,9 @@ Argument IS-INTERACTIVE is set when running interactively."
             (with-current-buffer stdout-buffer
               (write-region (point-min) (point-max) assume-file-name)))
            (t
-            (elisp-autofmt--replace-buffer-contents-with-fastpath stdout-buffer is-interactive)))))))))
+            (elisp-autofmt--replace-buffer-contents-with-fastpath
+             stdout-buffer
+             is-interactive)))))))))
 
 (defun elisp-autofmt--region (to-file is-interactive &optional assume-file-name)
   "Auto format the current region.
