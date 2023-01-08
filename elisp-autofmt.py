@@ -885,13 +885,11 @@ def apply_pre_indent_unwrap(
 
                 node.newline_state_set(state_test)
 
-                if cfg.style.use_native:
-                    # Apply these rules even while unwrapping.
-                    if node.flush_newlines_from_nodes_for_native():
-                        state_test = node.newline_state_get()
-                        if state_test in state_visit:
-                            node.newline_state_set(state_curr)
-                            continue
+                if node.newline_constraints_apply(cfg):
+                    state_test = node.newline_state_get()
+                    if state_test in state_visit:
+                        node.newline_state_set(state_curr)
+                        continue
 
                 parent_score_test = node_parent.fmt_check_exceeds_colum_max(
                     cfg,
@@ -1254,6 +1252,16 @@ class NdSexp(Node):
         '''
         for data, node in zip(state, self.nodes):
             node.force_newline = data
+
+    def newline_constraints_apply(self, cfg: FmtConfig) -> bool:
+        '''
+        Return true when any changes were made.
+        '''
+        changed = False
+        if cfg.style.use_native:
+            # Apply these rules even while unwrapping.
+            changed |= self.flush_newlines_from_nodes_for_native()
+        return changed
 
     def calc_nodes_level_next(self, cfg: FmtConfig, level: int) -> Sequence[int]:
         '''
@@ -1637,7 +1645,7 @@ class NdSexp(Node):
             return calc_over_long_line_score(data, fill_column, trailing_parens, line_terminate)
         return calc_over_long_line_length_test(data, fill_column, trailing_parens, line_terminate)
 
-    def fmt_pre_wrap(self, cfg: FmtConfig) -> None:
+    def fmt_pre_wrap_recursive(self, cfg: FmtConfig) -> None:
         '''
         Perform line wrapping, taking indent-levels into account.
         '''
@@ -1648,7 +1656,7 @@ class NdSexp(Node):
 
         for i, node in enumerate(self.nodes):
             if isinstance(node, NdSexp):
-                node.fmt_pre_wrap(cfg)
+                node.fmt_pre_wrap_recursive(cfg)
             force_newline |= node.force_newline
 
         use_native = cfg.style.use_native
@@ -2238,7 +2246,7 @@ def root_node_wrap(cfg_base: FmtConfig, node: NdSexp) -> None:
 
         apply_pre_indent(cfg, node, 0, 0)
 
-        node.fmt_pre_wrap(cfg)
+        node.fmt_pre_wrap_recursive(cfg)
 
         if cfg.style.use_native:
             node.flush_newlines_from_nodes_for_native_recursive()
