@@ -885,12 +885,13 @@ def apply_pre_indent_unwrap(
 
                 node.newline_state_set(state_test)
 
-                # Apply these rules even while unwrapping.
-                if node.flush_newlines_from_nodes_for_native():
-                    state_test = node.newline_state_get()
-                    if state_test in state_visit:
-                        node.newline_state_set(state_curr)
-                        continue
+                if cfg.style.use_native:
+                    # Apply these rules even while unwrapping.
+                    if node.flush_newlines_from_nodes_for_native():
+                        state_test = node.newline_state_get()
+                        if state_test in state_visit:
+                            node.newline_state_set(state_curr)
+                            continue
 
                 parent_score_test = node_parent.fmt_check_exceeds_colum_max(
                     cfg,
