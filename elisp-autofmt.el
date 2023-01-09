@@ -869,4 +869,8 @@ where loading changes back into the buffer is not important."
     (elisp-autofmt--disable))))
 
 (provide 'elisp-autofmt)
+;; Local Variables:
+;; fill-column: 99
+;; indent-tabs-mode: nil
+;; End:
 ;;; elisp-autofmt.el ends here
