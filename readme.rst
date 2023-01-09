@@ -217,3 +217,4 @@ TODO
 ====
 
 - Use: ``.elisp-autofmt`` as a configuration file.
+- Support indenting with Tabs *(low priority)*.
