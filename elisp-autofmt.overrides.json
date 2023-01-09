@@ -24,6 +24,7 @@
 "min": ["macro", 1, "many", {}],
 "or": ["macro", 1, "many", {}],
 
+"*": ["macro", 2, "many", {}],
 "+": ["macro", 2, "many", {}],
 "-": ["macro", 2, "many", {}],
 "%": ["macro", 2, "many", {}],
