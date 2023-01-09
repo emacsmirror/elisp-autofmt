@@ -388,7 +388,7 @@ When INCLUDE-PRIVATE is nil, exclude functions with \"--\" in their names."
       ;; Remove trailing comma (tsk).
       (delete-region (max block-beg (- (point) 2)) (max block-beg (- (point) 1))))
 
-    (insert "}\n") ;; "functions".
+    (insert "}\n") ; "functions".
     (insert "}\n")
     (write-region nil nil filepath nil 0)))
 
@@ -420,7 +420,7 @@ When SKIP-REQUIRE is non-nil, the package is not required."
             (elisp-autofmt--fn-defs-insert defs t)
             ;; Remove trailing comma (tsk).
             (delete-region (max block-beg (- (point) 2)) (max block-beg (- (point) 1))))
-          (insert "}\n") ;; "functions".
+          (insert "}\n") ; "functions".
           (insert "}\n")
           (write-region nil nil filepath nil 0))))))
 
@@ -450,9 +450,8 @@ Writes outputs to environment variable `ELISP_AUTOFMT_OUTPUT'."
   "Ensure cache exists.
 
 Call an external Emacs when USE-EXTERNAL-EMACS is non-nil."
-  (let* (
-         ;; Emacs binary location.
-         (filename (expand-file-name invocation-name invocation-directory))
+  ;; Emacs binary location `filename'.
+  (let* ((filename (expand-file-name invocation-name invocation-directory))
          (filename-cache-name-only (elisp-autofmt--cache-api-encode-name filename))
          (filename-cache-name-full
           (file-name-concat elisp-autofmt-cache-directory filename-cache-name-only)))
@@ -560,7 +559,7 @@ When SKIP-REQUIRE is set, don't require the package."
           (cond
            ((stringp package-id)
             (push (elisp-autofmt--cache-api-ensure-cache-for-package package-id t) cache-files))
-           (t ;; Unlikely, just helpful hint to users.
+           (t ; Unlikely, just helpful hint to users.
             (message "elisp-autofmt: skipping non-string feature reference %S" package-id)))))
 
       ;; Ensure external definitions.
