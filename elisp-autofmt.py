@@ -1161,6 +1161,9 @@ class NdSexp(Node):
         return changed
 
     def flush_newlines_from_nodes_for_native_recursive(self) -> bool:
+        '''
+        Run ``flush_newlines_from_nodes_for_native`` recursively.
+        '''
         changed = False
         for i, node in enumerate(self.nodes_only_code):
             if i > 1 and isinstance(node, NdSexp) and not node.force_newline and node.is_multiline():
@@ -1731,6 +1734,83 @@ def fmt_solver_fill_column_wrap(cfg: FmtConfig, node_parent: NdSexp, level: int,
             node_parent.prior_states.append(state_init)
 
 
+def fmt_solver_fill_column_unwrap_aggressive(
+        cfg: FmtConfig,
+        node_parent: NdSexp,
+        level: int,
+        trailing_parens: int,
+        visited: Set[int],
+) -> bool:
+    '''
+    First perform an unwrap: restore all nodes to their initial state recursively.
+    This is important because of how ``fmt_solver_newline_constraints_apply_recursive`` wraps
+    parent nodes based on the multi-line status of the child nodes (when ``check_parent_multiline`` is enabled).
+    Making it important to unwrap nodes recursively.
+    Without this more aggressive check - some S-expressions can become "stuck" in a multi-line state.
+    NOTE: An alternative to recursive unwrapping would be to track dependencies of why an S-expression is wrapped
+    and re-calculate the new-lines
+
+    Important _not_ to include ``node_parent`` in ``nodes_recursive_all`` because the next node from ``node_parent``
+    may not be on a new-line causing the score not to take into account sibling nodes which would
+    exceed the line length.
+    '''
+    assert node_parent.force_newline
+
+    nodes_recursive_all = list(node_parent.iter_nodes_recursive_with_prior_state(set()))
+
+    if nodes_recursive_all:
+        calc_score = True
+        states_recursive_curr = []
+        states_recursive_test = []
+        nodes_recursive = []
+        for node in nodes_recursive_all:
+            state_curr = node.newline_state_get()
+            state_test = node.prior_states[0]
+            if state_curr != state_test:
+                states_recursive_curr.append(state_curr)
+                states_recursive_test.append(state_test)
+                nodes_recursive.append(node)
+
+        # It's possible there are no new states worth testing.
+        if nodes_recursive:
+            # Calculate this before making the first change.
+            parent_score_curr = node_parent.fmt_check_exceeds_colum_max(
+                cfg,
+                level,
+                trailing_parens,
+                calc_score=True,
+            )
+            if parent_score_curr == 0:
+                calc_score = False
+
+            # Set the new state.
+            # TODO: Python 3.10 `strict=True`.
+            for node, state_test in zip(nodes_recursive, states_recursive_test):
+                node.newline_state_set(state_test)
+
+            fmt_solver_newline_constraints_apply_recursive(node_parent, cfg, check_parent_multiline=True)
+            parent_score_test = node_parent.fmt_check_exceeds_colum_max(
+                cfg,
+                level,
+                trailing_parens,
+                calc_score=calc_score,
+            )
+            if parent_score_test <= parent_score_curr:
+                # Keep the new state.
+                for node in nodes_recursive_all:
+                    node.prior_states.clear()
+                    # No need to visit them again.
+                    visited.add(id(node))
+                return True
+
+            # Restore the initial state.
+            # TODO: Python 3.10 `strict=True`.
+            for node, state in zip(nodes_recursive, states_recursive_curr):
+                node.newline_state_set(state)
+
+    return False
+
+
 def fmt_solver_fill_column_unwrap(
         cfg: FmtConfig,
         node_parent: NdSexp,
@@ -1751,6 +1831,10 @@ def fmt_solver_fill_column_unwrap(
     '''
     if not node_parent.nodes_only_code:
         return
+
+    if node_parent.force_newline:
+        if fmt_solver_fill_column_unwrap_aggressive(cfg, node_parent, level, trailing_parens, visited):
+            return
 
     node_trailing_parens = node_parent.node_last_for_trailing_parens_test()
 
@@ -1814,7 +1898,7 @@ def fmt_solver_fill_column_unwrap(
 
                 node.newline_state_set(state_test)
 
-                if fmt_solver_newline_constraints_apply(node, cfg):
+                if fmt_solver_newline_constraints_apply(node, cfg, check_parent_multiline=True):
                     state_test = node.newline_state_get()
                     if state_test in state_visit:
                         node.newline_state_set(state_curr)
@@ -1840,7 +1924,11 @@ def fmt_solver_fill_column_unwrap(
             node.prior_states.clear()
 
 
-def fmt_solver_newline_constraints_apply(node_parent: NdSexp, cfg: FmtConfig) -> bool:
+def fmt_solver_newline_constraints_apply(
+        node_parent: NdSexp,
+        cfg: FmtConfig,
+        check_parent_multiline: bool,
+) -> bool:
     '''
     Add newlines based on constraints (untreated to the fill-column).
     Return true when a change was made.
@@ -1869,7 +1957,7 @@ def fmt_solver_newline_constraints_apply(node_parent: NdSexp, cfg: FmtConfig) ->
     #
     # ... respecting the hint for where to split.
     #
-    if node_parent.is_multiline():
+    if check_parent_multiline and node_parent.is_multiline():
         if len(node_parent.nodes_only_code) > node_parent.index_wrap_hint:
             node = node_parent.nodes_only_code[node_parent.index_wrap_hint]
             if not node.force_newline:
@@ -1917,7 +2005,11 @@ def fmt_solver_newline_constraints_apply(node_parent: NdSexp, cfg: FmtConfig) ->
     return changed
 
 
-def fmt_solver_newline_constraints_apply_recursive(node_parent: NdSexp, cfg: FmtConfig) -> None:
+def fmt_solver_newline_constraints_apply_recursive(
+        node_parent: NdSexp,
+        cfg: FmtConfig,
+        check_parent_multiline: bool,
+) -> None:
     '''
     Perform line wrapping, taking indent-levels into account.
     '''
@@ -1926,9 +2018,9 @@ def fmt_solver_newline_constraints_apply_recursive(node_parent: NdSexp, cfg: Fmt
 
     force_newline = False
 
-    for i, node in enumerate(node_parent.nodes):
+    for node in node_parent.nodes:
         if isinstance(node, NdSexp):
-            fmt_solver_newline_constraints_apply_recursive(node, cfg)
+            fmt_solver_newline_constraints_apply_recursive(node, cfg, check_parent_multiline)
         force_newline |= node.force_newline
 
     if cfg.style.use_native:
@@ -1937,7 +2029,7 @@ def fmt_solver_newline_constraints_apply_recursive(node_parent: NdSexp, cfg: Fmt
         if force_newline:
             node_parent.force_newline = True
 
-    if fmt_solver_newline_constraints_apply(node_parent, cfg):
+    if fmt_solver_newline_constraints_apply(node_parent, cfg, check_parent_multiline):
         if not cfg.style.use_native:
             node_parent.force_newline = True
 
@@ -1946,15 +2038,18 @@ def fmt_solver_for_root_node(cfg: FmtConfig, node: NdSexp) -> None:
     '''
     Calculate line wrapping for top-level nodes.
     '''
+    # It's important to store the initial newlines before `check_parent_multiline` is applied,
+    # to allow restoring to a point that doesn't include lines wrapped by the parent state.
     apply_rules(cfg, node)
-    fmt_solver_newline_constraints_apply_recursive(node, cfg)
-
+    fmt_solver_newline_constraints_apply_recursive(node, cfg, check_parent_multiline=False)
     for n in node.iter_nodes_recursive_with_self():
         if isinstance(n, NdSexp):
             n.prior_states.append(n.newline_state_get())
 
+    fmt_solver_newline_constraints_apply_recursive(node, cfg, check_parent_multiline=True)
+
     fmt_solver_fill_column_wrap(cfg, node, 0, 0)
-    fmt_solver_newline_constraints_apply_recursive(node, cfg)
+    fmt_solver_newline_constraints_apply_recursive(node, cfg, check_parent_multiline=True)
 
     if cfg.style.use_native:
         fmt_solver_fill_column_unwrap(cfg, node, 0, 0, set())
