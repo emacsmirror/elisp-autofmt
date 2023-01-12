@@ -1197,7 +1197,7 @@ class NdSexp(Node):
             node.calc_force_newline(style)
             if not node.force_newline:
                 if node_prev:
-                    if isinstance(node_prev, NdComment):
+                    if isinstance(node_prev, (NdComment, NdWs)):
                         node.force_newline = True
                     elif isinstance(node_prev, NdSymbol):
                         # Always keep trailing back-slashes,
