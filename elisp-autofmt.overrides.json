@@ -38,7 +38,9 @@
 "unwind-protect": ["special", 0, "unevalled", {"break": "always", "indent": 1}],
 
 "save-excursion": ["macro", 0, "many", {"break": "multi", "indent": 0}],
+"save-match-data": ["macro", 0, "many", {"break": "multi", "indent": 0}],
 "save-restriction": ["macro", 0, "many", {"break": "multi", "indent": 0}],
+"save-window-excursion": ["macro", 0, "many", {"break": "multi", "indent": 0}],
 
 "fset": ["func", 2, "many", {"break": "multi", "break_point": "overflow", "group": [0, 2]}],
 "setf": ["func", 2, "many", {"break": "multi", "break_point": "overflow", "group": [0, 2]}],
