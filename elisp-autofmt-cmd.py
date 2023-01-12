@@ -65,23 +65,23 @@ def emacs_elisp_autofmt_file_as_str(
         '-l', os.path.join(THIS_DIR, 'elisp-autofmt.el'),
         *filepaths,
         '--eval', '''
-(setq elisp-autofmt-python-bin (getenv "PYTHON_BIN"))
-(let ((use-stdout (string-equal "1" (getenv "USE_STDOUT"))))
-  (dolist (buf (buffer-list))
-    (with-current-buffer buf
-      (when (buffer-file-name)
-        (setq buffer-undo-list t) ;; Disable undo.
-        (cond
-         (use-stdout
-          (princ buffer-file-name)
-          (princ "\n")
-          (elisp-autofmt-buffer-to-file))
-         (t
-          (elisp-autofmt-buffer)
-          (princ (buffer-substring-no-properties (point-min) (point-max)))))))))
+(progn
+ (setq elisp-autofmt-python-bin (getenv "PYTHON_BIN"))
+ (let ((use-stdout (string-equal "1" (getenv "USE_STDOUT"))))
+   (dolist (buf (buffer-list))
+     (with-current-buffer buf
+       (when (buffer-file-name)
+         (setq buffer-undo-list t) ;; Disable undo.
+         (cond
+          (use-stdout
+           (elisp-autofmt-buffer)
+           (princ (buffer-substring-no-properties (point-min) (point-max))))
+          (t
+           (princ buffer-file-name)
+           (princ "\n")
+           (elisp-autofmt-buffer-to-file))))))))
 ''',
     )
-
     env = os.environ.copy()
     env['PYTHON_BIN'] = sys.executable
     env['USE_STDOUT'] = str(int(use_stdout))
@@ -90,6 +90,7 @@ def emacs_elisp_autofmt_file_as_str(
         cmd,
         capture_output=use_stdout,
         check=False,
+        env=env,
     )
     return (
         completed_proc.returncode,
