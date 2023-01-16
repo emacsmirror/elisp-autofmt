@@ -872,6 +872,17 @@ class NdSexp(Node):
                 return defs.fn_arity.get(node.data)
         return None
 
+    def maybe_function_call(self) -> bool:
+        '''
+        Return true if this may be a function call signature.
+        '''
+        if self.nodes_only_code:
+            node = self.nodes_only_code[0]
+            # Currently numbers are treated as symbols, check their contents here.
+            if isinstance(node, NdSymbol) and node.data.isdigit() is False:
+                return True
+        return False
+
     def is_multiline(self) -> bool:
         '''
         Return true if this S-expression spans multiple lines.
@@ -1797,7 +1808,7 @@ def fmt_solver_node_prior_states_with_generated_alternatives(
             # In this case don't attempt to wrap arguments onto a single line, reserve this for function-calls.
             (not node.wrap_all_or_nothing_hint) and
             # Ensure this is not a literal list of strings or numbers for e.g.
-            (isinstance(node.nodes_only_code[0], NdSymbol) and node.nodes_only_code[0].data.isdigit() is False) and
+            node.maybe_function_call() and
             # All arguments were wrapped onto separate lines.
             (False not in state_curr[1:])
     ):
@@ -2106,11 +2117,16 @@ def fmt_solver_newline_constraints_apply(
     # ... respecting the hint for where to split.
     #
     if check_parent_multiline and node_parent.is_multiline():
+        # First node is a symbol (matches a function signature):
         if len(node_parent.nodes_only_code) > node_parent.index_wrap_hint:
-            node = node_parent.nodes_only_code[node_parent.index_wrap_hint]
-            if not node.force_newline:
-                node.force_newline = True
-                changed = True
+            if (
+                    node_parent.maybe_function_call() or
+                    isinstance(node_parent.nodes_only_code[0], NdSexp)
+            ):
+                node = node_parent.nodes_only_code[node_parent.index_wrap_hint]
+                if not node.force_newline:
+                    node.force_newline = True
+                    changed = True
 
         # Ensure colon prefixed arguments are on new-lines
         # if the block is multi-line.
