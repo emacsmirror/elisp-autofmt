@@ -862,6 +862,16 @@ class NdSexp(Node):
             '\n'.join(textwrap.indent(repr(node), '  ') for node in self.nodes),
         )
 
+    def fn_arity_get_from_first_symbol(self, defs: FmtDefs) -> Optional[FnArity]:
+        '''
+        Return the ``FnArity`` from the first argument of this S-expressions symbol (if it is a symbol).
+        '''
+        if self.nodes_only_code:
+            node = self.nodes_only_code[0]
+            if isinstance(node, NdSymbol):
+                return defs.fn_arity.get(node.data)
+        return None
+
     def is_multiline(self) -> bool:
         '''
         Return true if this S-expression spans multiple lines.
@@ -1739,6 +1749,10 @@ def fmt_solver_node_prior_states_with_generated_alternatives(
         state_curr: NdSexp_WrapState,
         defs: FmtDefs,
 ) -> Generator[NdSexp_WrapState, None, None]:
+    '''
+    Yield node.prior_states, if those are exhausted and unable to be used,
+    attempt some alternative wrapping styles as fall-backs.
+    '''
     assert node.prior_states
     state_init = node.prior_states[0]
     yield from node.prior_states
@@ -1757,14 +1771,23 @@ def fmt_solver_node_prior_states_with_generated_alternatives(
     #     d
     #     e)
     #
-    # Can be wrapped as:
+    # When `d` and `e` are optional arguments a split in the argument list may be used:
     #
     #    (function-call
     #     a b c d e)
     #
     #    (function-call a b c
     #                   d e)
-    # When `d` and `e` are optional arguments.
+    #
+    # Finally (if all else fails), attempt moving all arguments onto the previous line.
+    # This is typically only done when each argument it's self is very long, otherwise
+    # they will normally fit onto a single line.
+    #
+    #    (function-call a
+    #                   b
+    #                   c
+    #                   d
+    #                   e)
     #
     # Note that this is only attempted as a last resort because attempting this style early on
     # causes an awkward and unbalanced formatting.
@@ -1773,29 +1796,87 @@ def fmt_solver_node_prior_states_with_generated_alternatives(
             # this is a hint that the block was for a macro or special such as `progn`.
             # In this case don't attempt to wrap arguments onto a single line, reserve this for function-calls.
             (not node.wrap_all_or_nothing_hint) and
-            # It only makes sense to run this logic if there are multiple arguments to deal with.
-            (len(node.nodes_only_code) > 1) and
-            # At the moment are used interchangeably so mis-alignment is not supported.
-            (len(node.nodes_only_code) == len(node.nodes)) and
-            # Was on a single line (ignoring the first).
-            (True not in state_init[1:]) and
+            # Ensure this is not a literal list of strings or numbers for e.g.
+            (isinstance(node.nodes_only_code[0], NdSymbol) and node.nodes_only_code[0].data.isdigit() is False) and
             # All arguments were wrapped onto separate lines.
             (False not in state_curr[1:])
     ):
-        # All wrapped.
-        if node.index_wrap_hint < len(node.nodes_only_code):
-            index_wrap_hint = node.index_wrap_hint
-        else:
-            index_wrap_hint = 1
-        state_gen = [False] * len(state_curr)
-        state_gen[index_wrap_hint] = True
-        yield tuple(state_gen)
 
-        # Check if the line can be broken up.
-        if index_wrap_hint > 1:
-            # Wrap both `index_wrap_hint` and 1.
-            state_gen[1] = True
+        if (
+                # It only makes sense to run this logic if there are multiple arguments to deal with.
+                (len(node.nodes_only_code) > 1) and
+                # At the moment are used interchangeably so mis-alignment is not supported.
+                (len(node.nodes_only_code) == len(node.nodes)) and
+                # Was on a single line (ignoring the first).
+                (True not in state_init[1:])
+        ):
+            # All wrapped.
+            if node.index_wrap_hint < len(node.nodes_only_code):
+                index_wrap_hint = node.index_wrap_hint
+            else:
+                index_wrap_hint = 1
+            state_gen = [False] * len(state_curr)
+
+            # Provide:
+            #
+            #    (function-call
+            #     a b c d e)
+
+            state_gen[index_wrap_hint] = True
             yield tuple(state_gen)
+
+            # Check if the line can be broken up.
+            if index_wrap_hint > 1:
+                # Provide :
+                #
+                #    (function-call a b c
+                #                   d e)
+                #
+
+                # Wrap both `index_wrap_hint` and 1.
+                state_gen[1] = True
+                yield tuple(state_gen)
+                state_gen[1] = False
+            state_gen[index_wrap_hint] = False
+
+        if (
+                # It only makes sense to run this logic if there are multiple arguments to deal with.
+                (len(state_curr) > 2) and
+                # All arguments were wrapped onto separate lines.
+                (False not in state_curr[1:]) and
+                # We never want to move comments or white-space around,
+                # any other line may include comments or blank lines.
+                isinstance(node.nodes[0], NODE_CODE_TYPES) and
+                isinstance(node.nodes[1], NODE_CODE_TYPES)
+        ):
+            # Provide:
+            #
+            #    (function-call a
+            #                   b
+            #                   c
+            #                   d
+            #                   e)
+            #
+
+            # Skip when the indent hint is set as this means wrapping on the first line doesn't typically make sense.
+            has_indent = False
+            if (fn_data := (node.fn_arity_get_from_first_symbol(defs))) is not None:
+                # May be `FnArity` or a list.
+                hints = fn_data[3]
+                if hints and 'indent' in hints:
+                    has_indent = True
+
+            # Don't attempt to wrap anything that defines an indent.
+            # It's too likely to lead to:
+            #
+            #     (some-macro awkwardly
+            #        indented
+            #      arguments)
+            if not has_indent:
+                state_gen = [True] * len(state_curr)
+                state_gen[0] = False
+                state_gen[1] = False
+                yield tuple(state_gen)
 
 
 def fmt_solver_fill_column_unwrap_aggressive(
