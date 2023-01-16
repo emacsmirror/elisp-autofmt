@@ -237,8 +237,7 @@ Any `stderr' is output a message and is interpreted as failure."
     (let ((file-test-time (file-attribute-modification-time (file-attributes file-test))))
       (dolist (file-new file-list)
         (when (time-less-p
-               file-test-time
-               (file-attribute-modification-time (file-attributes file-new)))
+               file-test-time (file-attribute-modification-time (file-attributes file-new)))
           (throw 'result t)))
       nil)))
 
@@ -329,10 +328,7 @@ When INCLUDE-PRIVATE is nil, exclude functions with \"--\" in their names."
                 ;; Ignore "--" separators as this is a convention for private names.
                 (when (or include-private (null (string-match-p "--" sym-name)))
                   (elisp-autofmt--cache-api-insert-function-to-file
-                   sym-id
-                   sym-name
-                   sym-ty
-                   (func-arity sym-id)))))))))))
+                   sym-id sym-name sym-ty (func-arity sym-id)))))))))))
 
 (defun elisp-autofmt--cache-api-generate-for-builtins (filepath)
   "Generate API cache for built-in output at FILEPATH."
@@ -462,8 +458,7 @@ Call an external Emacs when USE-EXTERNAL-EMACS is non-nil."
        (use-external-emacs
         (let ((process-environment
                (cons
-                (concat "ELISP_AUTOFMT_OUTPUT=" filename-cache-name-full)
-                process-environment)))
+                (concat "ELISP_AUTOFMT_OUTPUT=" filename-cache-name-full) process-environment)))
 
           (elisp-autofmt--call-checked
            (list
@@ -503,9 +498,7 @@ When SKIP-REQUIRE is set, don't require the package."
         (when (or (not (file-exists-p filename-cache-name-full))
                   (elisp-autofmt--cache-api-file-is-older filename-cache-name-full filename))
           (elisp-autofmt--cache-api-generate-for-package
-           filename-cache-name-full
-           package-id
-           skip-require))
+           filename-cache-name-full package-id skip-require))
         filename-cache-name-only))))
 
 (defun elisp-autofmt--cache-api-ensure-cache-for-filepath (filepath)
@@ -773,8 +766,7 @@ Argument IS-INTERACTIVE is set when running interactively."
               (write-region (point-min) (point-max) assume-file-name)))
            (t
             (elisp-autofmt--replace-buffer-contents-with-fastpath
-             stdout-buffer
-             is-interactive)))))))))
+             stdout-buffer is-interactive)))))))))
 
 (defun elisp-autofmt--region (to-file is-interactive &optional assume-file-name)
   "Auto format the current region.
