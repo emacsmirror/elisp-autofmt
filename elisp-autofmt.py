@@ -1892,6 +1892,8 @@ def fmt_solver_fill_column_unwrap(
             state_visit = {state_curr}
 
             for state_test in node.prior_states:
+                # Should never be an empty list.
+                assert state_test
 
                 if state_test in state_visit:
                     continue
@@ -2043,7 +2045,7 @@ def fmt_solver_for_root_node(cfg: FmtConfig, node: NdSexp) -> None:
     apply_rules(cfg, node)
     fmt_solver_newline_constraints_apply_recursive(node, cfg, check_parent_multiline=False)
     for n in node.iter_nodes_recursive_with_self():
-        if isinstance(n, NdSexp):
+        if isinstance(n, NdSexp) and n.nodes_only_code:
             n.prior_states.append(n.newline_state_get())
 
     fmt_solver_newline_constraints_apply_recursive(node, cfg, check_parent_multiline=True)
