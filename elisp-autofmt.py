@@ -1734,6 +1734,70 @@ def fmt_solver_fill_column_wrap(cfg: FmtConfig, node_parent: NdSexp, level: int,
             node_parent.prior_states.append(state_init)
 
 
+def fmt_solver_node_prior_states_with_generated_alternatives(
+        node: NdSexp,
+        state_curr: NdSexp_WrapState,
+        defs: FmtDefs,
+) -> Generator[NdSexp_WrapState, None, None]:
+    assert node.prior_states
+    state_init = node.prior_states[0]
+    yield from node.prior_states
+
+    # NOTE: in many cases one of the states yielded above will be used and the following code
+    # will not run.
+
+    # Generate additional unwrapped states on the fly.
+    # This is done so arguments that each onto their own line can have single line wrapped versions,
+    # e.g:
+    #
+    #    (function-call
+    #     a
+    #     b
+    #     c
+    #     d
+    #     e)
+    #
+    # Can be wrapped as:
+    #
+    #    (function-call
+    #     a b c d e)
+    #
+    #    (function-call a b c
+    #                   d e)
+    # When `d` and `e` are optional arguments.
+    #
+    # Note that this is only attempted as a last resort because attempting this style early on
+    # causes an awkward and unbalanced formatting.
+    if (
+            # No mixed wrapping allowed,
+            # this is a hint that the block was for a macro or special such as `progn`.
+            # In this case don't attempt to wrap arguments onto a single line, reserve this for function-calls.
+            (not node.wrap_all_or_nothing_hint) and
+            # It only makes sense to run this logic if there are multiple arguments to deal with.
+            (len(node.nodes_only_code) > 1) and
+            # At the moment are used interchangeably so mis-alignment is not supported.
+            (len(node.nodes_only_code) == len(node.nodes)) and
+            # Was on a single line (ignoring the first).
+            (True not in state_init[1:]) and
+            # All arguments were wrapped onto separate lines.
+            (False not in state_curr[1:])
+    ):
+        # All wrapped.
+        if node.index_wrap_hint < len(node.nodes_only_code):
+            index_wrap_hint = node.index_wrap_hint
+        else:
+            index_wrap_hint = 1
+        state_gen = [False] * len(state_curr)
+        state_gen[index_wrap_hint] = True
+        yield tuple(state_gen)
+
+        # Check if the line can be broken up.
+        if index_wrap_hint > 1:
+            # Wrap both `index_wrap_hint` and 1.
+            state_gen[1] = True
+            yield tuple(state_gen)
+
+
 def fmt_solver_fill_column_unwrap_aggressive(
         cfg: FmtConfig,
         node_parent: NdSexp,
@@ -1891,51 +1955,8 @@ def fmt_solver_fill_column_unwrap(
             state_curr = node.newline_state_get()
             state_visit = {state_curr}
 
-            # Generate additional unwrapped states on the fly.
-            # This is done so arguments that each onto their own line can have single line wrapped versions,
-            # e.g:
-            #
-            #    (function-call
-            #     a
-            #     b
-            #     c
-            #     d
-            #     e)
-            #
-            # Can be wrapped as:
-            #
-            #    (function-call
-            #     a b c d e)
-            #
-            #    (function-call a b c
-            #                   d e)
-            # When `d` and `e` are optional arguments.
-            #
-            # Note that this is only attempted as a last resort because attempting this style early on
-            # causes an awkward and unbalanced formatting.
-
-            # NOTE: this could be optimized to only apply once existing `prior_states`
-            # have been checked and cannot be used.
-            if not node.wrap_all_or_nothing_hint and len(node.nodes_only_code) > 1:
-                # All arguments were wrapped.
-                if False not in state_curr[1:]:
-                    state_init = node.prior_states[0]
-                    # Was on a single line.
-                    if True not in state_init[1:]:
-                        # All wrapped.
-                        if node.index_wrap_hint < len(node.nodes_only_code):
-                            index_wrap_hint = node.index_wrap_hint
-                        else:
-                            index_wrap_hint = 1
-                        state_gen = [False] * len(state_curr)
-                        state_gen[index_wrap_hint] = True
-                        node.prior_states.append(tuple(state_gen))
-                        if index_wrap_hint != 1:
-                            # Wrap both `index_wrap_hint` and 1.
-                            state_gen[1] = True
-                            node.prior_states.append(tuple(state_gen))
-
-            for state_test in node.prior_states:
+            # Iterate over prior states and optionally generate additional states that can be used as a last resort.
+            for state_test in fmt_solver_node_prior_states_with_generated_alternatives(node, state_curr, cfg.defs):
                 # Should never be an empty list.
                 assert state_test
 
