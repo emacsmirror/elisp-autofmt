@@ -1803,10 +1803,6 @@ def fmt_solver_node_prior_states_with_generated_alternatives(
     # Note that this is only attempted as a last resort because attempting this style early on
     # causes an awkward and unbalanced formatting.
     if (
-            # No mixed wrapping allowed,
-            # this is a hint that the block was for a macro or special such as `progn`.
-            # In this case don't attempt to wrap arguments onto a single line, reserve this for function-calls.
-            (not node.wrap_all_or_nothing_hint) and
             # Ensure this is not a literal list of strings or numbers for e.g.
             node.maybe_function_call() and
             # All arguments were wrapped onto separate lines.
@@ -1814,6 +1810,10 @@ def fmt_solver_node_prior_states_with_generated_alternatives(
     ):
 
         if (
+                # No mixed wrapping allowed,
+                # this is a hint that the block was for a macro or special such as `progn`.
+                # In this case don't attempt to wrap arguments onto a single line, reserve this for function-calls.
+                (not node.wrap_all_or_nothing_hint) and
                 # It only makes sense to run this logic if there are multiple arguments to deal with.
                 (len(node.nodes_only_code) > 1) and
                 # At the moment are used interchangeably so mis-alignment is not supported.
