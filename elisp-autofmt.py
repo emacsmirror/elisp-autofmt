@@ -2843,7 +2843,7 @@ def argparse_create() -> argparse.ArgumentParser:
         nargs='?',
         type=int,
         required=False,
-        help='The number of parallel processes to use (zero to select automatically).',
+        help='The number of parallel processes to use (zero to select automatically, -1 to disable multi-processing).',
     )
 
     parser.add_argument(
