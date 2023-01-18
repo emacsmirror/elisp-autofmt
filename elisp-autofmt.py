@@ -921,6 +921,15 @@ class NdSexp(Node):
             if isinstance(node, NdSexp):
                 yield from node.iter_nodes_recursive()
 
+    def iter_nodes_recursive_only_sexp(self) -> Generator[Node, None, None]:
+        '''
+        Iterate over all S-expression nodes recursively.
+        '''
+        for node in self.nodes_only_code:
+            if isinstance(node, NdSexp):
+                yield node
+                yield from node.iter_nodes_recursive_only_sexp()
+
     def iter_nodes_recursive_with_self(self) -> Generator[Node, None, None]:
         '''
         Iterate over all nodes recursively, including this node (first).
@@ -930,6 +939,16 @@ class NdSexp(Node):
             yield node
             if isinstance(node, NdSexp):
                 yield from node.iter_nodes_recursive()
+
+    def iter_nodes_recursive_with_self_only_sexp(self) -> Generator[Node, None, None]:
+        '''
+        Iterate over all S-expression nodes recursively, including this node (first).
+        '''
+        yield self
+        for node in self.nodes_only_code:
+            if isinstance(node, NdSexp):
+                yield node
+                yield from node.iter_nodes_recursive_only_sexp()
 
     def iter_nodes_recursive_with_parent(self) -> Generator[Tuple[Node, NdSexp], None, None]:
         '''
@@ -2206,8 +2225,8 @@ def fmt_solver_for_root_node(cfg: FmtConfig, node: NdSexp) -> None:
     # to allow restoring to a point that doesn't include lines wrapped by the parent state.
     apply_rules(cfg, node)
     fmt_solver_newline_constraints_apply_recursive(node, cfg, check_parent_multiline=False)
-    for n in node.iter_nodes_recursive_with_self():
-        if isinstance(n, NdSexp) and n.nodes_only_code:
+    for n in node.iter_nodes_recursive_with_self_only_sexp():
+        if n.nodes_only_code:
             n.prior_states.append(n.newline_state_get())
 
     fmt_solver_newline_constraints_apply_recursive(node, cfg, check_parent_multiline=True)
@@ -2709,9 +2728,8 @@ def format_file(
             do_wrap_level_0(cfg, root)
 
         if USE_PARANOID_ASSERT:
-            for node in root.iter_nodes_recursive():
-                if isinstance(node, NdSexp):
-                    assert bool(node.prior_states) is False
+            for node in root.iter_nodes_recursive_only_sexp():
+                assert bool(node.prior_states) is False
 
     if cfg.style.use_native:
         pass
