@@ -464,7 +464,7 @@ def scan_used_fn_defs(defs: FmtDefs, node_parent: NdSexp, fn_used: Set[str]) -> 
             scan_used_fn_defs(defs, node, fn_used)
 
 
-def apply_rules(cfg: FmtConfig, node_parent: NdSexp) -> None:
+def apply_rules_recursive(cfg: FmtConfig, node_parent: NdSexp) -> None:
     '''
     Define line breaks using rules set by:
 
@@ -611,7 +611,7 @@ def apply_rules(cfg: FmtConfig, node_parent: NdSexp) -> None:
 
     for node in node_parent.nodes_only_code:
         if isinstance(node, NdSexp):
-            apply_rules(cfg, node)
+            apply_rules_recursive(cfg, node)
         if not use_native:
             if node.force_newline:
                 node_parent.force_newline = True
@@ -931,7 +931,7 @@ class NdSexp(Node):
             if isinstance(node, NdSexp):
                 yield from node.iter_nodes_recursive()
 
-    def iter_nodes_recursive_only_sexp(self) -> Generator[Node, None, None]:
+    def iter_nodes_recursive_only_sexp(self) -> Generator[NdSexp, None, None]:
         '''
         Iterate over all S-expression nodes recursively.
         '''
@@ -950,7 +950,7 @@ class NdSexp(Node):
             if isinstance(node, NdSexp):
                 yield from node.iter_nodes_recursive()
 
-    def iter_nodes_recursive_with_self_only_sexp(self) -> Generator[Node, None, None]:
+    def iter_nodes_recursive_with_self_only_sexp(self) -> Generator[NdSexp, None, None]:
         '''
         Iterate over all S-expression nodes recursively, including this node (first).
         '''
@@ -1739,7 +1739,12 @@ def fmt_solver_fill_column_wrap_each_argument(
                     node.force_newline = False
 
 
-def fmt_solver_fill_column_wrap(cfg: FmtConfig, node_parent: NdSexp, level: int, trailing_parens: int) -> None:
+def fmt_solver_fill_column_wrap_recursive(
+        cfg: FmtConfig,
+        node_parent: NdSexp,
+        level: int,
+        trailing_parens: int,
+) -> None:
     '''
     For lists that will need wrapping even when all parents are wrapped,
     wrap these beforehand.
@@ -1756,7 +1761,7 @@ def fmt_solver_fill_column_wrap(cfg: FmtConfig, node_parent: NdSexp, level: int,
     for i, node in enumerate(node_parent.nodes):
         if isinstance(node, NdSexp):
             level_next = level_next_data[min(i, level_next_data_last)]
-            fmt_solver_fill_column_wrap(
+            fmt_solver_fill_column_wrap_recursive(
                 cfg,
                 node,
                 level_next,
@@ -1996,7 +2001,7 @@ def fmt_solver_fill_column_unwrap_aggressive(
     return False
 
 
-def fmt_solver_fill_column_unwrap(
+def fmt_solver_fill_column_unwrap_recursive(
         cfg: FmtConfig,
         node_parent: NdSexp,
         level: int,
@@ -2028,7 +2033,7 @@ def fmt_solver_fill_column_unwrap(
     for i, node in enumerate(node_parent.nodes):
         if isinstance(node, NdSexp):
             level_next = level_next_data[min(i, level_next_data_last)]
-            fmt_solver_fill_column_unwrap(
+            fmt_solver_fill_column_unwrap_recursive(
                 cfg,
                 node,
                 level_next,
@@ -2125,7 +2130,7 @@ def fmt_solver_newline_constraints_apply(
 
     changed = False
 
-    # # From `fmt_solver_fill_column_wrap`, technically correct but not needed.
+    # # From `fmt_solver_fill_column_wrap_recursive`, technically correct but not needed.
     # if node_parent.wrap_all_or_nothing_hint and node_parent.is_multiline():
     #     apply_relaxed_wrap(node_parent, cfg.style)
 
@@ -2233,7 +2238,7 @@ def fmt_solver_for_root_node(cfg: FmtConfig, node: NdSexp) -> None:
     '''
     # It's important to store the initial newlines before `check_parent_multiline` is applied,
     # to allow restoring to a point that doesn't include lines wrapped by the parent state.
-    apply_rules(cfg, node)
+    apply_rules_recursive(cfg, node)
     fmt_solver_newline_constraints_apply_recursive(node, cfg, check_parent_multiline=False)
     for n in node.iter_nodes_recursive_with_self_only_sexp():
         if n.nodes_only_code:
@@ -2241,11 +2246,11 @@ def fmt_solver_for_root_node(cfg: FmtConfig, node: NdSexp) -> None:
 
     fmt_solver_newline_constraints_apply_recursive(node, cfg, check_parent_multiline=True)
 
-    fmt_solver_fill_column_wrap(cfg, node, 0, 0)
+    fmt_solver_fill_column_wrap_recursive(cfg, node, 0, 0)
     fmt_solver_newline_constraints_apply_recursive(node, cfg, check_parent_multiline=True)
 
     if cfg.style.use_native and cfg.fill_column != 0:
-        fmt_solver_fill_column_unwrap(cfg, node, 0, 0, set())
+        fmt_solver_fill_column_unwrap_recursive(cfg, node, 0, 0, set())
     if USE_PARANOID_ASSERT:
         if node.flush_newlines_from_nodes_for_native_recursive():
             raise Exception('this should be maintained while unwrapping!')
