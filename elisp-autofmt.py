@@ -2234,7 +2234,7 @@ def fmt_solver_for_root_node(cfg: FmtConfig, node: NdSexp) -> None:
     fmt_solver_fill_column_wrap(cfg, node, 0, 0)
     fmt_solver_newline_constraints_apply_recursive(node, cfg, check_parent_multiline=True)
 
-    if cfg.style.use_native:
+    if cfg.style.use_native and cfg.fill_column != 0:
         fmt_solver_fill_column_unwrap(cfg, node, 0, 0, set())
     if USE_PARANOID_ASSERT:
         if node.flush_newlines_from_nodes_for_native_recursive():
@@ -2823,7 +2823,7 @@ def argparse_create() -> argparse.ArgumentParser:
         nargs='?',
         type=int,
         required=False,
-        help='Maxumum column width.',
+        help='Maxumum column width (zero disables).',
     )
 
     parser.add_argument(
@@ -2990,7 +2990,7 @@ def main() -> None:
             ),
             use_trailing_parens=args.fmt_use_trailing_parens,
             use_multiprocessing=args.parallel_jobs >= 0,
-            fill_column=args.fmt_fill_column,
+            fill_column=max(0, args.fmt_fill_column),
             empty_lines=args.fmt_empty_lines,
             defs=defs,
         )
