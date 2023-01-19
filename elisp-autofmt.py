@@ -496,35 +496,37 @@ def apply_rules(cfg: FmtConfig, node_parent: NdSexp) -> None:
                     'when-let',
                     'when-let*',
             }:
-                # Only wrap with multiple declarations.
-                if use_native:
-                    if isinstance(node_parent.nodes_only_code[1], NdSexp):
-                        if len(node_parent.nodes_only_code[1].nodes_only_code) > 1:
-                            for subnode in node_parent.nodes_only_code[1].nodes_only_code[1:]:
-                                subnode.force_newline = True
-                else:
-                    if isinstance(node_parent.nodes_only_code[1], NdSexp):
-                        if len(node_parent.nodes_only_code[1].nodes_only_code) > 1:
-                            for subnode in node_parent.nodes_only_code[1].nodes_only_code:
-                                subnode.force_newline = True
-
                 # A new line for each body of the let-statement.
                 node_parent.index_wrap_hint = 2
-
-                if not use_native:
-                    if len(node_parent.nodes_only_code) > 2:
-                        # While this should always be true, while editing it can be empty at times.
-                        # Don't error in this case because it's annoying.
-                        node_parent.nodes_only_code[2].force_newline = True
-
                 node_parent.hints['indent'] = 1
-                apply_relaxed_wrap(node_parent, cfg.style)
+
+                # Only wrap with multiple declarations.
+                if cfg.fill_column != 0:
+                    if use_native:
+                        if isinstance(node_parent.nodes_only_code[1], NdSexp):
+                            if len(node_parent.nodes_only_code[1].nodes_only_code) > 1:
+                                for subnode in node_parent.nodes_only_code[1].nodes_only_code[1:]:
+                                    subnode.force_newline = True
+                    else:
+                        if isinstance(node_parent.nodes_only_code[1], NdSexp):
+                            if len(node_parent.nodes_only_code[1].nodes_only_code) > 1:
+                                for subnode in node_parent.nodes_only_code[1].nodes_only_code:
+                                    subnode.force_newline = True
+
+                    if not use_native:
+                        if len(node_parent.nodes_only_code) > 2:
+                            # While this should always be true, while editing it can be empty at times.
+                            # Don't error in this case because it's annoying.
+                            node_parent.nodes_only_code[2].force_newline = True
+
+                    apply_relaxed_wrap(node_parent, cfg.style)
             elif node.data == 'cond':
-                for subnode in node_parent.nodes_only_code[1:]:
-                    subnode.force_newline = True
-                    if isinstance(subnode, NdSexp) and len(subnode.nodes_only_code) >= 2:
-                        subnode.nodes_only_code[1].force_newline = True
-                        apply_relaxed_wrap_when_multiple_args(subnode, cfg.style)
+                if cfg.fill_column != 0:
+                    for subnode in node_parent.nodes_only_code[1:]:
+                        subnode.force_newline = True
+                        if isinstance(subnode, NdSexp) and len(subnode.nodes_only_code) >= 2:
+                            subnode.nodes_only_code[1].force_newline = True
+                            apply_relaxed_wrap_when_multiple_args(subnode, cfg.style)
             else:
                 # First lookup built-in definitions, if they exist.
                 if (fn_data := cfg.defs.fn_arity.get(node.data)) is not None:
@@ -589,18 +591,19 @@ def apply_rules(cfg: FmtConfig, node_parent: NdSexp) -> None:
                                 # Group not in use.
                                 del hints['group']
 
-                        if (val := hints.get('break')) is not None:
-                            if val == 'always':
-                                apply_relaxed_wrap(node_parent, cfg.style)
-                            elif val == 'multi':
-                                apply_relaxed_wrap_when_multiple_args(node_parent, cfg.style)
-                            elif val == 'to_wrap':  # Default
-                                pass
-                            else:
-                                raise FmtException((
-                                    'unknown "break" for {:s}, expected a value in '
-                                    '["always", "multi", "to_wrap"]'
-                                ).format(node.data))
+                        if cfg.fill_column != 0:
+                            if (val := hints.get('break')) is not None:
+                                if val == 'always':
+                                    apply_relaxed_wrap(node_parent, cfg.style)
+                                elif val == 'multi':
+                                    apply_relaxed_wrap_when_multiple_args(node_parent, cfg.style)
+                                elif val == 'to_wrap':  # Default
+                                    pass
+                                else:
+                                    raise FmtException((
+                                        'unknown "break" for {:s}, expected a value in '
+                                        '["always", "multi", "to_wrap"]'
+                                    ).format(node.data))
                 else:
                     if LOG_MISSING_DEFS is not None:
                         with open(LOG_MISSING_DEFS, 'a', encoding='utf-8') as fh:
