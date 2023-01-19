@@ -501,7 +501,7 @@ def apply_rules(cfg: FmtConfig, node_parent: NdSexp) -> None:
                 node_parent.hints['indent'] = 1
 
                 # Only wrap with multiple declarations.
-                if cfg.fill_column != 0:
+                if cfg.use_wrap:
                     if use_native:
                         if isinstance(node_parent.nodes_only_code[1], NdSexp):
                             if len(node_parent.nodes_only_code[1].nodes_only_code) > 1:
@@ -521,7 +521,7 @@ def apply_rules(cfg: FmtConfig, node_parent: NdSexp) -> None:
 
                     apply_relaxed_wrap(node_parent, cfg.style)
             elif node.data == 'cond':
-                if cfg.fill_column != 0:
+                if cfg.use_wrap:
                     for subnode in node_parent.nodes_only_code[1:]:
                         subnode.force_newline = True
                         if isinstance(subnode, NdSexp) and len(subnode.nodes_only_code) >= 2:
@@ -591,7 +591,7 @@ def apply_rules(cfg: FmtConfig, node_parent: NdSexp) -> None:
                                 # Group not in use.
                                 del hints['group']
 
-                        if cfg.fill_column != 0:
+                        if cfg.use_wrap:
                             if (val := hints.get('break')) is not None:
                                 if val == 'always':
                                     apply_relaxed_wrap(node_parent, cfg.style)
@@ -626,7 +626,6 @@ def apply_rules(cfg: FmtConfig, node_parent: NdSexp) -> None:
 # Immutable configuration,
 # created from command line arguments.
 
-
 class FmtStyle(NamedTuple):
     '''
     Details relating to formatting style.
@@ -641,7 +640,15 @@ class FmtConfig(NamedTuple):
     style: FmtStyle
     use_trailing_parens: bool
     use_multiprocessing: bool
+
+    # When disabled, the entire script may be wrapped onto a single line,
+    # although comments and multi-line strings prevent this in some cases
+    # as "rules" regarding wrapping all or nothing still apply,
+    # see: `NdSexp.wrap_all_or_nothing_hint`.
+    use_wrap: bool
+
     fill_column: int
+
     empty_lines: int
     defs: FmtDefs
 
@@ -2994,6 +3001,7 @@ def main() -> None:
             use_trailing_parens=args.fmt_use_trailing_parens,
             use_multiprocessing=args.parallel_jobs >= 0,
             fill_column=max(0, args.fmt_fill_column),
+            use_wrap=args.fmt_fill_column > 0,
             empty_lines=args.fmt_empty_lines,
             defs=defs,
         )
