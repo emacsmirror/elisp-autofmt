@@ -235,6 +235,7 @@ Notes:
 
 - This only applies to S-expressions enclosed between the comments,
   be sure to add these comments outside the S-expression which is manually formatted.
+- While the line-wrapping from the input is preserved, indentation is still applied.
 - Additional space is ignored so both ``;format:off`` and ``;; format:  off`` are valid.
 - Space or punctuation after ``on``, ``off`` are allowed, you may wish to note why formatting was disabled.
 
