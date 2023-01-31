@@ -464,6 +464,22 @@ def scan_used_fn_defs(defs: FmtDefs, node_parent: NdSexp, fn_used: Set[str]) -> 
             scan_used_fn_defs(defs, node, fn_used)
 
 
+def apply_rules_recursive_locked(node_parent: NdSexp) -> None:
+    '''
+    Recursively apply new-lines based on the input, needed so existing formatting can be kept.
+    Used for ``--fmt-quoted=0`` support.
+    '''
+    # Also detect line changes between the parent and the child.
+    node_prev = node_parent
+    prev_original_line = node_parent.original_line
+    for node in node_parent.iter_nodes_recursive():
+        if isinstance(node, NdSexp):
+            node.wrap_locked = True
+        if prev_original_line != node.original_line:
+            node.force_newline = True
+            prev_original_line = node.original_line
+
+
 def apply_rules_recursive(cfg: FmtConfig, node_parent: NdSexp) -> None:
     '''
     Define line breaks using rules set by:
@@ -477,13 +493,12 @@ def apply_rules_recursive(cfg: FmtConfig, node_parent: NdSexp) -> None:
     '''
     use_native = cfg.style.use_native
 
-    # Optional
+    # Optional.
     if node_parent.nodes_only_code and node_parent.brackets == '()':
-        node = node_parent.nodes_only_code[0]
-        if isinstance(node, NdSymbol):
-
+        if not cfg.use_quoted and '\'' in node_parent.prefix:
+            node_parent.wrap_locked = True
+        elif isinstance(node := node_parent.nodes_only_code[0], NdSymbol):
             node_parent.index_wrap_hint = 1
-
             if node.data in {
                     'cl-letf',
                     'cl-letf*',
@@ -609,12 +624,15 @@ def apply_rules_recursive(cfg: FmtConfig, node_parent: NdSexp) -> None:
                         with open(LOG_MISSING_DEFS, 'a', encoding='utf-8') as fh:
                             fh.write('Missing: {:s}\n'.format(node.data))
 
-    for node in node_parent.nodes_only_code:
-        if isinstance(node, NdSexp):
-            apply_rules_recursive(cfg, node)
-        if not use_native:
-            if node.force_newline:
-                node_parent.force_newline = True
+    if node_parent.wrap_locked:
+        apply_rules_recursive_locked(node_parent)
+    else:
+        for node in node_parent.nodes_only_code:
+            if isinstance(node, NdSexp):
+                apply_rules_recursive(cfg, node)
+            if not use_native:
+                if node.force_newline:
+                    node_parent.force_newline = True
 
     if not use_native:
         node_parent.flush_newlines_from_nodes()
@@ -639,6 +657,7 @@ class FmtConfig(NamedTuple):
     '''
     style: FmtStyle
     use_trailing_parens: bool
+    use_quoted: bool
     use_multiprocessing: bool
 
     # When disabled, the entire script may be wrapped onto a single line,
@@ -734,6 +753,7 @@ class FmtWriteCtx:
         'last_node',
         'is_newline',
         'line',
+        'column',
         'line_terminate',
         'cfg',
     )
@@ -741,6 +761,7 @@ class FmtWriteCtx:
     last_node: Optional[Node]
     is_newline: bool
     line: int
+    column: int
     line_terminate: int
     cfg: FmtConfig
 
@@ -748,6 +769,7 @@ class FmtWriteCtx:
         self.last_node = None
         self.is_newline = True
         self.line = 0
+        self.column = 0
         self.line_terminate = -1
         self.cfg = cfg
 
@@ -847,6 +869,8 @@ class NdSexp(Node):
         'nodes_only_code',
         'index_wrap_hint',
         'wrap_all_or_nothing_hint',
+        # Disallow re-wrapping for `nodes` (does not apply to this nodes wrapped state).
+        'wrap_locked',
         'hints',
         'prior_states',
         'fmt_cache',
@@ -859,6 +883,7 @@ class NdSexp(Node):
         self.nodes = nodes or []
         self.index_wrap_hint: int = 1
         self.wrap_all_or_nothing_hint: bool = False
+        self.wrap_locked = False
         self.hints: HintType = {}
         self.prior_states: List[NdSexp_WrapState] = []
         self.fmt_cache = ''
@@ -960,6 +985,17 @@ class NdSexp(Node):
                 yield node
                 yield from node.iter_nodes_recursive_only_sexp()
 
+    def iter_nodes_recursive_with_self_only_sexp_without_wrap_locked(self) -> Generator[NdSexp, None, None]:
+        '''
+        Iterate over all S-expression nodes recursively, including this node (first).
+        '''
+        if not self.wrap_locked:
+            yield self
+            for node in self.nodes_only_code:
+                if isinstance(node, NdSexp) and not node.wrap_locked:
+                    yield node
+                    yield from node.iter_nodes_recursive_only_sexp()
+
     def iter_nodes_recursive_with_parent(self) -> Generator[Tuple[Node, NdSexp], None, None]:
         '''
         Iterate over all nodes recursively, with the parent node as well.
@@ -1019,6 +1055,8 @@ class NdSexp(Node):
             if level == -1:
                 return [0]
             return [level + 2]
+        if self.wrap_locked:
+            return [level + 1 + len(self.prefix)]
 
         # The complex 'native' case.
         node_code_index_pre_newline = 0
@@ -1468,9 +1506,17 @@ class NdSexp(Node):
         if level != -1:
             if ctx.is_newline:
                 write_fn(' ' * level)
+                ctx.column += level
+            else:
+                # Needed to properly indent:
+                #   (a b c d (e
+                #             f))
+                if self.wrap_locked:
+                    level = ctx.column
 
             if self.prefix:
                 write_fn(self.prefix)
+                ctx.column += len(self.prefix)
 
                 if ctx.cfg.style.use_native:
                     pass
@@ -1486,11 +1532,15 @@ class NdSexp(Node):
                                     write_fn(' $' + self._force_newline_tracepoint)  # type: ignore
 
                         ctx.line += 1
+                        ctx.column = 0
                         ctx.is_newline = True
+
                         write_fn(' ' * level)
+                        ctx.column += level
                         ctx.is_newline = False
 
             write_fn(self.brackets[0])
+            ctx.column += 1
             ctx.is_newline = False
 
         ctx.last_node = self
@@ -1500,6 +1550,7 @@ class NdSexp(Node):
         node_prev_is_multiline = False
 
         level_next_data = self.calc_nodes_level_next(ctx.cfg, level)
+
         level_next_data_last = len(level_next_data) - 1
         for i, node in enumerate(self.nodes):
             level_next = level_next_data[min(i, level_next_data_last)]
@@ -1515,6 +1566,8 @@ class NdSexp(Node):
                     node.force_newline or
                     (
                         node_prev_is_multiline and
+                        # Always respect `wrap_locked` when set.
+                        not self.wrap_locked and
                         # Don't push trailing comments onto new line.
                         not (isinstance(node, NdComment) and node.is_own_line is False)
                     )
@@ -1522,6 +1575,7 @@ class NdSexp(Node):
                 if not ctx.is_newline:
                     write_fn('\n')
                     ctx.line += 1
+                    ctx.column = 0
                     ctx.is_newline = True
 
             if isinstance(node, NdWs):
@@ -1535,7 +1589,7 @@ class NdSexp(Node):
                                 write_fn(' $' + node._force_newline_tracepoint)  # type: ignore
 
                     write_fn(' ' * level_next)
-
+                    ctx.column += level_next
                     ctx.is_newline = False
                 else:
                     if (
@@ -1549,6 +1603,7 @@ class NdSexp(Node):
                             (isinstance(node, NdComment) and node.is_own_line is False)
                     ):
                         write_fn(' ')
+                        ctx.column += 1
 
             if ctx.line_terminate not in (-1, ctx.line):
                 return
@@ -1568,6 +1623,7 @@ class NdSexp(Node):
         if level != -1:
             if ctx.is_newline:
                 write_fn(' ' * level_next)
+                ctx.column += level_next
                 ctx.is_newline = False
             else:
                 if (
@@ -1576,10 +1632,13 @@ class NdSexp(Node):
                 ):
                     write_fn('\n')
                     ctx.line += 1
+                    ctx.column = 0
                     ctx.is_newline = True
                     write_fn(' ' * level_next)
+                    ctx.column += level_next
                     ctx.is_newline = False
             write_fn(self.brackets[1])
+            ctx.column += 1
             ctx.is_newline = False
 
 
@@ -1749,6 +1808,8 @@ def fmt_solver_fill_column_wrap_recursive(
     For lists that will need wrapping even when all parents are wrapped,
     wrap these beforehand.
     '''
+    if node_parent.wrap_locked:
+        return
     if not node_parent.nodes_only_code:
         return
 
@@ -2019,6 +2080,8 @@ def fmt_solver_fill_column_unwrap_recursive(
     In this case it makes sense to set the wrapping to previously known valid states.
     Note that testing this is quite computationally expensive, so add additional checks with care.
     '''
+    if node_parent.wrap_locked:
+        return
     if not node_parent.nodes_only_code:
         return
 
@@ -2058,6 +2121,10 @@ def fmt_solver_fill_column_unwrap_recursive(
             nodes_with_prior_state = node_parent.iter_nodes_recursive_with_prior_state
 
         for node in nodes_with_prior_state(visited):
+            # Locked nodes should _never_ have a prior state.
+            # If this happens it's an internal error.
+            assert not node.wrap_locked
+
             if parent_score_curr == -1:
                 parent_score_curr = node_parent.fmt_check_exceeds_colum_max(
                     cfg,
@@ -2211,6 +2278,11 @@ def fmt_solver_newline_constraints_apply_recursive(
     '''
     Perform line wrapping, taking indent-levels into account.
     '''
+
+    # Keep locked nodes as-is.
+    if node_parent.wrap_locked:
+        return
+
     # First handle S-expressions one at a time, then all of them.
     # not very efficient, but it avoids over wrapping.
 
@@ -2240,7 +2312,8 @@ def fmt_solver_for_root_node(cfg: FmtConfig, node: NdSexp) -> None:
     # to allow restoring to a point that doesn't include lines wrapped by the parent state.
     apply_rules_recursive(cfg, node)
     fmt_solver_newline_constraints_apply_recursive(node, cfg, check_parent_multiline=False)
-    for n in node.iter_nodes_recursive_with_self_only_sexp():
+    # Ensures unwrap never attempts to change this node back to a previous state (as it's locked).
+    for n in node.iter_nodes_recursive_with_self_only_sexp_without_wrap_locked():
         if n.nodes_only_code:
             n.prior_states.append(n.newline_state_get())
 
@@ -2304,6 +2377,7 @@ class NdWs(Node):
     ) -> None:
         write_fn('\n')
         ctx.line += 1
+        ctx.column = 0
         ctx.is_newline = True
 
 
@@ -2344,6 +2418,7 @@ class NdComment(Node):
     ) -> None:
         write_fn(';')
         write_fn(self.data)
+        ctx.column += 1 + len(self.data)
         ctx.is_newline = False
 
 
@@ -2390,6 +2465,13 @@ class NdString(Node):
         write_fn('"')
         ctx.is_newline = False
         ctx.line += self.lines
+        if self.lines:
+            # Add one for the trailing quote,
+            # that's accounted for as '\n' has a length of 1.
+            ctx.column += (len(self.data) - self.data.rfind('\n'))
+        else:
+            # Add 2 for the quotes.
+            ctx.column += len(self.data) + 2
 
 
 class NdSymbol(Node):
@@ -2425,6 +2507,7 @@ class NdSymbol(Node):
             test: bool = False,
     ) -> None:
         write_fn(self.data)
+        ctx.column += len(self.data)
         ctx.is_newline = False
 
 
@@ -2832,6 +2915,15 @@ def argparse_create() -> argparse.ArgumentParser:
     )
 
     parser.add_argument(
+        '--fmt-quoted',
+        dest='fmt_use_quoted',
+        default=1,
+        type=int,
+        required=False,
+        help='Format quoted S-expressions.',
+    )
+
+    parser.add_argument(
         '--fmt-fill-column',
         dest='fmt_fill_column',
         default=99,
@@ -3004,6 +3096,7 @@ def main() -> None:
                 use_native=args.fmt_style == 'native',
             ),
             use_trailing_parens=args.fmt_use_trailing_parens,
+            use_quoted=bool(args.fmt_use_quoted),
             use_multiprocessing=args.parallel_jobs >= 0,
             fill_column=max(0, args.fmt_fill_column),
             use_wrap=args.fmt_fill_column > 0,

@@ -140,6 +140,12 @@ Customization
          (setq-local lisp-indent-function nil)
          (setq-local lisp-indent-offset 2)
 
+
+``elisp-autofmt-quoted`` (``t``)
+   Format single-quoted S-expressions.
+
+   When nil, single quoted S-expressions keep existing line-breaks and only indentation is performed.
+
 ``elisp-autofmt-on-save-p``
    Function used to check if the buffer should be formatted on save.
    By default the ``.elisp-autofmt`` file is detected in current & parent directories.

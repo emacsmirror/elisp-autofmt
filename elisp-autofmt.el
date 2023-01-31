@@ -57,6 +57,11 @@ Otherwise you can set this to a user defined function."
   "When non nil, generate function definitions for the auto-formatter to use."
   :type 'boolean)
 
+(defcustom elisp-autofmt-format-quoted t
+  "Format single-quoted S-expressions.
+Otherwise existing line-breaks are kept and only indentation is performed."
+  :type 'boolean)
+
 (defcustom elisp-autofmt-use-default-override-defs t
   "When non nil, make opinionated changes to how line breaks are handled."
   :type 'boolean)
@@ -143,6 +148,14 @@ This is intended to be set from file or directory locals and is marked safe.")
 
 ;; ---------------------------------------------------------------------------
 ;; Internal Utilities
+
+(defun elisp-autofmt--bool-as-int (val)
+  "Return 0/1 from nil/t."
+  (cond
+   (val
+    1)
+   (t
+    0)))
 
 (defun elisp-autofmt--call-checked (command-with-args)
   "Run COMMAND-WITH-ARGS, returning t on success.
@@ -666,6 +679,7 @@ Argument IS-INTERACTIVE is set when running interactively."
             (format "--fmt-fill-column=%d" fill-column)
             (format "--fmt-empty-lines=%d" elisp-autofmt-empty-line-max)
             (format "--fmt-style=%s" (symbol-name elisp-autofmt-style))
+            (format "--fmt-quoted=%d" (elisp-autofmt--bool-as-int elisp-autofmt-format-quoted))
 
             (format "--parallel-jobs=%d"
                     (cond
