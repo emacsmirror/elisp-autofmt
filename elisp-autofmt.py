@@ -464,6 +464,76 @@ def scan_used_fn_defs(defs: FmtDefs, node_parent: NdSexp, fn_used: Set[str]) -> 
             scan_used_fn_defs(defs, node, fn_used)
 
 
+def apply_rules_from_comments(node_parent: NdSexp) -> None:
+    '''
+    Apply rules from literal text in comments.
+    '''
+    import string
+    punctuation_space_or_empty = {'', ' ', '\t'} | set(string.punctuation)
+    del string
+
+    wrap_locked = False
+    autofmt_text = 'format'
+    autofmt_text_next = '-next-line:'
+    do_next_line = False
+    for node in node_parent.iter_nodes_recursive():
+        if isinstance(node, NdComment):
+            autofmt_index = node.data.find(autofmt_text)
+            if autofmt_index != -1:
+                comment = node.data
+                # Ensure there is only space or ';' beforehand.
+                ok = True
+                for index in range(autofmt_index):
+                    if comment[index] not in {';', ' ', '\t'}:
+                        ok = False
+                        break
+                if ok:
+                    # After format either: `:` or `-next-line:` are expected.
+                    autofmt_index += len(autofmt_text)
+                    if comment[autofmt_index] == ':':
+                        do_next_line = False
+                    elif comment[autofmt_index:autofmt_index + len(autofmt_text_next)] == autofmt_text_next:
+                        autofmt_index += len(autofmt_text_next)
+                        do_next_line = True
+
+                    while autofmt_index < len(comment) and comment[autofmt_index] in {' ', '\t'}:
+                        autofmt_index += 1
+                    # Allow text after the boolean (use split method).
+                    bool_value = node.data[autofmt_index:autofmt_index + 4]
+                    if bool_value.startswith('on'):
+                        if bool_value[2:3] in punctuation_space_or_empty:
+                            if do_next_line:
+                                wrap_locked_next = False
+                            else:
+                                wrap_locked = False
+                        else:
+                            ok = False
+                    elif bool_value.startswith('off'):
+                        if bool_value[3:4] in punctuation_space_or_empty:
+                            if do_next_line:
+                                wrap_locked_next = True
+                            else:
+                                wrap_locked = True
+                        else:
+                            ok = False
+                    if ok:
+                        continue
+
+        elif isinstance(node, NdSexp):
+            if do_next_line:
+                if wrap_locked_next:
+                    node.wrap_locked = True
+                    apply_rules_recursive_locked(node)
+            elif wrap_locked:
+                node.wrap_locked = True
+                apply_rules_recursive_locked(node)
+                do_next_line = False
+
+        # Ensure the comment afterwards is immediately afterwards,
+        # not just the next S-expression.
+        do_next_line = False
+
+
 def apply_rules_recursive_locked(node_parent: NdSexp) -> None:
     '''
     Recursively apply new-lines based on the input, needed so existing formatting can be kept.
@@ -492,11 +562,12 @@ def apply_rules_recursive(cfg: FmtConfig, node_parent: NdSexp) -> None:
     Without this, the LISP will be correct but not formatted in a way users might expect.
     '''
     use_native = cfg.style.use_native
+    wrap_locked = False
 
     # Optional.
     if node_parent.nodes_only_code and node_parent.brackets == '()':
         if not cfg.use_quoted and '\'' in node_parent.prefix:
-            node_parent.wrap_locked = True
+            wrap_locked = True
         elif isinstance(node := node_parent.nodes_only_code[0], NdSymbol):
             node_parent.index_wrap_hint = 1
             if node.data in {
@@ -624,8 +695,10 @@ def apply_rules_recursive(cfg: FmtConfig, node_parent: NdSexp) -> None:
                         with open(LOG_MISSING_DEFS, 'a', encoding='utf-8') as fh:
                             fh.write('Missing: {:s}\n'.format(node.data))
 
-    if node_parent.wrap_locked:
-        apply_rules_recursive_locked(node_parent)
+    if wrap_locked:
+        if not node_parent.wrap_locked:
+            node_parent.wrap_locked = True
+            apply_rules_recursive_locked(node_parent)
     else:
         for node in node_parent.nodes_only_code:
             if isinstance(node, NdSexp):
@@ -2805,6 +2878,8 @@ def format_file(
     root.calc_force_newline(cfg.style)
 
     apply_comment_force_newline(root)
+
+    apply_rules_from_comments(root)
 
     # Redundant but needed for the assertion not to fail in the case when `len(root.nodes_only_code) == 1`.
     root.force_newline = True

@@ -59,6 +59,7 @@ Features
 - Enforces maximum line width (using the fill column).
 - Keeps blank lines.
 - Keeps trailing comments at the end of lines (without joining lines which may change their meaning).
+- Support for disabling auto-formatting via comments.
 - Extracts function arguments from locally defined functions,
   with support for including definitions from external files.
 - Parallel computation *(disabled on MS-Windows until performance issues can be investigated).*
@@ -203,6 +204,41 @@ Customization (API Definitions)
       ;; Local variables:
       ;; elisp-autofmt-load-packages-local: ("ert" "./my-relative-file.el")
       ;; end:
+
+Comments
+--------
+
+Formatting can be disabled by a single line comment:
+
+.. code-block:: elisp
+
+   ;; format: off
+   (progn (this block (will
+                       keep wrapping (from
+                                      input))))
+   ;; format: on
+
+You may also disable wrapping for a single line which doesn't require a paired comment to re-enable:
+
+.. code-block:: elisp
+
+   (let ((var
+          ;; format-next-line: off
+          (concat
+           "lines"
+           "kept"
+           "separate")))
+     (fn var))
+
+
+Notes:
+
+- Additional space is ignored so both ``;format:off`` and ``;; format:  off`` are valid.
+- Space or punctuation after ``on``, ``off`` are allowed, you may wish to note why formatting was disabled.
+
+  .. code-block:: elisp
+
+     ;; format: off. Manually wrap for better visual alignment.
 
 
 Installation
