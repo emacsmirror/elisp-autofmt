@@ -120,8 +120,8 @@ Commands
    Auto formats the current buffer (doesn't depend on the minor mode).
 
 
-Customization
--------------
+Customization (Style)
+---------------------
 
 ``elisp-autofmt-style`` (``'native``)
    Style to use for formatting, currently the options are:
@@ -140,19 +140,23 @@ Customization
          (setq-local lisp-indent-function nil)
          (setq-local lisp-indent-offset 2)
 
-
 ``elisp-autofmt-quoted`` (``t``)
    Format single-quoted S-expressions.
 
    When nil, single quoted S-expressions keep existing line-breaks and only indentation is performed.
+
+``elisp-autofmt-empty-line-max`` (``2``)
+   The maximum number of empty lines to keep.
+
+
+Customization (Integration)
+---------------------------
 
 ``elisp-autofmt-on-save-p``
    Function used to check if the buffer should be formatted on save.
    By default the ``.elisp-autofmt`` file is detected in current & parent directories.
    You may set this to ``'always`` to always format the buffer when ``elisp-autofmt-mode`` is enabled.
 
-``elisp-autofmt-empty-line-max`` (``2``)
-   The maximum number of empty lines to keep.
 
 ``elisp-autofmt-python-bin`` (``nil``)
    Optionally set the Python binary, use when ``python`` is not in your ``PATH``.
