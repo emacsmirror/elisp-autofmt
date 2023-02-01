@@ -30,6 +30,8 @@
   "Configure emacs-lisp auto-formatting behavior."
   :group 'tools)
 
+;; Customization (Style).
+
 (defcustom elisp-autofmt-style 'native
   "The formatting style to use."
   :type
@@ -37,10 +39,65 @@
    'choice
    (list 'const :tag "Native (Emacs indentation)" 'native)
    (list 'const :tag "Fixed (Fixed indentation)" 'fixed)))
+;;;###autoload
+(put 'elisp-autofmt-style 'safe-local-variable #'symbolp)
+
+(defcustom elisp-autofmt-format-quoted t
+  "Format single-quoted S-expressions.
+Otherwise existing line-breaks are kept and only indentation is performed."
+  :type 'boolean)
+;;;###autoload
+(put 'elisp-autofmt-format-quoted 'safe-local-variable #'booleanp)
 
 (defcustom elisp-autofmt-empty-line-max 2
   "The maximum number of blank lines to preserve."
   :type 'int)
+;;;###autoload
+(put 'elisp-autofmt-empty-line-max 'safe-local-variable #'integerp)
+
+;; Customization (API Definitions).
+
+(defcustom elisp-autofmt-use-function-defs t
+  "When non nil, generate function definitions for the auto-formatter to use."
+  :type 'boolean)
+
+
+(defcustom elisp-autofmt-use-default-override-defs t
+  "When non nil, make opinionated changes to how line breaks are handled."
+  :type 'boolean)
+
+(defcustom elisp-autofmt-load-packages-local nil
+  "Additional packages/modules to include definitions from.
+
+Each entry may be:
+- A package identifier which will be loaded
+  which isn't loaded by default on Emacs startup.
+- A buffer relative path (beginning with a \".\"),
+  which is intended to support sharing definitions for multi-file packages.
+
+This is intended to be set from file or directory locals and is marked safe."
+  :type '(repeat string))
+;;;###autoload
+(put 'elisp-autofmt-load-packages-local 'safe-local-variable #'elisp-autofmt-list-of-strings-p)
+(make-variable-buffer-local 'elisp-autofmt-load-packages-local)
+
+(defcustom elisp-autofmt-ignore-autoload-packages
+  (list
+   "babel"
+   "gnus-fun"
+   "gnus-xmas"
+   "mailcrypt"
+   "mc-toplev"
+   "message"
+   "messagexmas"
+   "mh-tool-bar"
+   "nnimap"
+   "vcard")
+  "Exclude these packages from inclusion in API definition lists.
+Note that this should not need to be modified for typical use cases."
+  :type '(repeat string))
+
+;; Customization (Integration).
 
 (defcustom elisp-autofmt-on-save-p 'elisp-autofmt-check-elisp-autofmt-exists
   "Only reformat on save if this function returns non-nil.
@@ -53,18 +110,16 @@ You may wish to choose one of the following options:
 Otherwise you can set this to a user defined function."
   :type 'function)
 
-(defcustom elisp-autofmt-use-function-defs t
-  "When non nil, generate function definitions for the auto-formatter to use."
-  :type 'boolean)
+(defcustom elisp-autofmt-python-bin nil
+  "The Python binary to call to run the auto-formatting utility."
+  :type 'string)
 
-(defcustom elisp-autofmt-format-quoted t
-  "Format single-quoted S-expressions.
-Otherwise existing line-breaks are kept and only indentation is performed."
-  :type 'boolean)
+(defcustom elisp-autofmt-cache-directory
+  (locate-user-emacs-file "elisp-autofmt-cache" ".elisp-autofmt-cache")
+  "The directory to store cache data."
+  :type 'string)
 
-(defcustom elisp-autofmt-use-default-override-defs t
-  "When non nil, make opinionated changes to how line breaks are handled."
-  :type 'boolean)
+;; Customization (Parallel Computation).
 
 (defcustom elisp-autofmt-parallel-jobs 0
   "The number of jobs to run in parallel.
@@ -79,47 +134,9 @@ Otherwise existing line-breaks are kept and only indentation is performed."
 - Use 0 to enable parallel computation for buffers of any size."
   :type 'int)
 
-(defcustom elisp-autofmt-python-bin nil
-  "The Python binary to call to run the auto-formatting utility."
-  :type 'string)
-
-(defcustom elisp-autofmt-ignore-autoload-packages
-  (list
-   "babel"
-   "gnus-fun"
-   "gnus-xmas"
-   "mailcrypt"
-   "mc-toplev"
-   "message"
-   "messagexmas"
-   "mh-tool-bar"
-   "nnimap"
-   "vcard")
-  "Exclude these packages from inclusion in API definition lists."
-  :type '(repeat string))
-
-(defcustom elisp-autofmt-cache-directory
-  (locate-user-emacs-file "elisp-autofmt-cache" ".elisp-autofmt-cache")
-  "The directory to store cache data."
-  :type 'string)
-
 
 ;; ---------------------------------------------------------------------------
 ;; Public Variables
-
-(defvar-local elisp-autofmt-load-packages-local nil
-  "Additional packages/modules to include definitions from.
-
-Each entry may be:
-- A package identifier which will be loaded
-  which isn't loaded by default on Emacs startup.
-- A buffer relative path (beginning with a \".\"),
-  which is intended to support sharing definitions for multi-file packages.
-
-This is intended to be set from file or directory locals and is marked safe.")
-
-;;;###autoload
-(put 'elisp-autofmt-load-packages-local 'safe-local-variable #'elisp-autofmt-list-of-strings-p)
 
 (defvar elisp-autofmt-debug-extra-info nil
   "Show additional debug information.")
@@ -856,6 +873,7 @@ where loading changes back into the buffer is not important."
       nil))))
 
 ;; Auto load as this is a callback for `safe-local-variable'.
+;; NOTE: `list-of-strings-p' can be used once EMACS-29 is the minimum supported version.
 ;;;###autoload
 (defun elisp-autofmt-list-of-strings-p (obj)
   "Return t when OBJ is a list of strings."
