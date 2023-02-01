@@ -1129,6 +1129,16 @@ class NdSexp(Node):
                 return [0]
             return [level + 2]
         if self.wrap_locked:
+            # Support formatting such as:
+            #    '(choice (const :tag "Foo" test)
+            #             (const :tag "Bar" case))
+            #
+            # Even when formatting is locked.
+            if (len(self.nodes_only_code) > 1) and isinstance(self.nodes_only_code[0], NdSymbol):
+                if self.nodes_only_code[0].force_newline is False:
+                    if self.nodes_only_code[1].force_newline is False:
+                        return [level + len(self.prefix) + len(self.nodes_only_code[0].data) + 2]
+
             return [level + 1 + len(self.prefix)]
 
         # The complex 'native' case.
