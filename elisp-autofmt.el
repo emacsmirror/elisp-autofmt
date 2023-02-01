@@ -35,10 +35,8 @@
 (defcustom elisp-autofmt-style 'native
   "The formatting style to use."
   :type
-  (list
-   'choice
-   (list 'const :tag "Native (Emacs indentation)" 'native)
-   (list 'const :tag "Fixed (Fixed indentation)" 'fixed)))
+  '(choice (const :tag "Native (Emacs indentation)" native)
+           (const :tag "Fixed (Fixed indentation)" fixed)))
 ;;;###autoload
 (put 'elisp-autofmt-style 'safe-local-variable #'symbolp)
 
@@ -702,7 +700,7 @@ Argument IS-INTERACTIVE is set when running interactively."
                     (cond
                      ;; Disable multi-processing on MS-Windows,
                      ;; seems to cause performance issues which need investigating.
-                     ((memq system-type '(ms-dos windows-nt))
+                     ((memq system-type (list 'ms-dos 'windows-nt))
                       -1)
                      ((<= (buffer-size) elisp-autofmt-parallel-threshold)
                       -1)
@@ -896,5 +894,6 @@ where loading changes back into the buffer is not important."
 ;; Local Variables:
 ;; fill-column: 99
 ;; indent-tabs-mode: nil
+;; elisp-autofmt-format-quoted: nil
 ;; End:
 ;;; elisp-autofmt.el ends here
