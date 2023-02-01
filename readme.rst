@@ -124,7 +124,7 @@ Commands
 Customization (Style)
 ---------------------
 
-``elisp-autofmt-style`` (``'native``)
+``elisp-autofmt-style`` (``'native``), added to ``safe-local-variable``.
    Style to use for formatting, currently the options are:
 
    ``'native``
@@ -141,13 +141,44 @@ Customization (Style)
          (setq-local lisp-indent-function nil)
          (setq-local lisp-indent-offset 2)
 
-``elisp-autofmt-quoted`` (``t``)
+``elisp-autofmt-quoted`` (``t``), added to ``safe-local-variable``.
    Format single-quoted S-expressions.
 
    When nil, single quoted S-expressions keep existing line-breaks and only indentation is performed.
 
-``elisp-autofmt-empty-line-max`` (``2``)
+``elisp-autofmt-empty-line-max`` (``2``), added to ``safe-local-variable``.
    The maximum number of empty lines to keep.
+
+
+Customization (API Definitions)
+-------------------------------
+
+``elisp-autofmt-use-function-defs`` (``t``)
+   When non-nil, use function information generated from Emacs.
+``elisp-autofmt-use-default-override-defs`` (``t``)
+   When non-nil, use a preset list of opinionated overrides that adjust the behavior of common functions & macros.
+``elisp-autofmt-load-packages-local`` (``nil``), added to ``safe-local-variable``.
+   A list of strings representing:
+
+   - Packages to load definitions from (e.g. ``ert``, ``abbrev``).
+   - Paths relative to the current file (any string starting with a ``.``),
+     e.g. ``"./multi-file-package.el"``.
+
+     Referencing local paths is needed so multi-file packages can be aware of definitions stored elsewhere.
+
+   This variable is marked as *safe* so it can be defined in file/directory locals.
+   This example shows it's use in file locals.
+
+   .. code-block:: elisp
+
+      ;; Local variables:
+      ;; elisp-autofmt-load-packages-local: ("ert" "./my-relative-file.el")
+      ;; end:
+
+``elisp-autofmt-ignore-autoload-packages``
+   Auto-loaded packages not to load when generating built-in API definitions.
+
+   *Note that this should not need to be modified for typical use-cases.*
 
 
 Customization (Integration)
@@ -158,9 +189,11 @@ Customization (Integration)
    By default the ``.elisp-autofmt`` file is detected in current & parent directories.
    You may set this to ``'always`` to always format the buffer when ``elisp-autofmt-mode`` is enabled.
 
-
 ``elisp-autofmt-python-bin`` (``nil``)
    Optionally set the Python binary, use when ``python`` is not in your ``PATH``.
+
+``elisp-autofmt-cache-directory`` (``"~/.config/emacs/elisp-autofmt-cache"``)
+   The directory where API cache is stored.
 
 
 Customization (Parallel Computation)
@@ -179,31 +212,6 @@ Customization (Parallel Computation)
 
 Note that this is disabled on MS-Windows currently until performance issues can be investigated.
 
-
-Customization (API Definitions)
--------------------------------
-
-``elisp-autofmt-use-function-defs`` (``t``)
-   When non-nil, use function information generated from Emacs.
-``elisp-autofmt-use-default-override-defs`` (``t``)
-   When non-nil, use a preset list of opinionated overrides that adjust the behavior of common functions & macros.
-``elisp-autofmt-load-packages-local``
-   A list of strings representing:
-
-   - Packages to load definitions from (e.g. ``ert``, ``abbrev``).
-   - Paths relative to the current file (any string starting with a ``.``),
-     e.g. ``"./multi-file-package.el"``.
-
-     Referencing local paths is needed so multi-file packages can be aware of definitions stored elsewhere.
-
-   This variable is marked as *safe* so it can be defined in file/directory locals.
-   This example shows it's use in file locals.
-
-   .. code-block:: elisp
-
-      ;; Local variables:
-      ;; elisp-autofmt-load-packages-local: ("ert" "./my-relative-file.el")
-      ;; end:
 
 Comments
 --------
