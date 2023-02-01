@@ -99,7 +99,7 @@ Otherwise existing line-breaks are kept and only indentation is performed."
   :type '(repeat string))
 
 (defcustom elisp-autofmt-cache-directory
-  (file-name-concat (locate-user-emacs-file ".cache" ".cache") "elisp-autofmt")
+  (locate-user-emacs-file "elisp-autofmt-cache" ".elisp-autofmt-cache")
   "The directory to store cache data."
   :type 'string)
 
