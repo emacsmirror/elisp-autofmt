@@ -1933,141 +1933,6 @@ def fmt_solver_fill_column_wrap_recursive(
             node_parent.prior_states.append(state_init)
 
 
-def fmt_solver_node_prior_states_with_generated_alternatives(
-        node: NdSexp,
-        state_curr: NdSexp_WrapState,
-        defs: FmtDefs,
-) -> Generator[NdSexp_WrapState, None, None]:
-    '''
-    Yield node.prior_states, if those are exhausted and unable to be used,
-    attempt some alternative wrapping styles as fall-backs.
-    '''
-    assert node.prior_states
-    state_init = node.prior_states[0]
-    yield from node.prior_states
-
-    # NOTE: in many cases one of the states yielded above will be used and the following code
-    # will not run.
-
-    # Generate additional unwrapped states on the fly.
-    # This is done so arguments that each onto their own line can have single line wrapped versions,
-    # e.g:
-    #
-    #    (function-call
-    #     a
-    #     b
-    #     c
-    #     d
-    #     e)
-    #
-    # When `d` and `e` are optional arguments a split in the argument list may be used:
-    #
-    #    (function-call
-    #     a b c d e)
-    #
-    #    (function-call a b c
-    #                   d e)
-    #
-    # Finally (if all else fails), attempt moving all arguments onto the previous line.
-    # This is typically only done when each argument it's self is very long, otherwise
-    # they will normally fit onto a single line.
-    #
-    #    (function-call a
-    #                   b
-    #                   c
-    #                   d
-    #                   e)
-    #
-    # Note that this is only attempted as a last resort because attempting this style early on
-    # causes an awkward and unbalanced formatting.
-    if (
-            # Ensure this is not a literal list of strings or numbers for e.g.
-            node.maybe_function_call() and
-            # All arguments were wrapped onto separate lines.
-            (False not in state_curr[1:])
-    ):
-
-        if (
-                # No mixed wrapping allowed,
-                # this is a hint that the block was for a macro or special such as `progn`.
-                # In this case don't attempt to wrap arguments onto a single line, reserve this for function-calls.
-                (not node.wrap_all_or_nothing_hint) and
-                # It only makes sense to run this logic if there are multiple arguments to deal with.
-                (len(node.nodes_only_code) > 1) and
-                # At the moment are used interchangeably so mis-alignment is not supported.
-                (len(node.nodes_only_code) == len(node.nodes)) and
-                # Was on a single line (ignoring the first).
-                (True not in state_init[1:])
-        ):
-            # All wrapped.
-            if node.index_wrap_hint < len(node.nodes_only_code):
-                index_wrap_hint = node.index_wrap_hint
-            else:
-                index_wrap_hint = 1
-            state_gen = [False] * len(state_curr)
-
-            # Provide:
-            #
-            #    (function-call
-            #     a b c d e)
-
-            state_gen[index_wrap_hint] = True
-            yield tuple(state_gen)
-
-            # Check if the line can be broken up.
-            if index_wrap_hint > 1:
-                # Provide :
-                #
-                #    (function-call a b c
-                #                   d e)
-                #
-
-                # Wrap both `index_wrap_hint` and 1.
-                state_gen[1] = True
-                yield tuple(state_gen)
-                state_gen[1] = False
-            state_gen[index_wrap_hint] = False
-
-        if (
-                # It only makes sense to run this logic if there are multiple arguments to deal with.
-                (len(state_curr) > 2) and
-                # All arguments were wrapped onto separate lines.
-                (False not in state_curr[1:]) and
-                # We never want to move comments or white-space around,
-                # any other line may include comments or blank lines.
-                isinstance(node.nodes[0], NODE_CODE_TYPES) and
-                isinstance(node.nodes[1], NODE_CODE_TYPES)
-        ):
-            # Provide:
-            #
-            #    (function-call a
-            #                   b
-            #                   c
-            #                   d
-            #                   e)
-            #
-
-            # Skip when the indent hint is set as this means wrapping on the first line doesn't typically make sense.
-            has_indent = False
-            if (fn_data := (node.fn_arity_get_from_first_symbol(defs))) is not None:
-                # May be `FnArity` or a list.
-                hints = fn_data[3]
-                if hints and 'indent' in hints:
-                    has_indent = True
-
-            # Don't attempt to wrap anything that defines an indent.
-            # It's too likely to lead to:
-            #
-            #     (some-macro awkwardly
-            #        indented
-            #      arguments)
-            if not has_indent:
-                state_gen = [True] * len(state_curr)
-                state_gen[0] = False
-                state_gen[1] = False
-                yield tuple(state_gen)
-
-
 def fmt_solver_fill_column_unwrap_aggressive(
         cfg: FmtConfig,
         node_parent: NdSexp,
@@ -2145,6 +2010,238 @@ def fmt_solver_fill_column_unwrap_aggressive(
     return False
 
 
+def fmt_solver_fill_column_unwrap_test_state(
+        cfg: FmtConfig,
+        node_parent: NdSexp,
+        node: NdSexp,
+        level: int,
+        trailing_parens: int,
+        parent_score_curr: int,
+        state_visit: Set[NdSexp_WrapState],
+        state_curr: NdSexp_WrapState,
+        # This is the only argument which is likely to change each call.
+        state_test: NdSexp_WrapState,
+) -> Optional[int]:
+    '''
+    Set the line wrapping state to  ``state_test``, if it doesn't exceed the fill column,
+    use it and return the new score,
+    otherwise restore ``state_curr`` and return none.
+
+    NOTE: ``node_parent`` may not be the direct parent of this node,
+    there may be many levels of nesting between them.
+    '''
+
+    # Should never be an empty list.
+    assert state_test
+
+    if state_test in state_visit:
+        return None
+
+    node.newline_state_set(state_test)
+
+    if fmt_solver_newline_constraints_apply(node, cfg, check_parent_multiline=True):
+        state_test = node.newline_state_get()
+        if state_test in state_visit:
+            node.newline_state_set(state_curr)
+            return None
+
+    parent_score_test = node_parent.fmt_check_exceeds_colum_max(
+        cfg,
+        level,
+        trailing_parens,
+        # If the current state has no over-length lines (such as long comments).
+        # There is no need to do extra work. Any over-long line caused by the state being
+        # tested can immediately be considered an error and early exit.
+        # In this case the score will only ever be 0/1 but that's fine.
+        calc_score=(parent_score_curr != 0),
+    )
+    if parent_score_test <= parent_score_curr:
+        parent_score_curr = parent_score_test
+        state_curr = state_test
+        # The most ambitious (early) states are first, no need to try others.
+        return parent_score_curr
+
+    # This state was unsuccessful, don't attempt to test it again.
+    state_visit.add(state_test)
+
+    node.newline_state_set(state_curr)
+    return None
+
+
+def fmt_solver_fill_column_unwrap_test_state_permutations(
+        cfg: FmtConfig,
+        node_parent: NdSexp,
+        node: NdSexp,
+        level: int,
+        trailing_parens: int,
+        parent_score_curr: int,
+) -> Optional[int]:
+    '''
+    Scan the previous line wrapping states and attempt to apply them.
+
+    - First scan ``node.prior_states``, to see if any states before wrapping are usable,
+      If so, return.
+
+    - If none are usable, generate wrapping states which were not previously seen,
+      there is some room for opinionated decisions about what would be considered ideal,
+      which can make a significant difference to the resulting formatting.
+    '''
+
+    # While in general duplicates states are not added,
+    # it's also not guaranteed that this can never happen. And it in-fact does sometimes.
+    # Since it's fairly rare, track states here which have already been tested.
+    #
+    # This avoids the need to de-duplicate when adding, and means if the first unwrap is successful
+    # then there is no need to track visited states at all.
+    state_curr = node.newline_state_get()
+    state_visit = {state_curr}
+
+    # These don't change each call, simplify code by not duplicating this line all over.
+    static_test_state_args = cfg, node_parent, node, level, trailing_parens, parent_score_curr, state_visit, state_curr
+
+    # Iterate over prior states and optionally generate additional states that can be used as a last resort.
+    for state_test in node.prior_states:
+        parent_score_test = fmt_solver_fill_column_unwrap_test_state(*static_test_state_args, state_test)
+        if parent_score_test is not None:
+            return parent_score_test
+
+    # Existing states handled, if this is reached, calculate new states (fun!).
+    # NOTE: in many cases one of the states from above will be used and the following code will not run.
+
+    # The initial state is significant because any lines that _must_ be wrapped will be enabled in this state.
+    state_init = node.prior_states[0]
+
+    # Generate additional unwrapped states on the fly.
+    # This is done so arguments that each onto their own line can have single line wrapped versions,
+    # e.g:
+    #
+    #    (function-call
+    #     a
+    #     b
+    #     c
+    #     d
+    #     e)
+    #
+    # When `d` and `e` are optional arguments a split in the argument list may be used:
+    #
+    #    (function-call
+    #     a b c d e)
+    #
+    #    (function-call a b c
+    #                   d e)
+    #
+    # Finally (if all else fails), attempt moving all arguments onto the previous line.
+    # This is typically only done when each argument it's self is very long, otherwise
+    # they will normally fit onto a single line.
+    #
+    #    (function-call a
+    #                   b
+    #                   c
+    #                   d
+    #                   e)
+    #
+    # Note that this is only attempted as a last resort because attempting this style early on
+    # causes an awkward and unbalanced formatting.
+    if (
+            # Ensure this is not a literal list of strings or numbers for e.g.
+            node.maybe_function_call() and
+            # All arguments were wrapped onto separate lines.
+            (False not in state_curr[1:])
+    ):
+
+        if (
+                # No mixed wrapping allowed,
+                # this is a hint that the block was for a macro or special such as `progn`.
+                # In this case don't attempt to wrap arguments onto a single line, r
+                # eserve this for function-calls.
+                (not node.wrap_all_or_nothing_hint) and
+                # It only makes sense to run this logic if there are multiple arguments to deal with.
+                (len(node.nodes_only_code) > 1) and
+                # At the moment are used interchangeably so mis-alignment is not supported.
+                (len(node.nodes_only_code) == len(node.nodes)) and
+                # Was on a single line (ignoring the first).
+                (True not in state_init[1:])
+        ):
+            # All wrapped.
+            if node.index_wrap_hint < len(node.nodes_only_code):
+                index_wrap_hint = node.index_wrap_hint
+            else:
+                index_wrap_hint = 1
+            state_gen = [False] * len(state_curr)
+
+            # Provide:
+            #
+            #    (function-call
+            #     a b c d e)
+
+            state_gen[index_wrap_hint] = True
+            parent_score_test = fmt_solver_fill_column_unwrap_test_state(*static_test_state_args, tuple(state_gen))
+            if parent_score_test is not None:
+                return parent_score_test
+
+            # Check if the line can be broken up.
+            if index_wrap_hint > 1:
+                # Provide :
+                #
+                #    (function-call a b c
+                #                   d e)
+                #
+
+                # Wrap both `index_wrap_hint` and 1.
+                state_gen[1] = True
+                parent_score_test = fmt_solver_fill_column_unwrap_test_state(*static_test_state_args, tuple(state_gen))
+                if parent_score_test is not None:
+                    return parent_score_test
+
+                state_gen[1] = False
+            state_gen[index_wrap_hint] = False
+
+        if (
+                # It only makes sense to run this logic if there are multiple arguments to deal with.
+                (len(state_curr) > 2) and
+                # All arguments were wrapped onto separate lines.
+                (False not in state_curr[1:]) and
+                # We never want to move comments or white-space around,
+                # any other line may include comments or blank lines.
+                isinstance(node.nodes[0], NODE_CODE_TYPES) and
+                isinstance(node.nodes[1], NODE_CODE_TYPES)
+        ):
+            # Provide:
+            #
+            #    (function-call a
+            #                   b
+            #                   c
+            #                   d
+            #                   e)
+            #
+
+            # Skip when the indent hint is set as this means wrapping on the first line
+            # doesn't typically make sense.
+            has_indent = False
+            if (fn_data := (node.fn_arity_get_from_first_symbol(cfg.defs))) is not None:
+                # May be `FnArity` or a list.
+                hints = fn_data[3]
+                if hints and 'indent' in hints:
+                    has_indent = True
+
+            # Don't attempt to wrap anything that defines an indent.
+            # It's too likely to lead to:
+            #
+            #     (some-macro awkwardly
+            #        indented
+            #      arguments)
+            if not has_indent:
+                state_gen = [True] * len(state_curr)
+                state_gen[0] = False
+                state_gen[1] = False
+
+                parent_score_test = fmt_solver_fill_column_unwrap_test_state(*static_test_state_args, tuple(state_gen))
+                if parent_score_test is not None:
+                    return parent_score_test
+
+    return None
+
+
 def fmt_solver_fill_column_unwrap_recursive(
         cfg: FmtConfig,
         node_parent: NdSexp,
@@ -2193,8 +2290,6 @@ def fmt_solver_fill_column_unwrap_recursive(
     # If this isn't a newline, let a parent node handle it
     # otherwise leading nodes won't be included.
     parent_score_curr = -1
-    calc_score = True
-    state_curr: NdSexp_WrapState = ()
     if node_parent.force_newline:
         if level == 0:
             # When at level zero, include ourself,
@@ -2208,6 +2303,7 @@ def fmt_solver_fill_column_unwrap_recursive(
             # If this happens it's an internal error.
             assert not node.wrap_locked
 
+            # Calculate the score to compare new states to.
             if parent_score_curr == -1:
                 parent_score_curr = node_parent.fmt_check_exceeds_colum_max(
                     cfg,
@@ -2215,54 +2311,20 @@ def fmt_solver_fill_column_unwrap_recursive(
                     trailing_parens,
                     calc_score=True,
                 )
-                # If the current state has no over-length lines (such as long comments).
-                # There is no need to do extra work. Any over-long line caused by the state being
-                # tested can immediately be considered an error and early exit.
-                # In this case the score will only ever be 0/1 but that's fine.
-                if parent_score_curr == 0:
-                    calc_score = False
 
-            # While in general duplicates states are not added,
-            # it's also not guaranteed that this can never happen. And it in-fact does sometimes.
-            # Since it's fairly rare, track states here which have already been tested.
-            #
-            # This avoids the need to de-duplicate when adding, and means if the first unwrap is successful
-            # then there is no need to track visited states at all.
-            state_curr = node.newline_state_get()
-            state_visit = {state_curr}
+            # Attempt to load or calculate a better state
+            parent_score_test = fmt_solver_fill_column_unwrap_test_state_permutations(
+                cfg,
+                node_parent,
+                node,
+                level,
+                trailing_parens,
+                parent_score_curr,
+            )
+            if parent_score_test is not None:
+                assert parent_score_test <= parent_score_curr
+                parent_score_curr = parent_score_test
 
-            # Iterate over prior states and optionally generate additional states that can be used as a last resort.
-            for state_test in fmt_solver_node_prior_states_with_generated_alternatives(node, state_curr, cfg.defs):
-                # Should never be an empty list.
-                assert state_test
-
-                if state_test in state_visit:
-                    continue
-
-                node.newline_state_set(state_test)
-
-                if fmt_solver_newline_constraints_apply(node, cfg, check_parent_multiline=True):
-                    state_test = node.newline_state_get()
-                    if state_test in state_visit:
-                        node.newline_state_set(state_curr)
-                        continue
-
-                parent_score_test = node_parent.fmt_check_exceeds_colum_max(
-                    cfg,
-                    level,
-                    trailing_parens,
-                    calc_score=calc_score,
-                )
-                if parent_score_test <= parent_score_curr:
-                    parent_score_curr = parent_score_test
-                    state_curr = state_test
-                    # The most ambitious (early) states are first, no need to try others.
-                    break
-
-                # This state was unsuccessful, don't attempt to test it again.
-                state_visit.add(state_test)
-
-                node.newline_state_set(state_curr)
             # Avoid checking these ever again - either they were useful or not.
             node.prior_states.clear()
 
