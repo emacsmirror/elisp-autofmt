@@ -540,7 +540,6 @@ def apply_rules_recursive_locked(node_parent: NdSexp) -> None:
     Used for ``--fmt-quoted=0`` support.
     '''
     # Also detect line changes between the parent and the child.
-    node_prev = node_parent
     prev_original_line = node_parent.original_line
     for node in node_parent.iter_nodes_recursive():
         if isinstance(node, NdSexp):
@@ -1467,10 +1466,10 @@ class NdSexp(Node):
         if test_node_terminate is None:
 
             line_length = 0
+            score = 0
 
             if calc_score:
                 # Accumulate a score.
-                score = 0
 
                 def write_fn_fast(text: str) -> None:
                     nonlocal line_length
@@ -1501,10 +1500,9 @@ class NdSexp(Node):
                 line_length += trailing_parens
                 if line_length > fill_column:
                     score += 2 ** (line_length - fill_column)
-
-                return score
             else:
                 # Simple, detect if the line length is exceeded.
+                # (score is effectively a boolean).
 
                 def write_fn_fast(text: str) -> None:
                     nonlocal line_length
@@ -1533,10 +1531,11 @@ class NdSexp(Node):
                 try:
                     self.fmt_with_terminate_node(_ctx, write_fn_fast, level, test=True)
                 except FmtExceptionEarlyExit:
-                    return 1
+                    score = 1
                 if line_length + trailing_parens > fill_column:
-                    return 1
-                return 0
+                    score = 1
+
+            return score
 
         _data: List[str] = []
         write_fn = _data.append
