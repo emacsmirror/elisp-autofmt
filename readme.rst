@@ -120,6 +120,12 @@ Commands
 ``elisp-autofmt-buffer``
    Auto formats the current buffer (doesn't depend on the minor mode).
 
+``elisp-autofmt-region``
+   Auto formats the selected region.
+
+``elisp-autofmt-region-dwim``
+   Auto formats the selected region or the surrounding multi-line block when there is no active region.
+
 
 Customization (Style)
 ---------------------

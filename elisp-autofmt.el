@@ -164,13 +164,98 @@ Otherwise you can set this to a user defined function."
 ;; ---------------------------------------------------------------------------
 ;; Internal Utilities
 
+(defun elisp-autofmt--bol-unless-non-blank (pos)
+  "Return the line-beginning of POS when there is only blank space before point."
+  (save-excursion
+    (goto-char pos)
+    (let ((bol (line-beginning-position)))
+      (cond
+       ((eq pos bol)
+        bol)
+       (t
+        (goto-char bol)
+        (skip-chars-forward "[:blank:]" (1+ pos))
+        (when (< (point) pos)
+          (setq bol nil))
+        bol)))))
+
 (defun elisp-autofmt--bool-as-int (val)
-  "Return 0/1 from nil/t."
+  "Return 0/1 from VAL, nil/t."
   (cond
    (val
     1)
    (t
     0)))
+
+(defun elisp-autofmt--s-expr-range-around-pos (pos)
+  "Return range around POS or nil."
+  (let ((beg
+         (ignore-errors
+           (elt (syntax-ppss pos) 1))))
+    (cond
+     (beg
+      ;; Note that `end' may be nil for un-matched brackets.
+      ;; The caller must handle this case.
+      (let ((end
+             (ignore-errors
+               (scan-sexps beg 1))))
+        (cons beg end)))
+     (t
+      nil))))
+
+(defun elisp-autofmt--s-expr-range-around-pos-dwim (pos)
+  "Return range around POS, context sensitive."
+  (save-excursion
+    (goto-char pos)
+    (let ((region-range (elisp-autofmt--s-expr-range-around-pos (line-beginning-position))))
+      (unless region-range
+        ;; Search for the widest range in this line.
+        (let ((eol (line-end-position))
+              (bol (line-beginning-position))
+
+              (range-best-around-pos nil)
+              (range-best-length-around-pos 0)
+
+              (range-best nil)
+              (range-best-length 0))
+
+          (goto-char bol)
+          (while (< (point) eol)
+            (skip-syntax-forward "^()")
+            (let ((syntax (car (syntax-after (point))))
+                  (range-test nil)
+                  (range-test-length nil))
+              (cond
+               ((eq syntax 4) ;; Opening bracket.
+                (let ((pos-other (scan-sexps (point) 1)))
+                  (when pos-other
+                    (setq range-test (cons (point) pos-other))
+                    (setq range-test-length (- pos-other (point))))))
+               ((eq syntax 5) ;; Closing bracket.
+                ;; C-M-p.
+                ;; Point must be after ')'.
+                (let ((pos-other (scan-sexps (1+ (point)) -1)))
+                  (when pos-other
+
+                    (setq range-test (cons pos-other (point)))
+                    (setq range-test-length (- (point) pos-other))))))
+
+              (when range-test
+                (when (< range-best-length range-test-length)
+                  (setq range-best range-test)
+                  (setq range-best-length range-test-length))
+                (when (< range-best-length-around-pos range-test-length)
+                  (when (and (<= (car range-test) pos) (<= pos (cdr range-test)))
+                    (setq range-best-around-pos range-test)
+                    (setq range-best-length-around-pos range-test-length)))))
+            (forward-char 1))
+
+          (setq region-range (or range-best-around-pos range-best))
+          (when region-range
+            (let ((beg-bol (elisp-autofmt--bol-unless-non-blank (car region-range))))
+              (when beg-bol
+                (setcar region-range beg-bol))))))
+      region-range)))
 
 (defun elisp-autofmt--call-checked (command-with-args)
   "Run COMMAND-WITH-ARGS, returning t on success.
@@ -596,13 +681,110 @@ When SKIP-REQUIRE is set, don't require the package."
 ;; ---------------------------------------------------------------------------
 ;; Internal Functions
 
-(defun elisp-autofmt--replace-buffer-contents-with-fastpath (buf is-interactive)
+(defun elisp-autofmt--replace-buffer-contents-with-fastpath (buf region-range is-interactive)
   "Replace buffer contents with BUF, fast-path when undo is disabled.
 
 Useful for fast operation, especially for automated conversion or tests.
+Argument REGION-RANGE optionally replaces a region when non-nil.
 Argument IS-INTERACTIVE is set when running interactively."
   (let ((is-beg (bobp))
         (is-end (eobp)))
+
+    ;; Optionally format within a region,
+    ;; use a simple trick, replace the beginning and of the formatted buffer
+    ;; with the original (unformatted) text.
+    (when region-range
+      (let* ((beg (car region-range))
+             (end (cdr region-range)))
+
+        ;; Contract region to bracket bounds, quote or comment bounds,
+        ;; note that we are not strict about the syntax, it's possible these
+        ;; characters are inside comments or strings. The logic will still work.
+        (while (and beg (not (memq (char-after beg) (list ?\( ?\[ ?\" ?\;))))
+          (setq beg (1+ beg))
+          (unless (<= beg end)
+            (setq beg nil)))
+
+        (unless beg
+          (setq end nil))
+
+        (while (and end (not (memq (char-before end) (list ?\) ?\] ?\" ?\;))))
+          (setq end (1- end))
+          (unless (<= beg end)
+            (setq end nil)))
+
+        (unless (and beg end)
+          (user-error "Region contains no S-expressions or vector literals!"))
+
+        (let* ((buf-dst (current-buffer))
+
+               (buf-dst-pos-min (point-min))
+               (buf-dst-pos-max (point-max))
+
+               (beg-index 0)
+               (end-index 0)
+
+               (beg-char (char-after beg))
+               (end-char (char-before end))
+
+               (beg-str (char-to-string beg-char))
+               (end-str (char-to-string end-char))
+
+               (beg-dst-pos nil)
+               (end-dst-pos nil)
+               (beg-dst-pos-bol nil)
+
+               (beg-src-pos nil)
+               (end-src-pos nil)
+               (beg-src-pos-bol nil))
+
+          (save-excursion
+            (goto-char (point-min))
+            (let ((limit (1+ beg)))
+              (while (search-forward beg-str limit t)
+                (setq beg-index (1+ beg-index)))
+              ;; The point before the character.
+              (setq beg-dst-pos (1- (point)))
+              (setq beg-dst-pos-bol (elisp-autofmt--bol-unless-non-blank beg-dst-pos))
+              (setq limit (1+ end))
+              (while (search-forward end-str limit t)
+                (setq end-index (1+ end-index)))
+              (setq end-dst-pos (point)))
+
+            ;; Load the formatted buffer and replace the head & tail with unformatted text
+            ;; so as only to reformat the requested region.
+            (with-current-buffer buf
+              (let ((i 0))
+                (goto-char (point-min))
+                (while (and (< i beg-index) (search-forward beg-str nil t))
+                  (setq i (1+ i)))
+                ;; The point before the character.
+                (setq beg-src-pos (1- (point)))
+                (setq beg-src-pos-bol (elisp-autofmt--bol-unless-non-blank beg-src-pos))
+                (setq i 0)
+                (while (and (< i end-index) (search-forward end-str nil t))
+                  (setq i (1+ i)))
+                (setq end-src-pos (point)))
+
+              ;; Optionally expand the beginning to include indentation,
+              ;; without this lines may be badly indented.
+              ;; Only do this when:
+              ;; - When white-space is included in the original region.
+              ;; - When there is space before the formatted text both before & after formatting.
+              (when (and beg-dst-pos-bol beg-src-pos-bol (<= beg-dst-pos-bol (car region-range)))
+                (setq beg-dst-pos beg-dst-pos-bol)
+                (setq beg-src-pos beg-src-pos-bol))
+
+              ;; Replace unformatted code at the beginning and end.
+              (delete-region end-src-pos (point-max))
+              (delete-region (point-min) beg-src-pos)
+
+              (goto-char (point-max))
+              (insert-buffer-substring buf-dst end-dst-pos buf-dst-pos-max)
+
+              (goto-char (point-min))
+              (insert-buffer-substring buf-dst buf-dst-pos-min beg-dst-pos))))))
+
     (cond
      ((and (eq t buffer-undo-list) (or is-beg is-end))
       ;; No undo, use a simple method instead of `replace-buffer-contents',
@@ -623,22 +805,13 @@ Argument IS-INTERACTIVE is set when running interactively."
         (replace-buffer-contents buf)))))))
 
 (defun elisp-autofmt--region-impl
-    (stdout-buffer stderr-buffer to-file is-interactive &optional assume-file-name)
+    (stdout-buffer stderr-buffer region-range to-file is-interactive &optional assume-file-name)
   "Auto format the current region using temporary STDOUT-BUFFER & STDERR-BUFFER.
 Optional argument ASSUME-FILE-NAME overrides the file name used for this buffer.
 
+Argument REGION-RANGE optionally defines a region to format.
 Argument TO-FILE writes to the file directly, without updating the buffer.
 Argument IS-INTERACTIVE is set when running interactively."
-
-  ;; TODO, add support for auto-formatting a sub-region,
-  ;; until this is supported keep this private.
-
-  ;; (interactive
-  ;;   (cond
-  ;;     ((use-region-p)
-  ;;       (list (region-beginning) (region-end)))
-  ;;     (t
-  ;;       (list (point) (point)))))
 
   (unless assume-file-name
     (setq assume-file-name buffer-file-name))
@@ -795,10 +968,10 @@ Argument IS-INTERACTIVE is set when running interactively."
               (write-region (point-min) (point-max) assume-file-name)))
            (t
             (elisp-autofmt--replace-buffer-contents-with-fastpath
-             stdout-buffer is-interactive)))))))))
+             stdout-buffer region-range is-interactive)))))))))
 
-(defun elisp-autofmt--region (to-file is-interactive &optional assume-file-name)
-  "Auto format the current region.
+(defun elisp-autofmt--region (region-range to-file is-interactive &optional assume-file-name)
+  "Auto format the current buffer in REGION-RANGE.
 Optional argument ASSUME-FILE-NAME overrides the file name used for this buffer.
 
 See `elisp-autofmt--region-impl' for TO-FILE and IS-INTERACTIVE doc-strings."
@@ -810,15 +983,16 @@ See `elisp-autofmt--region-impl' for TO-FILE and IS-INTERACTIVE doc-strings."
       (with-temp-buffer
         (setq stderr-buffer (current-buffer))
         (with-current-buffer this-buffer
-          (elisp-autofmt--region-impl stdout-buffer stderr-buffer to-file is-interactive
-                                      assume-file-name))))))
+          (elisp-autofmt--region-impl
+           stdout-buffer stderr-buffer region-range to-file is-interactive
+           assume-file-name))))))
 
-(defun elisp-autofmt--buffer-impl (buf to-file is-interactive)
-  "Auto-format the entire buffer BUF.
+(defun elisp-autofmt--buffer-impl (buf region-range to-file is-interactive)
+  "Auto-format the entire buffer BUF in REGION-RANGE.
 
 See `elisp-autofmt--region-impl' for TO-FILE and IS-INTERACTIVE doc-strings."
   (with-current-buffer buf
-    (elisp-autofmt--region to-file is-interactive)))
+    (elisp-autofmt--region region-range to-file is-interactive)))
 
 (defun elisp-autofmt--buffer-format-for-save-hook ()
   "The hook to run on buffer saving to format the buffer."
@@ -851,14 +1025,46 @@ This is intended for use by batch processing scripts,
 where loading changes back into the buffer is not important."
   (unless buffer-file-name
     (error "A buffer with a valid file-name expected!"))
-  (elisp-autofmt--buffer-impl (current-buffer) t nil))
+  (elisp-autofmt--buffer-impl (current-buffer) nil t nil))
 
 ;;;###autoload
 (defun elisp-autofmt-buffer ()
   "Auto format the current buffer."
   (interactive)
   (let ((is-interactive (called-interactively-p 'interactive)))
-    (elisp-autofmt--buffer-impl (current-buffer) nil is-interactive)))
+    (elisp-autofmt--buffer-impl (current-buffer) nil nil is-interactive)))
+
+;;;###autoload
+(defun elisp-autofmt-region (&optional beg end)
+  "Auto format the active region of the current buffer.
+Optionally use BEG & END, otherwise an active region is required."
+  (interactive)
+
+  (unless (and beg end)
+    (unless (region-active-p)
+      (user-error "No active region"))
+    (setq beg (region-beginning))
+    (setq end (region-end)))
+
+  (let ((is-interactive (called-interactively-p 'interactive)))
+    (elisp-autofmt--buffer-impl (current-buffer) (cons beg end) nil is-interactive)))
+
+;;;###autoload
+(defun elisp-autofmt-region-dwim ()
+  "Context sensitive auto formatting of the current buffer.
+When there is an active region, this is used,
+otherwise format the surrounding S-expression."
+  (interactive)
+  (cond
+   ((region-active-p)
+    (elisp-autofmt-region))
+   (t
+    (let ((region-range (elisp-autofmt--s-expr-range-around-pos-dwim (point))))
+      (unless region-range
+        (user-error "Unable to find surrounding brackets!"))
+
+      (let ((is-interactive (called-interactively-p 'interactive)))
+        (elisp-autofmt--buffer-impl (current-buffer) region-range nil is-interactive))))))
 
 ;;;###autoload
 (defun elisp-autofmt-check-elisp-autofmt-exists ()
