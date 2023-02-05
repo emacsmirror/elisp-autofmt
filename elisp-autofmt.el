@@ -681,6 +681,104 @@ When SKIP-REQUIRE is set, don't require the package."
 ;; ---------------------------------------------------------------------------
 ;; Internal Functions
 
+(defun elisp-autofmt--replace-buffer-contents-isolate-region (buf-src beg end)
+  "Isolate the region to be replaced in BEG END to format the region/selection.
+Argument BUF-SRC is the buffer containing the formatted text."
+  ;; Use a simple trick, replace the beginning and of the formatted buffer
+  ;; with the original (unformatted) text.
+
+  ;; Keep the original beginning because we may want to expand back to the beginning
+  ;; of the line if there is only white-space before the contracted bounds.
+  ;; This is needed so formatting a block does not have wrong indentation.
+  (let ((beg-orig beg))
+    ;; Contract region to bracket bounds, quote or comment bounds,
+    ;; note that we are not strict about the syntax, it's possible these
+    ;; characters are inside comments or strings. The logic will still work.
+    (while (and beg (not (memq (char-after beg) (list ?\( ?\[ ?\" ?\;))))
+      (setq beg (1+ beg))
+      (unless (<= beg end)
+        (setq beg nil)))
+
+    (unless beg
+      (setq end nil))
+
+    (while (and end (not (memq (char-before end) (list ?\) ?\] ?\" ?\;))))
+      (setq end (1- end))
+      (unless (<= beg end)
+        (setq end nil)))
+
+    (unless (and beg end)
+      (user-error "Region contains no S-expressions or vector literals!"))
+
+    (let* ((buf-dst (current-buffer))
+
+           (buf-dst-pos-min (point-min))
+           (buf-dst-pos-max (point-max))
+
+           (beg-index 0)
+           (end-index 0)
+
+           (beg-char (char-after beg))
+           (end-char (char-before end))
+
+           (beg-str (char-to-string beg-char))
+           (end-str (char-to-string end-char))
+
+           (beg-dst-pos nil)
+           (end-dst-pos nil)
+           (beg-dst-pos-bol nil)
+
+           (beg-src-pos nil)
+           (end-src-pos nil)
+           (beg-src-pos-bol nil))
+
+      (save-excursion
+        (goto-char (point-min))
+        (let ((limit (1+ beg)))
+          (while (search-forward beg-str limit t)
+            (setq beg-index (1+ beg-index)))
+          ;; The point before the character.
+          (setq beg-dst-pos (1- (point)))
+          (setq beg-dst-pos-bol (elisp-autofmt--bol-unless-non-blank beg-dst-pos))
+          (setq limit (1+ end))
+          (while (search-forward end-str limit t)
+            (setq end-index (1+ end-index)))
+          (setq end-dst-pos (point)))
+
+        ;; Load the formatted buffer and replace the head & tail with unformatted text
+        ;; so as only to reformat the requested region.
+        (with-current-buffer buf-src
+          (let ((i 0))
+            (goto-char (point-min))
+            (while (and (< i beg-index) (search-forward beg-str nil t))
+              (setq i (1+ i)))
+            ;; The point before the character.
+            (setq beg-src-pos (1- (point)))
+            (setq beg-src-pos-bol (elisp-autofmt--bol-unless-non-blank beg-src-pos))
+            (setq i 0)
+            (while (and (< i end-index) (search-forward end-str nil t))
+              (setq i (1+ i)))
+            (setq end-src-pos (point)))
+
+          ;; Optionally expand the beginning to include indentation,
+          ;; without this lines may be badly indented.
+          ;; Only do this when:
+          ;; - When white-space is included in the original region.
+          ;; - When there is space before the formatted text both before & after formatting.
+          (when (and beg-dst-pos-bol beg-src-pos-bol (<= beg-dst-pos-bol beg-orig))
+            (setq beg-dst-pos beg-dst-pos-bol)
+            (setq beg-src-pos beg-src-pos-bol))
+
+          ;; Replace unformatted code at the beginning and end.
+          (delete-region end-src-pos (point-max))
+          (delete-region (point-min) beg-src-pos)
+
+          (goto-char (point-max))
+          (insert-buffer-substring buf-dst end-dst-pos buf-dst-pos-max)
+
+          (goto-char (point-min))
+          (insert-buffer-substring buf-dst buf-dst-pos-min beg-dst-pos))))))
+
 (defun elisp-autofmt--replace-buffer-contents-with-fastpath (buf region-range is-interactive)
   "Replace buffer contents with BUF, fast-path when undo is disabled.
 
@@ -691,99 +789,9 @@ Argument IS-INTERACTIVE is set when running interactively."
         (is-end (eobp)))
 
     ;; Optionally format within a region,
-    ;; use a simple trick, replace the beginning and of the formatted buffer
-    ;; with the original (unformatted) text.
     (when region-range
-      (let* ((beg (car region-range))
-             (end (cdr region-range)))
-
-        ;; Contract region to bracket bounds, quote or comment bounds,
-        ;; note that we are not strict about the syntax, it's possible these
-        ;; characters are inside comments or strings. The logic will still work.
-        (while (and beg (not (memq (char-after beg) (list ?\( ?\[ ?\" ?\;))))
-          (setq beg (1+ beg))
-          (unless (<= beg end)
-            (setq beg nil)))
-
-        (unless beg
-          (setq end nil))
-
-        (while (and end (not (memq (char-before end) (list ?\) ?\] ?\" ?\;))))
-          (setq end (1- end))
-          (unless (<= beg end)
-            (setq end nil)))
-
-        (unless (and beg end)
-          (user-error "Region contains no S-expressions or vector literals!"))
-
-        (let* ((buf-dst (current-buffer))
-
-               (buf-dst-pos-min (point-min))
-               (buf-dst-pos-max (point-max))
-
-               (beg-index 0)
-               (end-index 0)
-
-               (beg-char (char-after beg))
-               (end-char (char-before end))
-
-               (beg-str (char-to-string beg-char))
-               (end-str (char-to-string end-char))
-
-               (beg-dst-pos nil)
-               (end-dst-pos nil)
-               (beg-dst-pos-bol nil)
-
-               (beg-src-pos nil)
-               (end-src-pos nil)
-               (beg-src-pos-bol nil))
-
-          (save-excursion
-            (goto-char (point-min))
-            (let ((limit (1+ beg)))
-              (while (search-forward beg-str limit t)
-                (setq beg-index (1+ beg-index)))
-              ;; The point before the character.
-              (setq beg-dst-pos (1- (point)))
-              (setq beg-dst-pos-bol (elisp-autofmt--bol-unless-non-blank beg-dst-pos))
-              (setq limit (1+ end))
-              (while (search-forward end-str limit t)
-                (setq end-index (1+ end-index)))
-              (setq end-dst-pos (point)))
-
-            ;; Load the formatted buffer and replace the head & tail with unformatted text
-            ;; so as only to reformat the requested region.
-            (with-current-buffer buf
-              (let ((i 0))
-                (goto-char (point-min))
-                (while (and (< i beg-index) (search-forward beg-str nil t))
-                  (setq i (1+ i)))
-                ;; The point before the character.
-                (setq beg-src-pos (1- (point)))
-                (setq beg-src-pos-bol (elisp-autofmt--bol-unless-non-blank beg-src-pos))
-                (setq i 0)
-                (while (and (< i end-index) (search-forward end-str nil t))
-                  (setq i (1+ i)))
-                (setq end-src-pos (point)))
-
-              ;; Optionally expand the beginning to include indentation,
-              ;; without this lines may be badly indented.
-              ;; Only do this when:
-              ;; - When white-space is included in the original region.
-              ;; - When there is space before the formatted text both before & after formatting.
-              (when (and beg-dst-pos-bol beg-src-pos-bol (<= beg-dst-pos-bol (car region-range)))
-                (setq beg-dst-pos beg-dst-pos-bol)
-                (setq beg-src-pos beg-src-pos-bol))
-
-              ;; Replace unformatted code at the beginning and end.
-              (delete-region end-src-pos (point-max))
-              (delete-region (point-min) beg-src-pos)
-
-              (goto-char (point-max))
-              (insert-buffer-substring buf-dst end-dst-pos buf-dst-pos-max)
-
-              (goto-char (point-min))
-              (insert-buffer-substring buf-dst buf-dst-pos-min beg-dst-pos))))))
+      (when (elisp-autofmt--replace-buffer-contents-isolate-region
+             buf (car region-range) (cdr region-range))))
 
     (cond
      ((and (eq t buffer-undo-list) (or is-beg is-end))
