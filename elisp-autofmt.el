@@ -227,16 +227,16 @@ Otherwise you can set this to a user defined function."
                   (range-test-length nil))
               (cond
                ((eq syntax 4) ;; Opening bracket.
+                ;; Matches `C-M-n', (forward-list 1).
                 (let ((pos-other (scan-sexps (point) 1)))
                   (when pos-other
                     (setq range-test (cons (point) pos-other))
                     (setq range-test-length (- pos-other (point))))))
                ((eq syntax 5) ;; Closing bracket.
-                ;; C-M-p.
+                ;; Matches `C-M-p', (forward-list -1).
                 ;; Point must be after ')'.
                 (let ((pos-other (scan-sexps (1+ (point)) -1)))
                   (when pos-other
-
                     (setq range-test (cons pos-other (point)))
                     (setq range-test-length (- (point) pos-other))))))
 
