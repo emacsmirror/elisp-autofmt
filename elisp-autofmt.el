@@ -681,7 +681,7 @@ When SKIP-REQUIRE is set, don't require the package."
 ;; ---------------------------------------------------------------------------
 ;; Internal Functions
 
-(defun elisp-autofmt--replace-buffer-contents-isolate-region (buf-src beg end)
+(defun elisp-autofmt--replace-buffer-contents-isolate-region (buf-src beg end is-interactive)
   "Isolate the region to be replaced in BEG END to format the region/selection.
 Argument BUF-SRC is the buffer containing the formatted text."
   ;; Use a simple trick, replace the beginning and of the formatted buffer
@@ -690,7 +690,8 @@ Argument BUF-SRC is the buffer containing the formatted text."
   ;; Keep the original beginning because we may want to expand back to the beginning
   ;; of the line if there is only white-space before the contracted bounds.
   ;; This is needed so formatting a block does not have wrong indentation.
-  (let ((beg-orig beg))
+  (let ((beg-orig beg)
+        (changed nil))
     ;; Contract region to bracket bounds, quote or comment bounds,
     ;; note that we are not strict about the syntax, it's possible these
     ;; characters are inside comments or strings. The logic will still work.
@@ -769,6 +770,19 @@ Argument BUF-SRC is the buffer containing the formatted text."
             (setq beg-dst-pos beg-dst-pos-bol)
             (setq beg-src-pos beg-src-pos-bol))
 
+          (when is-interactive
+            ;; Report if formatting was performed.
+            (cond
+             ((not (eq (- end-dst-pos beg-dst-pos) (- end-src-pos beg-src-pos)))
+              (setq changed t))
+             (t
+              (let ((str-src (buffer-substring-no-properties beg-src-pos end-src-pos))
+                    (str-dst
+                     (with-current-buffer buf-dst
+                       (buffer-substring-no-properties beg-dst-pos end-dst-pos))))
+                (unless (string-equal str-src str-dst)
+                  (setq changed t))))))
+
           ;; Replace unformatted code at the beginning and end.
           (delete-region end-src-pos (point-max))
           (delete-region (point-min) beg-src-pos)
@@ -777,7 +791,8 @@ Argument BUF-SRC is the buffer containing the formatted text."
           (insert-buffer-substring buf-dst end-dst-pos buf-dst-pos-max)
 
           (goto-char (point-min))
-          (insert-buffer-substring buf-dst buf-dst-pos-min beg-dst-pos))))))
+          (insert-buffer-substring buf-dst buf-dst-pos-min beg-dst-pos))))
+    changed))
 
 (defun elisp-autofmt--replace-buffer-contents-with-fastpath (buf region-range is-interactive)
   "Replace buffer contents with BUF, fast-path when undo is disabled.
@@ -786,14 +801,25 @@ Useful for fast operation, especially for automated conversion or tests.
 Argument REGION-RANGE optionally replaces a region when non-nil.
 Argument IS-INTERACTIVE is set when running interactively."
   (let ((is-beg (bobp))
-        (is-end (eobp)))
+        (is-end (eobp))
+        (changed t))
 
     ;; Optionally format within a region,
     (when region-range
-      (when (elisp-autofmt--replace-buffer-contents-isolate-region
-             buf (car region-range) (cdr region-range))))
+      (setq changed
+            (elisp-autofmt--replace-buffer-contents-isolate-region
+             buf (car region-range) (cdr region-range) is-interactive))
+
+      (when is-interactive
+        (message "elisp-autofmt: %s"
+                 (cond
+                  (changed
+                   "reformat")
+                  (t
+                   "reformat (unnecessary)")))))
 
     (cond
+     ((null changed))
      ((and (eq t buffer-undo-list) (or is-beg is-end))
       ;; No undo, use a simple method instead of `replace-buffer-contents',
       ;; which has no benefit unless undo is in use.
