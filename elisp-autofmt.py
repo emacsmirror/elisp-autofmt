@@ -210,7 +210,7 @@ def apply_comment_force_newline(root: NdSexp) -> None:
                     node_parent.force_newline = True
                 else:
                     node_line_start.force_newline = True
-        if node_line_start.original_line != node.original_line:
+        if node_line_start.original_lines[0] != node.original_lines[0]:
             node_line_start = node
 
 
@@ -540,13 +540,13 @@ def apply_rules_recursive_locked(node_parent: NdSexp) -> None:
     Used for ``--fmt-quoted=0`` support.
     '''
     # Also detect line changes between the parent and the child.
-    prev_original_line = node_parent.original_line
+    prev_original_line = node_parent.original_lines[0]
     for node in node_parent.iter_nodes_recursive():
         if isinstance(node, NdSexp):
             node.wrap_locked = True
-        if prev_original_line != node.original_line:
+        if prev_original_line != node.original_lines[0]:
             node.force_newline = True
-            prev_original_line = node.original_line
+            prev_original_line = node.original_lines[0]
 
 
 def apply_rules_recursive(cfg: FmtConfig, node_parent: NdSexp) -> None:
@@ -852,11 +852,11 @@ class Node:
     '''
     __slots__ = (
         'force_newline',
-        'original_line',
+        'original_lines',
     )
 
     force_newline: bool
-    original_line: int
+    original_lines: Tuple[int, int]
 
     def calc_force_newline(self, style: FmtStyle) -> None:
         '''
@@ -865,9 +865,10 @@ class Node:
         raise Exception('All subclasses must define this')
 
     def __repr__(self) -> str:
-        return 'force_newline={:d} line={:d}'.format(
+        return 'force_newline={:d} line={:d}-{:d}'.format(
             self.force_newline,
-            self.original_line,
+            self.original_lines[0],
+            self.original_lines[1],
         )
 
     def fmt(
@@ -907,7 +908,7 @@ if USE_DEBUG_TRACE_NEWLINES:
             '_force_newline_tracepoint',
         )
 
-        original_line: int
+        original_lines: Tuple[int, int]
 
         @property
         def force_newline(self) -> bool:
@@ -948,8 +949,8 @@ class NdSexp(Node):
         'fmt_cache',
     )
 
-    def __init__(self, line: int, brackets: str, nodes: Optional[List[Node]] = None):
-        self.original_line = line
+    def __init__(self, lines: Tuple[int, int], brackets: str, nodes: Optional[List[Node]] = None):
+        self.original_lines = lines
         self.prefix: str = ''
         self.brackets = brackets
         self.nodes = nodes or []
@@ -1372,7 +1373,7 @@ class NdSexp(Node):
                     elif isinstance(node_prev, NdSymbol):
                         # Always keep trailing back-slashes,
                         # these are used to define a string literal across multiple lines.
-                        if node_prev.data == '\\' and (node_prev.original_line != node.original_line):
+                        if node_prev.data == '\\' and (node_prev.original_lines[0] != node.original_lines[0]):
                             node.force_newline = True
             force_newline |= node.force_newline
             node_prev = node
@@ -2499,7 +2500,7 @@ class NdWs(Node):
     __slots__ = ()
 
     def __init__(self, line: int):
-        self.original_line = line
+        self.original_lines = line, line
 
     def __repr__(self) -> str:
         return '{:s}({:s} type=blank_line)'.format(
@@ -2538,7 +2539,7 @@ class NdComment(Node):
     is_own_line: bool
 
     def __init__(self, line: int, data: str, is_own_line: bool):
-        self.original_line = line
+        self.original_lines = line, line
         self.data = data
         self.is_own_line = is_own_line
 
@@ -2578,10 +2579,13 @@ class NdString(Node):
     data: str
     lines: int
 
-    def __init__(self, line: int, data: str):
-        self.original_line = line
+    def __init__(self, lines: Tuple[int, int], data: str):
+        self.original_lines = lines
         self.data = data
-        self.lines = self.data.count('\n')
+        # self.lines = self.data.count('\n')
+
+        # No need to count '\n'.
+        self.lines = lines[1] - lines[0]
 
     def __repr__(self) -> str:
         return '{:s}({:s} \'{:s}\')'.format(
@@ -2629,7 +2633,7 @@ class NdSymbol(Node):
     data: str
 
     def __init__(self, line: int, data: str):
-        self.original_line = line
+        self.original_lines = line, line
         self.data = data
 
     def __repr__(self) -> str:
@@ -2672,7 +2676,8 @@ def parse_file(fh: TextIO) -> Tuple[str, NdSexp]:
     line = 0
 
     # Fake top level S-expression to populate, (brackets aren't used).
-    root = NdSexp(line, brackets='()')
+    # Second line is updated on closing brace.
+    root = NdSexp((line, line), brackets='()')
 
     # Current S-expressions.
     sexp_ctx = [root]
@@ -2698,35 +2703,45 @@ def parse_file(fh: TextIO) -> Tuple[str, NdSexp]:
         c_peek = None
         # NOTE: Can use 'match c' here, will bump minimum Python version to 3.10
         if c == '(':  # Open S-expression.
-            sexp_ctx.append(NdSexp(line, '()'))
+            sexp_ctx.append(NdSexp((line, line), '()'))
             sexp_ctx[sexp_level].nodes.append(sexp_ctx[-1])
             sexp_level += 1
             line_has_contents = True
 
         elif c == '[':  # Open vector.
-            sexp_ctx.append(NdSexp(line, '[]'))
+            # Second line is updated on closing brace.
+            sexp_ctx.append(NdSexp((line, line), '[]'))
             sexp_ctx[sexp_level].nodes.append(sexp_ctx[-1])
             sexp_level += 1
             line_has_contents = True
         elif c == ')':  # Close S-expression.
             if sexp_level == 0:
                 raise FmtException('additional closing brackets, line {}'.format(line))
-            if sexp_ctx.pop().brackets[0] != '(':
+            node = sexp_ctx.pop()
+            if node.brackets[0] != '(':
                 raise FmtException(
                     'closing bracket "{:s}" line {:d}, unmatched bracket types, expected ")"'.format(c, line)
                 )
+            if node.original_lines[1] != line:
+                node.original_lines = node.original_lines[0], line
+            del node
             sexp_level -= 1
             line_has_contents = True
         elif c == ']':  # Close vector.
             if sexp_level == 0:
                 raise FmtException('additional closing brackets, line {}'.format(line))
-            if sexp_ctx.pop().brackets[0] != '[':
+            node = sexp_ctx.pop()
+            if node.brackets[0] != '[':
                 raise FmtException(
                     'closing bracket "{:s}" line {:d}, unmatched bracket types, expected "]"'.format(c, line)
                 )
+            if node.original_lines[1] != line:
+                node.original_lines = node.original_lines[0], line
+            del node
             sexp_level -= 1
             line_has_contents = True
         elif c == '"':  # Open & close string.
+            line_beg = line
             data = StringIO()
             is_slash = False
             while (c := fh.read(1)):
@@ -2743,8 +2758,8 @@ def parse_file(fh: TextIO) -> Tuple[str, NdSexp]:
             if not c:
                 raise FmtException('parsing string at line {}'.format(line))
 
-            sexp_ctx[sexp_level].nodes.append(NdString(line, data.getvalue()))
-            del data, is_slash, c
+            sexp_ctx[sexp_level].nodes.append(NdString((line_beg, line), data.getvalue()))
+            del line_beg, data, is_slash, c
             line_has_contents = True
         elif c == ';':  # Comment.
             data = StringIO()
@@ -2821,6 +2836,10 @@ def parse_file(fh: TextIO) -> Tuple[str, NdSexp]:
 
     if sexp_level != 0:
         raise FmtException('unbalanced S-expressions at file-end, found {} levels, expected 0'.format(sexp_level))
+
+    # Maybe unnecessary, do this for correctness.
+    if root.original_lines[1] != line:
+        root.original_lines = root.original_lines[0], line
 
     root.finalize_parse()
 
