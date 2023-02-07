@@ -164,6 +164,22 @@ Otherwise you can set this to a user defined function."
 ;; ---------------------------------------------------------------------------
 ;; Internal Utilities
 
+(defun elisp-autofmt--simple-count-lines (beg end)
+  "Simply count newlines between BEG and END."
+  ;; Emacs's `count-lines' includes extra logic that adds 1 in some cases,
+  ;; making it not useful for a simple line counting function.
+  (save-excursion
+    (save-restriction
+      (narrow-to-region beg end)
+      (goto-char beg)
+      (let ((done 0))
+        (while (re-search-forward "\n\\|\r[^\n]" nil t 40)
+          (setq done (+ 40 done)))
+        (while (re-search-forward "\n\\|\r[^\n]" nil t 1)
+          (setq done (+ 1 done)))
+        done))))
+
+
 (defun elisp-autofmt--bol-unless-non-blank (pos)
   "Return the line-beginning of POS when there is only blank space before point."
   (save-excursion
@@ -878,6 +894,19 @@ Argument IS-INTERACTIVE is set when running interactively."
            (t
             nil)))
 
+         ;; Optionally
+         (line-range
+          (cond
+           (region-range
+            (let* ((line-beg
+                    (1+ (elisp-autofmt--simple-count-lines (point-min) (car region-range))))
+                   (line-end
+                    (+ line-beg
+                       (elisp-autofmt--simple-count-lines (car region-range) (cdr region-range)))))
+              (cons line-beg line-end)))
+           (t
+            (cons 0 0))))
+
          (command-with-args
           (append
            ;; Python command.
@@ -900,6 +929,8 @@ Argument IS-INTERACTIVE is set when running interactively."
             ;; Follow the 'fill-column' setting.
             (format "--fmt-fill-column=%d" fill-column)
             (format "--fmt-empty-lines=%d" elisp-autofmt-empty-line-max)
+            ;; Range is optional, 0:0 is default for the full range.
+            (format "--fmt-line-range=%d:%d" (car line-range) (cdr line-range))
             (format "--fmt-style=%s" (symbol-name elisp-autofmt-style))
             (format "--fmt-quoted=%d" (elisp-autofmt--bool-as-int elisp-autofmt-format-quoted))
 

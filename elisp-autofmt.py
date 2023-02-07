@@ -856,6 +856,7 @@ class Node:
     )
 
     force_newline: bool
+    # Zero based line indices.
     original_lines: Tuple[int, int]
 
     def calc_force_newline(self, style: FmtStyle) -> None:
@@ -2929,6 +2930,7 @@ def format_file(
         filepath: str,
         cfg: FmtConfig,
         *,
+        line_range: Optional[Tuple[int, int]] = None,
         parallel_jobs: int = 0,
         use_stdin: bool = False,
         use_stdout: bool = False,
@@ -2979,6 +2981,19 @@ def format_file(
         # All root level nodes get their own line always.
         for node in root.nodes_only_code:
             node.force_newline = True
+
+        # Optionally lock content outside the range.
+        if line_range is not None:
+            for node in root.nodes_only_code:
+                if isinstance(node, NdSexp):
+                    if (
+                        # Node begins after the range of interest.
+                        node.original_lines[0] > line_range[1] or
+                        # Node ends before the range of interest.
+                        node.original_lines[1] < line_range[0]
+                    ):
+                        node.wrap_locked = True
+                        apply_rules_recursive_locked(node)
 
         if cfg.use_multiprocessing:
             # Copying this information can be quite slow, prune unused items first.
@@ -3107,7 +3122,20 @@ def argparse_create() -> argparse.ArgumentParser:
         required=False,
         help='Maximum column width.',
     )
-
+    parser.add_argument(
+        '--fmt-line-range',
+        dest='fmt_line_range',
+        default='0:0',
+        type=str,
+        required=False,
+        help=(
+            'The line range (starting at 1 & inclusive) to format. '
+            'Lines outside this range will output syntactically correct but the formatting is undefined. '
+            'Note that this is intended for callers that are only only formatting a sub-region, '
+            'in this case additional processing for anything outside this sub-region can be avoided.'
+            'A value of 0-0 is ignored.'
+        ),
+    )
     parser.add_argument(
         '--parallel-jobs',
         dest='parallel_jobs',
@@ -3231,6 +3259,28 @@ def main() -> None:
             'No files passed in, pass in files or use both \'--stdin\' & \'--stdout\'\n')
         sys.exit(1)
 
+    line_range: Optional[Tuple[int, int]] = None
+    if args.fmt_line_range:
+        if ":" not in args.fmt_line_range:
+            sys.stderr.write(
+                'The argument \'--fmt-line-range\' expects numbers to be separated by a \':\'\n')
+            sys.exit(1)
+        line_range_args = args.fmt_line_range.partition(':')[0::2]
+        try:
+            line_range = int(line_range_args[0]) - 1, int(line_range_args[1]) - 1
+        except Exception as ex:
+            sys.stderr.write(
+                'The argument \'--fmt-line-range\' could not interpret numbers ({!r})\n'.format(ex))
+            sys.exit(1)
+        if line_range[0] > line_range[1]:
+            sys.stderr.write(
+                'The argument \'--fmt-line-range\' found the start line was larger than the end\n')
+            sys.exit(1)
+
+        if line_range == (-1, -1):
+            line_range = None
+        del line_range_args
+
     defs_orig = FmtDefs(fn_arity={})
 
     if args.fmt_defs:
@@ -3274,6 +3324,7 @@ def main() -> None:
                 filepath,
                 cfg=cfg,
                 parallel_jobs=args.parallel_jobs,
+                line_range=line_range,
                 use_stdin=args.use_stdin,
                 use_stdout=args.use_stdout,
             )
