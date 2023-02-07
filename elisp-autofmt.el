@@ -697,7 +697,7 @@ When SKIP-REQUIRE is set, don't require the package."
 ;; ---------------------------------------------------------------------------
 ;; Internal Functions
 
-(defun elisp-autofmt--replace-buffer-contents-isolate-region (buf-src beg end is-interactive)
+(defun elisp-autofmt--replace-buffer-contents-isolate-region (buf-src beg end)
   "Isolate the region to be replaced in BEG END to format the region/selection.
 Argument BUF-SRC is the buffer containing the formatted text."
   ;; Use a simple trick, replace the beginning and of the formatted buffer
@@ -707,11 +707,12 @@ Argument BUF-SRC is the buffer containing the formatted text."
   ;; of the line if there is only white-space before the contracted bounds.
   ;; This is needed so formatting a block does not have wrong indentation.
   (let ((beg-orig beg)
-        (changed nil))
-    ;; Contract region to bracket bounds, quote or comment bounds,
-    ;; note that we are not strict about the syntax, it's possible these
+        (changed nil)
+        (skip-chars (list ?\s ?\t ?\n ?\r)))
+    ;; Contract region to non white-space bounds.
+    ;; Note that we are not strict about the syntax, it's possible these
     ;; characters are inside comments or strings. The logic will still work.
-    (while (and beg (not (memq (char-after beg) (list ?\( ?\[ ?\" ?\;))))
+    (while (and beg (memq (char-after beg) skip-chars))
       (setq beg (1+ beg))
       (unless (<= beg end)
         (setq beg nil)))
@@ -719,7 +720,7 @@ Argument BUF-SRC is the buffer containing the formatted text."
     (unless beg
       (setq end nil))
 
-    (while (and end (not (memq (char-before end) (list ?\) ?\] ?\" ?\;))))
+    (while (and end (memq (char-before end) skip-chars))
       (setq end (1- end))
       (unless (<= beg end)
         (setq end nil)))
@@ -786,18 +787,17 @@ Argument BUF-SRC is the buffer containing the formatted text."
             (setq beg-dst-pos beg-dst-pos-bol)
             (setq beg-src-pos beg-src-pos-bol))
 
-          (when is-interactive
-            ;; Report if formatting was performed.
-            (cond
-             ((not (eq (- end-dst-pos beg-dst-pos) (- end-src-pos beg-src-pos)))
-              (setq changed t))
-             (t
-              (let ((str-src (buffer-substring-no-properties beg-src-pos end-src-pos))
-                    (str-dst
-                     (with-current-buffer buf-dst
-                       (buffer-substring-no-properties beg-dst-pos end-dst-pos))))
-                (unless (string-equal str-src str-dst)
-                  (setq changed t))))))
+          ;; Report if formatting was performed.
+          (cond
+           ((not (eq (- end-dst-pos beg-dst-pos) (- end-src-pos beg-src-pos)))
+            (setq changed t))
+           (t
+            (let ((str-src (buffer-substring-no-properties beg-src-pos end-src-pos))
+                  (str-dst
+                   (with-current-buffer buf-dst
+                     (buffer-substring-no-properties beg-dst-pos end-dst-pos))))
+              (unless (string-equal str-src str-dst)
+                (setq changed t)))))
 
           ;; Replace unformatted code at the beginning and end.
           (delete-region end-src-pos (point-max))
@@ -824,7 +824,7 @@ Argument IS-INTERACTIVE is set when running interactively."
     (when region-range
       (setq changed
             (elisp-autofmt--replace-buffer-contents-isolate-region
-             buf (car region-range) (cdr region-range) is-interactive))
+             buf (car region-range) (cdr region-range)))
 
       (when is-interactive
         (message "elisp-autofmt: %s"
@@ -1105,9 +1105,10 @@ where loading changes back into the buffer is not important."
     (elisp-autofmt--buffer-impl (current-buffer) nil nil is-interactive)))
 
 ;;;###autoload
-(defun elisp-autofmt-region (&optional beg end)
+(defun elisp-autofmt-region (&optional beg end is-interactive)
   "Auto format the active region of the current buffer.
-Optionally use BEG & END, otherwise an active region is required."
+Optionally use BEG & END, otherwise an active region is required.
+Optionally pass in IS-INTERACTIVE to display a status message from formatting."
   (interactive)
 
   (unless (and beg end)
@@ -1116,7 +1117,7 @@ Optionally use BEG & END, otherwise an active region is required."
     (setq beg (region-beginning))
     (setq end (region-end)))
 
-  (let ((is-interactive (called-interactively-p 'interactive)))
+  (let ((is-interactive (or is-interactive (called-interactively-p 'interactive))))
     (elisp-autofmt--buffer-impl (current-buffer) (cons beg end) nil is-interactive)))
 
 ;;;###autoload
@@ -1125,16 +1126,15 @@ Optionally use BEG & END, otherwise an active region is required."
 When there is an active region, this is used,
 otherwise format the surrounding S-expression."
   (interactive)
-  (cond
-   ((region-active-p)
-    (elisp-autofmt-region))
-   (t
-    (let ((region-range (elisp-autofmt--s-expr-range-around-pos-dwim (point))))
-      (unless region-range
-        (user-error "Unable to find surrounding brackets!"))
-
-      (let ((is-interactive (called-interactively-p 'interactive)))
-        (elisp-autofmt--buffer-impl (current-buffer) region-range nil is-interactive))))))
+  (let ((is-interactive (called-interactively-p 'interactive)))
+    (cond
+     ((region-active-p)
+      (elisp-autofmt-region (region-beginning) (region-end) is-interactive))
+     (t
+      (let ((region-range (elisp-autofmt--s-expr-range-around-pos-dwim (point))))
+        (unless region-range
+          (user-error "Unable to find surrounding brackets!"))
+        (elisp-autofmt-region (car region-range) (cdr region-range) is-interactive))))))
 
 ;;;###autoload
 (defun elisp-autofmt-check-elisp-autofmt-exists ()
