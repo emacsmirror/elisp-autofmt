@@ -940,7 +940,12 @@ Argument IS-INTERACTIVE is set when running interactively."
                      ;; seems to cause performance issues which need investigating.
                      ((memq system-type (list 'ms-dos 'windows-nt))
                       -1)
-                     ((<= (buffer-size) elisp-autofmt-parallel-threshold)
+                     ((<= (cond
+                           (region-range
+                            (- (cdr region-range) (car region-range)))
+                           (t
+                            (buffer-size)))
+                          elisp-autofmt-parallel-threshold)
                       -1)
                      (t
                       elisp-autofmt-parallel-jobs)))
