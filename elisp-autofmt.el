@@ -766,28 +766,30 @@ Argument BUF-SRC is the buffer containing the formatted text."
       (save-excursion
         (goto-char (point-min))
         (let ((limit (1+ beg)))
-          (setq beg-index (elisp-autofmt--simple-search-forward-and-count beg-str limit))
-          ;; The point before the character.
-          (setq beg-dst-pos (1- (point)))
-          (setq beg-dst-pos-bol (elisp-autofmt--bol-unless-non-blank beg-dst-pos))
-          (setq limit (1+ end))
-          (setq end-index (elisp-autofmt--simple-search-forward-and-count end-str limit))
-          (setq end-dst-pos (point)))
+          (save-match-data
+            (setq beg-index (elisp-autofmt--simple-search-forward-and-count beg-str limit))
+            ;; The point before the character.
+            (setq beg-dst-pos (1- (point)))
+            (setq beg-dst-pos-bol (elisp-autofmt--bol-unless-non-blank beg-dst-pos))
+            (setq limit (1+ end))
+            (setq end-index (elisp-autofmt--simple-search-forward-and-count end-str limit))
+            (setq end-dst-pos (point))))
 
         ;; Load the formatted buffer and replace the head & tail with unformatted text
         ;; so as only to reformat the requested region.
         (with-current-buffer buf-src
-          (goto-char (point-min))
-          (unless (elisp-autofmt--simple-search-forward-by-count beg-str beg-index)
-            ;; Sanity check, should never happen.
-            (user-error "Failed to re-find the start of formatted region, abort!"))
-          ;; The point before the character.
-          (setq beg-src-pos (1- (point)))
-          (setq beg-src-pos-bol (elisp-autofmt--bol-unless-non-blank beg-src-pos))
-          (unless (elisp-autofmt--simple-search-forward-by-count end-str end-index)
-            ;; Sanity check, should never happen.
-            (user-error "Failed to re-find the end of formatted region, abort!"))
-          (setq end-src-pos (point))
+          (save-match-data
+            (goto-char (point-min))
+            (unless (elisp-autofmt--simple-search-forward-by-count beg-str beg-index)
+              ;; Sanity check, should never happen.
+              (user-error "Failed to re-find the start of formatted region, abort!"))
+            ;; The point before the character.
+            (setq beg-src-pos (1- (point)))
+            (setq beg-src-pos-bol (elisp-autofmt--bol-unless-non-blank beg-src-pos))
+            (unless (elisp-autofmt--simple-search-forward-by-count end-str end-index)
+              ;; Sanity check, should never happen.
+              (user-error "Failed to re-find the end of formatted region, abort!"))
+            (setq end-src-pos (point)))
 
           ;; Optionally expand the beginning to include indentation,
           ;; without this lines may be badly indented.
