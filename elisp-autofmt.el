@@ -164,6 +164,18 @@ Otherwise you can set this to a user defined function."
 ;; ---------------------------------------------------------------------------
 ;; Internal Utilities
 
+(defmacro elisp-autofmt--with-advice (fn-orig where fn-advice &rest body)
+  "Execute BODY with advice added.
+
+WHERE using FN-ADVICE temporarily added to FN-ORIG."
+  (declare (indent 3))
+  `(let ((fn-advice-var ,fn-advice))
+     (unwind-protect
+         (progn
+           (advice-add ,fn-orig ,where fn-advice-var)
+           ,@body)
+       (advice-remove ,fn-orig fn-advice-var))))
+
 (defun elisp-autofmt--simple-search-forward-and-count (str limit)
   "Search forward by STR, within LIMIT."
   (let ((done 0))
@@ -305,55 +317,41 @@ Any `stderr' is output a message and is interpreted as failure."
       (with-temp-buffer
         (setq stderr-buffer (current-buffer))
         (with-current-buffer this-buffer
-          (let ((proc
-                 (make-process
-                  :name proc-id
-                  :buffer stdout-buffer
-                  :stderr stderr-buffer
-                  :command command-with-args
-                  :sentinel
-                  (lambda (_proc _msg)
-                    (setq sentinel-called t)
+          ;; prevent "Process {proc-id} finished" text.
+          (elisp-autofmt--with-advice #'internal-default-process-sentinel :override #'ignore
+            (let ((proc
+                   (make-process
+                    :name proc-id
+                    :buffer stdout-buffer
+                    :stderr stderr-buffer
+                    :command command-with-args
+                    :sentinel
+                    (lambda (_proc _msg)
+                      (setq sentinel-called t)
+                      (unless (zerop (buffer-size stderr-buffer))
+                        (with-current-buffer stderr-buffer
+                          (setq stderr-as-string (buffer-string))
+                          (erase-buffer)))))))
 
-                    ;; FIXME: how to avoid printing status text in the first place?
-                    (unless (zerop (buffer-size stderr-buffer))
-                      (with-current-buffer stderr-buffer
-                        (goto-char (point-min))
-                        (save-match-data
-                          (when (search-forward (concat "Process " proc-id " stderr finished")
-                                                nil
-                                                t)
-                            (replace-match "" t nil nil)))
-                        (goto-char (point-max))
-                        (skip-chars-backward " \t\n" (point-min))
-                        (when (bobp)
-                          (erase-buffer))))
-                    ;; End awkward hack.
+              (while (not sentinel-called)
+                (accept-process-output))
+              (set-process-sentinel proc #'ignore)
 
-                    (unless (zerop (buffer-size stderr-buffer))
-                      (with-current-buffer stderr-buffer
-                        (setq stderr-as-string (buffer-string))
-                        (erase-buffer)))))))
+              ;; May be an actual error, may be some warning about newer byte-code,
+              ;; don't consider it fatal.
+              (when stderr-as-string
+                (message "elisp-autofmt: error output\n%s" stderr-as-string))
 
-            (while (not sentinel-called)
-              (accept-process-output))
-            (set-process-sentinel proc #'ignore)
-
-            ;; May be an actual error, may be some warning about newer byte-code,
-            ;; don't consider it fatal.
-            (when stderr-as-string
-              (message "elisp-autofmt: error output\n%s" stderr-as-string))
-
-            (let ((exit-code (process-exit-status proc)))
-              (cond
-               ((not (zerop exit-code))
-                (message "elisp-autofmt: Command %S failed with exit code %d!"
-                         command-with-args
-                         exit-code)
-                nil)
-               (t
-                ;; Do nothing.
-                t)))))))))
+              (let ((exit-code (process-exit-status proc)))
+                (cond
+                 ((not (zerop exit-code))
+                  (message "elisp-autofmt: Command %S failed with exit code %d!"
+                           command-with-args
+                           exit-code)
+                  nil)
+                 (t
+                  ;; Do nothing.
+                  t))))))))))
 
 ;; ---------------------------------------------------------------------------
 ;; Internal Introspection / Cache Functions
@@ -882,6 +880,8 @@ Argument IS-INTERACTIVE is set when running interactively."
   (let* ((stderr-as-string nil)
          (pipe-err-as-string nil)
          (sentinel-called nil)
+         (proc-id "elisp-autofmt")
+
          (default-coding
           (cond
            ((boundp 'default-buffer-file-coding-system)
@@ -993,65 +993,67 @@ Argument IS-INTERACTIVE is set when running interactively."
       (message "elisp-autofmt: running piped process: %s"
                (mapconcat #'identity command-with-args " ")))
 
-    (let ((proc
-           (make-process
-            :name "elisp-autofmt"
-            :buffer stdout-buffer
-            :stderr stderr-buffer
-            :connection-type 'pipe
-            :command command-with-args
-            :coding (cons default-coding default-coding)
-            :sentinel
-            (lambda (_proc _msg)
-              (setq sentinel-called t)
+    ;; prevent "Process {proc-id} finished" text.
+    (elisp-autofmt--with-advice #'internal-default-process-sentinel :override #'ignore
+      (let ((proc
+             (make-process
+              :name proc-id
+              :buffer stdout-buffer
+              :stderr stderr-buffer
+              :connection-type 'pipe
+              :command command-with-args
+              :coding (cons default-coding default-coding)
+              :sentinel
+              (lambda (_proc _msg)
+                (setq sentinel-called t)
 
-              ;; Assign in the sentinel to prevent "Process .. finished"
-              ;; being written to `stderr-buffer' otherwise it's difficult
-              ;; to know if there was an error or not since an exit value
-              ;; of 2 may be used for invalid arguments as well as to check
-              ;; if the buffer was re-formatted.
-              (unless (zerop (buffer-size stderr-buffer))
-                (with-current-buffer stderr-buffer
-                  (setq stderr-as-string (buffer-string))
-                  (erase-buffer)))))))
+                ;; Assign in the sentinel to prevent "Process .. finished"
+                ;; being written to `stderr-buffer' otherwise it's difficult
+                ;; to know if there was an error or not since an exit value
+                ;; of 2 may be used for invalid arguments as well as to check
+                ;; if the buffer was re-formatted.
+                (unless (zerop (buffer-size stderr-buffer))
+                  (with-current-buffer stderr-buffer
+                    (setq stderr-as-string (buffer-string))
+                    (erase-buffer)))))))
 
-      (condition-case err
-          (progn
-            (process-send-region proc (point-min) (point-max))
-            (process-send-eof proc))
-        (file-error
-         ;; Formatting exited with an error, closing the `stdin' during execution.
-         ;; Even though the `stderr' will almost always be set,
-         ;; store the error as it may show additional context.
-         (setq pipe-err-as-string (error-message-string err))))
+        (condition-case err
+            (progn
+              (process-send-region proc (point-min) (point-max))
+              (process-send-eof proc))
+          (file-error
+           ;; Formatting exited with an error, closing the `stdin' during execution.
+           ;; Even though the `stderr' will almost always be set,
+           ;; store the error as it may show additional context.
+           (setq pipe-err-as-string (error-message-string err))))
 
-      (while (not sentinel-called)
-        (accept-process-output))
-      (set-process-sentinel proc #'ignore)
+        (while (not sentinel-called)
+          (accept-process-output))
+        (set-process-sentinel proc #'ignore)
 
-      (let ((exit-code (process-exit-status proc)))
-        (cond
-         ((or (not (eq exit-code 2)) stderr-as-string pipe-err-as-string)
-          (when pipe-err-as-string
-            (message "elisp-autofmt: error code %d, sending input (%s)"
-                     exit-code
-                     pipe-err-as-string))
-          (when stderr-as-string
-            (message "elisp-autofmt: error code %d, output\n%s" exit-code stderr-as-string))
-
-          (when elisp-autofmt-debug-extra-info
-            (message "elisp-autofmt: Command %S failed with exit code %d!"
-                     command-with-args
-                     exit-code))
-          nil)
-         (t
+        (let ((exit-code (process-exit-status proc)))
           (cond
-           (to-file
-            (with-current-buffer stdout-buffer
-              (write-region (point-min) (point-max) assume-file-name)))
+           ((or (not (eq exit-code 2)) stderr-as-string pipe-err-as-string)
+            (when pipe-err-as-string
+              (message "elisp-autofmt: error code %d, sending input (%s)"
+                       exit-code
+                       pipe-err-as-string))
+            (when stderr-as-string
+              (message "elisp-autofmt: error code %d, output\n%s" exit-code stderr-as-string))
+
+            (when elisp-autofmt-debug-extra-info
+              (message "elisp-autofmt: Command %S failed with exit code %d!"
+                       command-with-args
+                       exit-code))
+            nil)
            (t
-            (elisp-autofmt--replace-buffer-contents-with-fastpath
-             stdout-buffer region-range is-interactive)))))))))
+            (cond
+             (to-file
+              (with-current-buffer stdout-buffer
+                (write-region (point-min) (point-max) assume-file-name)))
+             (t
+              (elisp-autofmt--replace-buffer-contents-with-fastpath
+               stdout-buffer region-range is-interactive))))))))))
 
 (defun elisp-autofmt--region (region-range to-file is-interactive &optional assume-file-name)
   "Auto format the current buffer in REGION-RANGE.
