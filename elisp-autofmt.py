@@ -568,18 +568,15 @@ def apply_rules_recursive(cfg: FmtConfig, node_parent: NdSexp) -> None:
         if not cfg.use_quoted and '\'' in node_parent.prefix:
             wrap_locked = True
         elif isinstance(node := node_parent.nodes_only_code[0], NdSymbol):
+            data_strip = node.data.strip('-*')
             node_parent.index_wrap_hint = 1
-            if node.data in {
-                    'cl-letf',
-                    'cl-letf*',
-                    'if-let',
-                    'if-let*',
-                    'let',
-                    'let*',
-                    'pcase-let',
-                    'pcase-let*',
-                    'when-let',
-                    'when-let*',
+            # NOTE: this also captures `-let` and `-when-let` which are defined by dash.
+            if data_strip in {
+                    'cl-letf',  # Also: `cl-letf*`.
+                    'if-let',  # Also: `if-let`.
+                    'let',  # Also: `let*`.
+                    'pcase-let',  # Also: `pcase-let*`.
+                    'when-let',  # Also: `when-let*`.
             }:
                 # A new line for each body of the let-statement.
                 node_parent.index_wrap_hint = 2
