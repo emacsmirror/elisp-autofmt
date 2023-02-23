@@ -491,31 +491,35 @@ def apply_rules_from_comments(node_parent: NdSexp) -> None:
                     # After format either: `:` or `-next-line:` are expected.
                     autofmt_index += len(autofmt_text)
                     if comment[autofmt_index] == ':':
+                        autofmt_index += 1
                         do_next_line = False
                     elif comment[autofmt_index:autofmt_index + len(autofmt_text_next)] == autofmt_text_next:
                         autofmt_index += len(autofmt_text_next)
                         do_next_line = True
+                    else:
+                        ok = False
 
-                    while autofmt_index < len(comment) and comment[autofmt_index] in {' ', '\t'}:
-                        autofmt_index += 1
-                    # Allow text after the boolean (use split method).
-                    bool_value = node.data[autofmt_index:autofmt_index + 4]
-                    if bool_value.startswith('on'):
-                        if bool_value[2:3] in punctuation_space_or_empty:
-                            if do_next_line:
-                                wrap_locked_next = False
+                    if ok:
+                        while autofmt_index < len(comment) and comment[autofmt_index] in {' ', '\t'}:
+                            autofmt_index += 1
+                        # Allow text after the boolean (use split method).
+                        bool_value = node.data[autofmt_index:autofmt_index + 4]
+                        if bool_value.startswith('on'):
+                            if bool_value[2:3] in punctuation_space_or_empty:
+                                if do_next_line:
+                                    wrap_locked_next = False
+                                else:
+                                    wrap_locked = False
                             else:
-                                wrap_locked = False
-                        else:
-                            ok = False
-                    elif bool_value.startswith('off'):
-                        if bool_value[3:4] in punctuation_space_or_empty:
-                            if do_next_line:
-                                wrap_locked_next = True
+                                ok = False
+                        elif bool_value.startswith('off'):
+                            if bool_value[3:4] in punctuation_space_or_empty:
+                                if do_next_line:
+                                    wrap_locked_next = True
+                                else:
+                                    wrap_locked = True
                             else:
-                                wrap_locked = True
-                        else:
-                            ok = False
+                                ok = False
                     if ok:
                         continue
 
