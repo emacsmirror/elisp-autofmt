@@ -359,14 +359,17 @@ Any `stderr' is output a message and is interpreted as failure."
         (with-current-buffer this-buffer
           (cond
            (elisp-autofmt--workaround-make-proc
-            (elisp-autofmt--with-temp-file temp-file
+            (elisp-autofmt--with-temp-file temp-file-stderr
+              :prefix (concat proc-id "-")
+              :suffix "-stderr"
+
               (let ((call-process-args
                      (append
                       (list
                        ;; Whole buffer as input (start, end).
                        nil nil
                        ;; First argument (command).
-                       (car command-with-args) nil (list stdout-buffer temp-file)
+                       (car command-with-args) nil (list stdout-buffer temp-file-stderr)
                        ;; Don't display.
                        nil)
                       ;; Remaining arguments.
@@ -376,7 +379,7 @@ Any `stderr' is output a message and is interpreted as failure."
                 (setq stderr-as-string
                       (progn
                         (with-temp-buffer
-                          (insert-file-contents temp-file)
+                          (insert-file-contents temp-file-stderr)
                           (cond
                            ((zerop (buffer-size))
                             nil)
@@ -1064,14 +1067,17 @@ Argument IS-INTERACTIVE is set when running interactively."
 
     (cond
      (elisp-autofmt--workaround-make-proc
-      (elisp-autofmt--with-temp-file temp-file
+      (elisp-autofmt--with-temp-file temp-file-stderr
+        :prefix (concat proc-id "-")
+        :suffix "-stderr"
+
         (let ((call-process-args
                (append
                 (list
                  ;; Whole buffer as input (start, end).
                  nil nil
                  ;; First argument (command).
-                 (car command-with-args) nil (list stdout-buffer temp-file)
+                 (car command-with-args) nil (list stdout-buffer temp-file-stderr)
                  ;; Don't display.
                  nil)
                 ;; Remaining arguments.
@@ -1081,7 +1087,7 @@ Argument IS-INTERACTIVE is set when running interactively."
           (setq stderr-as-string
                 (progn
                   (with-temp-buffer
-                    (insert-file-contents temp-file)
+                    (insert-file-contents temp-file-stderr)
                     (cond
                      ((zerop (buffer-size))
                       nil)
