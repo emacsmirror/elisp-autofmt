@@ -92,7 +92,7 @@ Features
 - Support for disabling auto-formatting via comments.
 - Extracts function arguments from locally defined functions,
   with support for including definitions from external files.
-- Parallel computation *(disabled on MS-Windows until performance issues can be investigated).*
+- Parallel computation.
 
 
 Usage
