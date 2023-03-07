@@ -6,7 +6,7 @@ This is a package to auto-format Emacs lisp.
 
 Available via `melpa <https://melpa.org/#/elisp-autofmt>`__.
 
----
+----
 
 Apply idiomatic formatting to ELisp code,
 removing the need to have to concern with the details of white-space, line wrapping & bracket placement.
