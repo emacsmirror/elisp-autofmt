@@ -272,7 +272,7 @@ The following keyword arguments are supported:
   "Return range around POS or nil."
   (let ((beg
          (ignore-errors
-           (elt (syntax-ppss pos) 1))))
+           (nth 1 (syntax-ppss pos)))))
     (cond
      (beg
       ;; Note that `end' may be nil for un-matched brackets.
