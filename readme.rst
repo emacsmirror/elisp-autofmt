@@ -220,8 +220,8 @@ Customization (API Definitions)
 Customization (Integration)
 ---------------------------
 
-``elisp-autofmt-on-save-p``
-   Function used to check if the buffer should be formatted on save.
+``elisp-autofmt-on-save-p`` (``'elisp-autofmt-check-elisp-autofmt-exists``)
+   A symbol referencing the function used to check if the buffer should be formatted on save.
    By default the ``.elisp-autofmt`` file is detected in current & parent directories.
    You may set this to ``'always`` to always format the buffer when ``elisp-autofmt-mode`` is enabled.
 
