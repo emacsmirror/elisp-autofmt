@@ -6,6 +6,7 @@ This is a list of projects using ``elisp-autofmt`` (currently projects I work on
 nevertheless, these are real-world examples of projects which are fully auto-formatted.
 
 - `bookmark-in-project <https://codeberg.org/ideasman42/emacs-bookmark-in-project>`__
+- `buffer-name-relative <https://codeberg.org/ideasman42/emacs-buffer-name-relative>`__
 - `counsel-at-point <https://codeberg.org/ideasman42/emacs-counsel-at-point>`__
 - `cycle-at-point <https://codeberg.org/ideasman42/emacs-cycle-at-point>`__
 - `default-font-presets <https://codeberg.org/ideasman42/emacs-default-font-presets>`__
