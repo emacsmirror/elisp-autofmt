@@ -22,6 +22,7 @@ nevertheless, these are real-world examples of projects which are fully auto-for
 - `magit-commit-mark <https://codeberg.org/ideasman42/emacs-magit-commit-mark>`__
 - `mode-line-idle <https://codeberg.org/ideasman42/emacs-mode-line-idle>`__
 - `mono-complete <https://codeberg.org/ideasman42/emacs-mono-complete>`__
+- `prog-face-refine <https://codeberg.org/ideasman42/emacs-prog-face-refine>`__
 - `py-autopep8 <https://codeberg.org/ideasman42/emacs-py-autopep8>`__
 - `recomplete <https://codeberg.org/ideasman42/emacs-recomplete>`__
 - `revert-buffer-all <https://codeberg.org/ideasman42/emacs-revert-buffer-all>`__
