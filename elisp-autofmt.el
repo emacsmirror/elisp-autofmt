@@ -7,7 +7,7 @@
 
 ;; URL: https://codeberg.org/ideasman42/emacs-elisp-autofmt
 ;; Version: 0.1
-;; Package-Requires: ((emacs "28.1"))
+;; Package-Requires: ((emacs "29.1"))
 
 ;;; Commentary:
 
@@ -249,7 +249,7 @@ The following keyword arguments are supported:
   "Return the line-beginning of POS when there is only blank space before point."
   (save-excursion
     (goto-char pos)
-    (let ((bol (line-beginning-position)))
+    (let ((bol (pos-bol)))
       (cond
        ((eq pos bol)
         bol)
@@ -288,11 +288,11 @@ The following keyword arguments are supported:
   "Return range around POS, context sensitive."
   (save-excursion
     (goto-char pos)
-    (let ((region-range (elisp-autofmt--s-expr-range-around-pos (line-beginning-position))))
+    (let ((region-range (elisp-autofmt--s-expr-range-around-pos (pos-bol))))
       (unless region-range
         ;; Search for the widest range in this line.
-        (let ((eol (line-end-position))
-              (bol (line-beginning-position))
+        (let ((eol (pos-eol))
+              (bol (pos-bol))
 
               (range-best-around-pos nil)
               (range-best-length-around-pos 0)
