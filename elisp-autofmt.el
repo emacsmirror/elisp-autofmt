@@ -173,12 +173,13 @@ Otherwise you can set this to a user defined function."
 
 WHERE using FN-ADVICE temporarily added to FN-ORIG."
   (declare (indent 3))
-  `(let ((fn-advice-var ,fn-advice))
-     (unwind-protect
-         (progn
-           (advice-add ,fn-orig ,where fn-advice-var)
-           ,@body)
-       (advice-remove ,fn-orig fn-advice-var))))
+  (let ((function-var (gensym)))
+    `(let ((,function-var ,fn-advice))
+       (unwind-protect
+           (progn
+             (advice-add ,fn-orig ,where ,function-var)
+             ,@body)
+         (advice-remove ,fn-orig ,function-var)))))
 
 (defmacro elisp-autofmt--with-temp-file (name &rest body)
   "Bind NAME to the name of a new temporary file and evaluate BODY.
