@@ -1696,7 +1696,7 @@ class NdSexp(Node):
             line = ctx.line
 
             node.fmt(ctx, write_fn, level_next, test=test)
-            node_prev_is_multiline = (line != ctx.line)
+            node_prev_is_multiline = line != ctx.line
 
             ctx.last_node = node
 
@@ -2154,8 +2154,8 @@ def fmt_solver_fill_column_unwrap_test_state_permutations(
         if (
                 # No mixed wrapping allowed,
                 # this is a hint that the block was for a macro or special such as `progn`.
-                # In this case don't attempt to wrap arguments onto a single line, r
-                # eserve this for function-calls.
+                # In this case don't attempt to wrap arguments onto a single line,
+                # reserve this for function-calls.
                 (not node.wrap_all_or_nothing_hint) and
                 # It only makes sense to run this logic if there are multiple arguments to deal with.
                 (len(node.nodes_only_code) > 1) and
@@ -2220,7 +2220,7 @@ def fmt_solver_fill_column_unwrap_test_state_permutations(
             # Skip when the indent hint is set as this means wrapping on the first line
             # doesn't typically make sense.
             has_indent = False
-            if (fn_data := (node.fn_arity_get_from_first_symbol(cfg.defs))) is not None:
+            if (fn_data := node.fn_arity_get_from_first_symbol(cfg.defs)) is not None:
                 # May be `FnArity` or a list.
                 hints = fn_data[3]
                 if hints and 'indent' in hints:
