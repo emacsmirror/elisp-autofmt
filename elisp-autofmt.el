@@ -1235,10 +1235,11 @@ otherwise format the surrounding S-expression."
 ;;;###autoload
 (defun elisp-autofmt-check-elisp-autofmt-exists ()
   "Return non-nil when `.elisp-autofmt' is found in a parent directory."
-  (let ((cfg (locate-dominating-file (file-name-directory buffer-file-name) ".elisp-autofmt")))
+  ;; Unlikely but possible this is nil.
+  (let ((filepath buffer-file-name))
     (cond
-     (cfg
-      t)
+     (filepath
+      (not (null (locate-dominating-file (file-name-directory filepath) ".elisp-autofmt"))))
      (t
       nil))))
 
