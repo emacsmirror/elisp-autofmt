@@ -413,7 +413,7 @@ Return a cons cell comprised of the:
           (with-current-buffer this-buffer
             (let* ((stderr-as-string nil)
                    (sentinel-called nil)
-                   (proc
+                   (proc-out
                     (make-process
                      :name proc-id
                      :buffer stdout-buffer
@@ -435,13 +435,13 @@ Return a cons cell comprised of the:
                            (setq stderr-as-string (buffer-string))
                            (erase-buffer)))))))
 
-              (process-send-region proc (point-min) (point-max))
-              (process-send-eof proc)
+              (process-send-region proc-out (point-min) (point-max))
+              (process-send-eof proc-out)
 
               (while (not sentinel-called)
                 (accept-process-output))
-              (set-process-sentinel proc #'ignore)
-              (let ((exit-code (process-exit-status proc)))
+              (set-process-sentinel proc-out #'ignore)
+              (let ((exit-code (process-exit-status proc-out)))
                 (cons exit-code stderr-as-string))))))))))
 
 (defun elisp-autofmt--call-checked (command-with-args)
