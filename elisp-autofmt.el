@@ -400,7 +400,9 @@ Return a cons cell comprised of the:
    (t
     ;; prevent "Process {proc-id} finished" text.
     (elisp-autofmt--with-advice #'internal-default-process-sentinel :override #'ignore
-      (let ((this-buffer (current-buffer))
+      (let ((sentinel-called 0)
+            (sentinel-called-expect 1)
+            (this-buffer (current-buffer))
             (stderr-buffer nil)
             (default-coding
              (cond
@@ -411,38 +413,41 @@ Return a cons cell comprised of the:
         (with-temp-buffer
           (setq stderr-buffer (current-buffer))
           (with-current-buffer this-buffer
-            (let* ((stderr-as-string nil)
-                   (sentinel-called nil)
-                   (proc-out
-                    (make-process
-                     :name proc-id
-                     :buffer stdout-buffer
-                     :stderr stderr-buffer
-                     :connection-type 'pipe
-                     :command command-with-args
-                     :coding (cons default-coding default-coding)
-                     :sentinel
-                     (lambda (_proc _msg)
-                       (setq sentinel-called t)
+            (let ((proc-out
+                   (make-process
+                    :name proc-id
+                    :buffer stdout-buffer
+                    :stderr stderr-buffer
+                    :connection-type 'pipe
+                    :command command-with-args
+                    :coding (cons default-coding default-coding)
+                    :sentinel
+                    (lambda (_proc _msg) (setq sentinel-called (1+ sentinel-called)))))
+                  (proc-err (get-buffer-process stderr-buffer)))
 
-                       ;; Assign in the sentinel to prevent "Process .. finished"
-                       ;; being written to `stderr-buffer' otherwise it's difficult
-                       ;; to know if there was an error or not since an exit value
-                       ;; of 2 may be used for invalid arguments as well as to check
-                       ;; if the buffer was re-formatted.
-                       (unless (zerop (buffer-size stderr-buffer))
-                         (with-current-buffer stderr-buffer
-                           (setq stderr-as-string (buffer-string))
-                           (erase-buffer)))))))
+              ;; Unfortunately a separate process is set for the STDERR
+              ;; which uses it's own sentinel.
+              ;; Needed to override the "Process .. finished" message.
+              (unless (eq proc-out proc-err)
+                (setq sentinel-called-expect 2)
+                (set-process-sentinel
+                 proc-err (lambda (_proc _msg) (setq sentinel-called (1+ sentinel-called)))))
 
               (process-send-region proc-out (point-min) (point-max))
               (process-send-eof proc-out)
 
-              (while (not sentinel-called)
+              (while (not (eq sentinel-called sentinel-called-expect))
                 (accept-process-output))
-              (set-process-sentinel proc-out #'ignore)
-              (let ((exit-code (process-exit-status proc-out)))
-                (cons exit-code stderr-as-string))))))))))
+
+              (let ((exit-code (process-exit-status proc-out))
+                    (stderr-as-string
+                     (cond
+                      ((zerop (buffer-size stderr-buffer))
+                       nil)
+                      (t
+                       (with-current-buffer stderr-buffer
+                         (buffer-string))))))
+                (cons exit-code))))))))))
 
 (defun elisp-autofmt--call-checked (command-with-args)
   "Run COMMAND-WITH-ARGS, returning t on success.
