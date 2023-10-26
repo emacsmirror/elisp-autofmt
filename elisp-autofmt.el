@@ -447,7 +447,7 @@ Return a cons cell comprised of the:
                       (t
                        (with-current-buffer stderr-buffer
                          (buffer-string))))))
-                (cons exit-code))))))))))
+                (cons exit-code stderr-as-string))))))))))
 
 (defun elisp-autofmt--call-checked (command-with-args)
   "Run COMMAND-WITH-ARGS, returning t on success.
