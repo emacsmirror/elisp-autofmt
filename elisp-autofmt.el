@@ -49,7 +49,7 @@ Otherwise existing line-breaks are kept and only indentation is performed."
 
 (defcustom elisp-autofmt-empty-line-max 2
   "The maximum number of blank lines to preserve."
-  :type 'int)
+  :type 'integer)
 ;;;###autoload
 (put 'elisp-autofmt-empty-line-max 'safe-local-variable #'integerp)
 
@@ -124,13 +124,13 @@ Otherwise you can set this to a user defined function."
 
 - Use 0 to select automatically.
 - Use -1 to disable parallel computation entirely."
-  :type 'int)
+  :type 'integer)
 
 (defcustom elisp-autofmt-parallel-threshold 32768
   "Buffers under this size will not use parallel computation.
 
 - Use 0 to enable parallel computation for buffers of any size."
-  :type 'int)
+  :type 'integer)
 
 
 ;; ---------------------------------------------------------------------------
