@@ -222,6 +222,7 @@ The following keyword arguments are supported:
 
 (defun elisp-autofmt--simple-search-forward-and-count (str limit)
   "Search forward by STR, within LIMIT."
+  (declare (important-return-value t))
   (let ((done 0))
     (while (search-forward str limit t 40)
       (setq done (+ 40 done)))
@@ -231,10 +232,12 @@ The following keyword arguments are supported:
 
 (defun elisp-autofmt--simple-search-forward-by-count (str limit-count)
   "Search forward by STR, LIMIT-COUNT times."
+  (declare (important-return-value t))
   (search-forward str nil t limit-count))
 
 (defun elisp-autofmt--simple-count-lines (beg end)
   "Simply count newlines between BEG and END."
+  (declare (important-return-value t))
   ;; Emacs's `count-lines' includes extra logic that adds 1 in some cases,
   ;; making it not useful for a simple line counting function.
   (save-excursion
@@ -251,6 +254,7 @@ The following keyword arguments are supported:
 
 (defun elisp-autofmt--bol-unless-non-blank (pos)
   "Return the line-beginning of POS when there is only blank space before point."
+  (declare (important-return-value t))
   (save-excursion
     (goto-char pos)
     (let ((bol (pos-bol)))
@@ -266,6 +270,7 @@ The following keyword arguments are supported:
 
 (defun elisp-autofmt--bool-as-int (val)
   "Return 0/1 from VAL, nil/t."
+  (declare (important-return-value t))
   (cond
    (val
     1)
@@ -274,6 +279,7 @@ The following keyword arguments are supported:
 
 (defun elisp-autofmt--s-expr-range-around-pos (pos)
   "Return range around POS or nil."
+  (declare (important-return-value t))
   (let ((beg
          (ignore-errors
            (nth 1 (syntax-ppss pos)))))
@@ -290,6 +296,7 @@ The following keyword arguments are supported:
 
 (defun elisp-autofmt--s-expr-range-around-pos-dwim (pos)
   "Return range around POS, context sensitive."
+  (declare (important-return-value t))
   (save-excursion
     (goto-char pos)
     (let ((region-range (elisp-autofmt--s-expr-range-around-pos (pos-bol))))
@@ -351,6 +358,7 @@ PROC-ID is used as the identifier for this process.
 Return a cons cell comprised of the:
 - Exit-code.
 - Standard-error (or nil when none found)."
+  (declare (important-return-value t))
   (cond
    (elisp-autofmt--workaround-make-proc
     (elisp-autofmt--with-temp-file temp-file-stderr
@@ -458,6 +466,7 @@ Return a cons cell comprised of the:
   "Run COMMAND-WITH-ARGS, returning t on success.
 
 Any `stderr' is output a message and is interpreted as failure."
+  (declare (important-return-value nil))
 
   (when elisp-autofmt-debug-extra-info
     (message "elisp-autofmt: running command: %s" (mapconcat #'identity command-with-args " ")))
@@ -497,6 +506,7 @@ Any `stderr' is output a message and is interpreted as failure."
 
 (defun elisp-autofmt--cache-api-val-as-str (val)
   "Return the string representation of VAL (use for JSON encoding)."
+  (declare (important-return-value t))
   (cond
    ((symbolp val)
     (concat "\"" (symbol-name val) "\""))
@@ -505,6 +515,7 @@ Any `stderr' is output a message and is interpreted as failure."
 
 (defun elisp-autofmt--cache-api-file-is-older-list (file-test file-list)
   "Return t when FILE-TEST is older than any files in FILE-LIST."
+  (declare (important-return-value t))
   (catch 'result
     (let ((file-test-time (file-attribute-modification-time (file-attributes file-test))))
       (dolist (file-new file-list)
@@ -515,10 +526,12 @@ Any `stderr' is output a message and is interpreted as failure."
 
 (defun elisp-autofmt--cache-api-file-is-older (file-test &rest file-list)
   "Return t when FILE-TEST is older than any files in FILE-LIST."
+  (declare (important-return-value t))
   (elisp-autofmt--cache-api-file-is-older-list file-test file-list))
 
 (defun elisp-autofmt--cache-api-encode-name (filename)
   "Return the cache name in cache-dir from FILENAME."
+  (declare (important-return-value t))
   (concat (url-hexify-string filename) ".json"))
 
 ;; Use a different name for externally generated definitions
@@ -528,15 +541,18 @@ Any `stderr' is output a message and is interpreted as failure."
 ;; so name them differently to avoid confusion.
 (defun elisp-autofmt--cache-api-encode-name-external (filename)
   "Return the Python cache name in cache-dir from FILENAME."
+  (declare (important-return-value t))
   (concat (url-hexify-string filename) ".external.json"))
 
 (defun elisp-autofmt--cache-api-directory-ensure ()
   "Ensure the cache API directory exists."
+  (declare (important-return-value nil))
   (unless (file-directory-p elisp-autofmt-cache-directory)
     (make-directory elisp-autofmt-cache-directory t)))
 
 (defun elisp-autofmt--cache-api-insert-function-to-file (sym-id sym-name sym-ty arity)
   "Insert JSON data from SYM-ID, SYM-NAME, SYM-TY and ARITY."
+  (declare (important-return-value nil))
   ;; `arity' is an argument because built-in functions use different logic.
 
   ;; There are many other properties, however they don't relate to formatting so much.
@@ -577,6 +593,7 @@ Any `stderr' is output a message and is interpreted as failure."
 
 (defun elisp-autofmt--fn-type (sym-id)
   "Return the type of function SYM-ID or nil."
+  (declare (important-return-value t))
   (cond
    ((functionp sym-id)
     'func)
@@ -590,6 +607,7 @@ Any `stderr' is output a message and is interpreted as failure."
 (defun elisp-autofmt--fn-defs-insert (defs include-private)
   "Insert all function from DEFS into the current buffer.
 When INCLUDE-PRIVATE is nil, exclude functions with \"--\" in their names."
+  (declare (important-return-value nil))
   (while defs
     (let ((n (pop defs)))
       (when (consp n)
@@ -604,6 +622,7 @@ When INCLUDE-PRIVATE is nil, exclude functions with \"--\" in their names."
 
 (defun elisp-autofmt--cache-api-generate-for-builtins (filepath)
   "Generate API cache for built-in output at FILEPATH."
+  (declare (important-return-value nil))
   (with-temp-buffer
     (insert "{\n")
     (insert "\"functions\": {\n")
@@ -664,6 +683,7 @@ When INCLUDE-PRIVATE is nil, exclude functions with \"--\" in their names."
   "Generate API cache for PACKAGE-ID at FILEPATH.
 
 When SKIP-REQUIRE is non-nil, the package is not required."
+  (declare (important-return-value nil))
   (let ((package-sym (intern package-id)))
     (when (cond
            (skip-require
@@ -696,6 +716,7 @@ When SKIP-REQUIRE is non-nil, the package is not required."
   "Generate builtin definitions.
 
 Writes outputs to `ELISP_AUTOFMT_OUTPUT'."
+  (declare (important-return-value nil))
   (let ((output-path (getenv "ELISP_AUTOFMT_OUTPUT")))
     (unless output-path
       (error "elisp-autofmt: $ELISP_AUTOFMT_OUTPUT was not set for built-ins!"))
@@ -706,6 +727,7 @@ Writes outputs to `ELISP_AUTOFMT_OUTPUT'."
 
 Uses package from environment variable `ELISP_AUTOFMT_PACKAGE'.
 Writes outputs to environment variable `ELISP_AUTOFMT_OUTPUT'."
+  (declare (important-return-value nil))
   (let ((output-path (getenv "ELISP_AUTOFMT_OUTPUT"))
         (package-id (getenv "ELISP_AUTOFMT_PACKAGE")))
     (unless output-path
@@ -718,6 +740,7 @@ Writes outputs to environment variable `ELISP_AUTOFMT_OUTPUT'."
   "Ensure cache exists.
 
 Call an external Emacs when USE-EXTERNAL-EMACS is non-nil."
+  (declare (important-return-value t))
   ;; Emacs binary location `filename'.
   (let* ((filename (expand-file-name invocation-name invocation-directory))
          (filename-cache-name-only (elisp-autofmt--cache-api-encode-name filename))
@@ -748,6 +771,7 @@ Call an external Emacs when USE-EXTERNAL-EMACS is non-nil."
   "Ensure cache for PACKAGE-ID is up to date in CACHE-DIR.
 
 When SKIP-REQUIRE is set, don't require the package."
+  (declare (important-return-value t))
   (let ((package-sym (intern package-id)))
 
     (when (cond
@@ -775,6 +799,7 @@ When SKIP-REQUIRE is set, don't require the package."
 
 (defun elisp-autofmt--cache-api-ensure-cache-for-filepath (filepath)
   "Generate cache for FILEPATH."
+  (declare (important-return-value t))
   (let* ((filename-cache-name-only (elisp-autofmt--cache-api-encode-name-external filepath))
          (filename-cache-name-full
           (file-name-concat elisp-autofmt-cache-directory filename-cache-name-only)))
@@ -803,6 +828,7 @@ When SKIP-REQUIRE is set, don't require the package."
 
 (defun elisp-autofmt--cache-api-cache-update (buffer-directory)
   "Ensure packages are up to date for `current-buffer' in BUFFER-DIRECTORY."
+  (declare (important-return-value t))
   (elisp-autofmt--cache-api-directory-ensure)
   (let ((cache-files (list)))
     (push (elisp-autofmt--cache-api-ensure-cache-for-emacs t) cache-files)
@@ -843,6 +869,7 @@ When SKIP-REQUIRE is set, don't require the package."
 (defun elisp-autofmt--replace-buffer-contents-isolate-region (buf-src beg end)
   "Isolate the region to be replaced in BEG END to format the region/selection.
 Argument BUF-SRC is the buffer containing the formatted text."
+  (declare (important-return-value nil))
   ;; Use a simple trick, replace the beginning and of the formatted buffer
   ;; with the original (unformatted) text.
 
@@ -959,6 +986,7 @@ Argument BUF-SRC is the buffer containing the formatted text."
 Useful for fast operation, especially for automated conversion or tests.
 Argument REGION-RANGE optionally replaces a region when non-nil.
 Argument IS-INTERACTIVE is set when running interactively."
+  (declare (important-return-value nil))
   (let ((is-beg (bobp))
         (is-end (eobp))
         (changed t))
@@ -1005,6 +1033,7 @@ Optional argument ASSUME-FILE-NAME overrides the file name used for this buffer.
 Argument REGION-RANGE optionally defines a region to format.
 Argument TO-FILE writes to the file directly, without updating the buffer.
 Argument IS-INTERACTIVE is set when running interactively."
+  (declare (important-return-value t))
 
   (unless assume-file-name
     (setq assume-file-name buffer-file-name))
@@ -1155,6 +1184,7 @@ Argument IS-INTERACTIVE is set when running interactively."
 Optional argument ASSUME-FILE-NAME overrides the file name used for this buffer.
 
 See `elisp-autofmt--region-impl' for TO-FILE and IS-INTERACTIVE doc-strings."
+  (declare (important-return-value t))
   (let ((stdout-buffer nil)
         (this-buffer (current-buffer)))
     (with-temp-buffer
@@ -1167,11 +1197,13 @@ See `elisp-autofmt--region-impl' for TO-FILE and IS-INTERACTIVE doc-strings."
   "Auto-format the entire buffer BUF in REGION-RANGE.
 
 See `elisp-autofmt--region-impl' for TO-FILE and IS-INTERACTIVE doc-strings."
+  (declare (important-return-value t))
   (with-current-buffer buf
     (elisp-autofmt--region region-range to-file is-interactive)))
 
 (defun elisp-autofmt--buffer-format-for-save-hook ()
   "The hook to run on buffer saving to format the buffer."
+  (declare (important-return-value t))
   ;; Demote errors as this is user configurable, we can't be sure it wont error.
   (when (with-demoted-errors "elisp-autofmt: Error %S"
           (funcall elisp-autofmt-on-save-p))
@@ -1181,11 +1213,13 @@ See `elisp-autofmt--region-impl' for TO-FILE and IS-INTERACTIVE doc-strings."
 
 (defun elisp-autofmt--enable ()
   "Setup an auto-format save hook for this buffer."
+  (declare (important-return-value nil))
   ;; Buffer local hook.
   (add-hook 'before-save-hook #'elisp-autofmt--buffer-format-for-save-hook nil t))
 
 (defun elisp-autofmt--disable ()
   "Disable the hooks associated with `elisp-autofmt-mode'."
+  (declare (important-return-value nil))
   (remove-hook 'before-save-hook #'elisp-autofmt--buffer-format-for-save-hook t))
 
 
@@ -1199,6 +1233,7 @@ See `elisp-autofmt--region-impl' for TO-FILE and IS-INTERACTIVE doc-strings."
 
 This is intended for use by batch processing scripts,
 where loading changes back into the buffer is not important."
+  (declare (important-return-value nil))
   (unless buffer-file-name
     (error "A buffer with a valid file-name expected!"))
   (elisp-autofmt--buffer-impl (current-buffer) nil t nil))
@@ -1206,6 +1241,7 @@ where loading changes back into the buffer is not important."
 ;;;###autoload
 (defun elisp-autofmt-buffer ()
   "Auto format the current buffer."
+  (declare (important-return-value nil))
   (interactive)
   (let ((is-interactive (called-interactively-p 'interactive)))
     (elisp-autofmt--buffer-impl (current-buffer) nil nil is-interactive)))
@@ -1215,6 +1251,7 @@ where loading changes back into the buffer is not important."
   "Auto format the active region of the current buffer.
 Optionally use BEG & END, otherwise an active region is required.
 Optionally pass in IS-INTERACTIVE to display a status message from formatting."
+  (declare (important-return-value nil))
   (interactive)
 
   (unless (and beg end)
@@ -1231,6 +1268,7 @@ Optionally pass in IS-INTERACTIVE to display a status message from formatting."
   "Context sensitive auto formatting of the current buffer.
 When there is an active region, this is used,
 otherwise format the surrounding S-expression."
+  (declare (important-return-value nil))
   (interactive)
   (let ((is-interactive (called-interactively-p 'interactive)))
     (cond
@@ -1245,6 +1283,7 @@ otherwise format the surrounding S-expression."
 ;;;###autoload
 (defun elisp-autofmt-check-elisp-autofmt-exists ()
   "Return non-nil when `.elisp-autofmt' is found in a parent directory."
+  (declare (important-return-value t))
   ;; Unlikely but possible this is nil.
   (let ((filepath buffer-file-name))
     (cond
@@ -1258,6 +1297,7 @@ otherwise format the surrounding S-expression."
 ;;;###autoload
 (defun elisp-autofmt-list-of-strings-p (obj)
   "Return t when OBJ is a list of strings."
+  (declare (important-return-value t))
   (and (listp obj) (not (memq nil (mapcar #'stringp obj)))))
 
 ;;;###autoload
