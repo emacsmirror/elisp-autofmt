@@ -241,8 +241,7 @@ The following keyword arguments are supported:
   ;; Emacs's `count-lines' includes extra logic that adds 1 in some cases,
   ;; making it not useful for a simple line counting function.
   (save-excursion
-    (save-restriction
-      (narrow-to-region beg end)
+    (with-restriction beg end
       (goto-char beg)
       (let ((done 0))
         (while (re-search-forward "\n\\|\r[^\n]" nil t 40)
