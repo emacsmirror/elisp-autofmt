@@ -1252,8 +1252,7 @@ Return t if the file was updated."
 
               ;; Sort by the lowercase word.
               (setq word-list-ncase
-                (sort
-                  word-list-ncase
+                (sort word-list-ncase
                   (lambda (a b) (string-lessp (car a) (car b)))))
 
               ;; Write to 'words-file'.
@@ -1434,8 +1433,7 @@ Return t if the file was updated."
 
             ;; Sort by the lowercase word.
             (setq word-list-ncase
-              (sort
-                word-list-ncase
+              (sort word-list-ncase
                 (lambda (a b) (string-lessp (car a) (car b)))))
 
             ;; Write to 'words-file'.

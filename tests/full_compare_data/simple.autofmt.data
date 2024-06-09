@@ -2642,8 +2642,7 @@ This function uses the `read-extended-command-predicate' user option."
                     (and (commandp (function-called-at-point))
                       (format "%S" (function-called-at-point)))))
                 (all
-                  (sort
-                    (minibuffer-default-add-completions)
+                  (sort (minibuffer-default-add-completions)
                     #'string<)))
               (if def
                 (cons def (delete def all))
