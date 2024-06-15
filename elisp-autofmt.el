@@ -171,18 +171,35 @@ Otherwise you can set this to a user defined function."
 ;; ---------------------------------------------------------------------------
 ;; Internal Utilities
 
-(defmacro elisp-autofmt--with-advice (fn-orig where fn-advice &rest body)
-  "Execute BODY with advice added.
+(defmacro elisp-autofmt--with-advice (advice &rest body)
+  "Execute BODY with ADVICE temporarily enabled.
 
-WHERE using FN-ADVICE temporarily added to FN-ORIG."
-  (declare (indent 3))
-  (let ((function-var (gensym)))
-    `(let ((,function-var ,fn-advice))
+Advice are triplets of (SYMBOL HOW FUNCTION),
+see `advice-add' documentation."
+  (declare (indent 1))
+  (let ((body-let nil)
+        (body-advice-add nil)
+        (body-advice-remove nil)
+        (item nil))
+    (while (setq item (pop advice))
+      (let ((fn-sym (gensym))
+            (fn-advise (pop item))
+            (fn-advice-ty (pop item))
+            (fn-body (pop item)))
+        ;; Build the calls for each type.
+        (push (list fn-sym fn-body) body-let)
+        (push (list 'advice-add fn-advise fn-advice-ty fn-sym) body-advice-add)
+        (push (list 'advice-remove fn-advise fn-sym) body-advice-remove)))
+    (setq body-let (nreverse body-let))
+    (setq body-advice-add (nreverse body-advice-add))
+    ;; Compose the call.
+    `(let ,body-let
        (unwind-protect
            (progn
-             (advice-add ,fn-orig ,where ,function-var)
+             ,@body-advice-add
              ,@body)
-         (advice-remove ,fn-orig ,function-var)))))
+         ,@body-advice-remove))))
+
 
 (defmacro elisp-autofmt--with-temp-file (name &rest body)
   "Bind NAME to the name of a new temporary file and evaluate BODY.
@@ -410,7 +427,7 @@ Return a cons cell comprised of the:
         (cons exit-code stderr-as-string))))
    (t
     ;; prevent "Process {proc-id} finished" text.
-    (elisp-autofmt--with-advice #'internal-default-process-sentinel :override #'ignore
+    (elisp-autofmt--with-advice ((#'internal-default-process-sentinel :override #'ignore))
       (let ((sentinel-called 0)
             (sentinel-called-expect 1)
             (this-buffer (current-buffer))
