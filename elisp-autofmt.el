@@ -177,11 +177,16 @@ Otherwise you can set this to a user defined function."
 Advice are triplets of (SYMBOL HOW FUNCTION),
 see `advice-add' documentation."
   (declare (indent 1))
-  (let ((body-let nil)
+  (let ((advice-list advice)
+        (body-let nil)
         (body-advice-add nil)
         (body-advice-remove nil)
         (item nil))
-    (while (setq item (pop advice))
+    (unless (listp advice-list)
+      (error "Advice must be a list"))
+    (while (setq item (pop advice-list))
+      (unless (and (listp item) (eq 3 (length item)))
+        (error "Each advice must be a list of 3 items"))
       (let ((fn-sym (gensym))
             (fn-advise (pop item))
             (fn-advice-ty (pop item))
