@@ -184,27 +184,34 @@ see `advice-add' documentation."
         (item nil))
     (unless (listp advice-list)
       (error "Advice must be a list"))
-    (while (setq item (pop advice-list))
-      (unless (and (listp item) (eq 3 (length item)))
-        (error "Each advice must be a list of 3 items"))
-      (let ((fn-sym (gensym))
-            (fn-advise (pop item))
-            (fn-advice-ty (pop item))
-            (fn-body (pop item)))
-        ;; Build the calls for each type.
-        (push (list fn-sym fn-body) body-let)
-        (push (list 'advice-add fn-advise fn-advice-ty fn-sym) body-advice-add)
-        (push (list 'advice-remove fn-advise fn-sym) body-advice-remove)))
-    (setq body-let (nreverse body-let))
-    (setq body-advice-add (nreverse body-advice-add))
-    ;; Compose the call.
-    `(let ,body-let
-       (unwind-protect
-           (progn
-             ,@body-advice-add
-             ,@body)
-         ,@body-advice-remove))))
+    (cond
+     ((null advice-list)
+      (macroexp-warn-and-return
+       "An empty advice argument was found"
+       `(progn
+          ,@body)))
+     (t
+      (while (setq item (pop advice-list))
+        (unless (and (listp item) (eq 3 (length item)))
+          (error "Each advice must be a list of 3 items"))
+        (let ((fn-sym (gensym))
+              (fn-advise (pop item))
+              (fn-advice-ty (pop item))
+              (fn-body (pop item)))
+          ;; Build the calls for each type.
+          (push (list fn-sym fn-body) body-let)
+          (push (list 'advice-add fn-advise fn-advice-ty fn-sym) body-advice-add)
+          (push (list 'advice-remove fn-advise fn-sym) body-advice-remove)))
+      (setq body-let (nreverse body-let))
+      (setq body-advice-add (nreverse body-advice-add))
 
+      ;; Compose the call.
+      `(let ,body-let
+         (unwind-protect
+             (progn
+               ,@body-advice-add
+               ,@body)
+           ,@body-advice-remove))))))
 
 (defmacro elisp-autofmt--with-temp-file (name &rest body)
   "Bind NAME to the name of a new temporary file and evaluate BODY.
