@@ -868,7 +868,8 @@ When SKIP-REQUIRE is set, don't require the package."
                filepath
                (expand-file-name filename-cache-name-full)))))
 
-        (elisp-autofmt--call-checked command-with-args)))))
+        (elisp-autofmt--call-checked command-with-args)))
+    filename-cache-name-only))
 
 (defun elisp-autofmt--cache-api-cache-update (buffer-directory)
   "Ensure packages are up to date for `current-buffer' in BUFFER-DIRECTORY."
