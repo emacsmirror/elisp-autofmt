@@ -3195,6 +3195,8 @@ def main_generate_defs() -> bool:
     LISP code. It's necessary to extract definitions of untrusted code so that formatting
     can be correctly performed.
     '''
+    import json
+
     try:
         i = sys.argv.index('--gen-defs')
     except ValueError:
@@ -3220,12 +3222,11 @@ def main_generate_defs() -> bool:
             for key, val in defs.fn_arity.items():
                 if is_first:
                     fh.write(',\n')
-                # Generated hints are always empty.
-                symbol_type, nargs_min, nargs_max, _hints = val
+                symbol_type, nargs_min, nargs_max, hints = val
                 nargs_min_str = str(nargs_min) if isinstance(nargs_min, int) else '"{:s}"'.format(nargs_min)
                 nargs_max_str = str(nargs_max) if isinstance(nargs_max, int) else '"{:s}"'.format(nargs_max)
-                fh.write('"{:s}": ["{:s}", {:s}, {:s}, {{}}]'.format(
-                    key, symbol_type, nargs_min_str, nargs_max_str,
+                fh.write('"{:s}": ["{:s}", {:s}, {:s}, {:s}]'.format(
+                    key, symbol_type, nargs_min_str, nargs_max_str, json.dumps(hints)
                 ))
                 is_first = True
             fh.write('')
