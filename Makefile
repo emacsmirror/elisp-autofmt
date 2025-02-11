@@ -10,4 +10,13 @@ check_mypy:
 
 check_pylint:
 	pylint elisp-autofmt.py elisp-autofmt-cmd.py --max-line-length=120 --output-format=parseable --reports=n \
-		--disable=C0103,C0123,C0209,C0302,C0415,R0902,R0903,R0904,R0912,R0913,R0914,R0915,R0916,R1702,W0201,W0212,W0511
+		--disable=C0103,C0123,C0209,C0302,C0415,R0902,R0903,R0904,R0912,R0913,R0914,R0915,R0916,R0917,R1702,W0201,W0212,W0511
+
+check_flake8:
+	flake8 elisp-autofmt.py elisp-autofmt-cmd.py --max-line-length=120
+
+check_ruff:
+	ruff check elisp-autofmt.py elisp-autofmt-cmd.py
+
+check_vulture:
+	vulture elisp-autofmt.py elisp-autofmt-cmd.py
