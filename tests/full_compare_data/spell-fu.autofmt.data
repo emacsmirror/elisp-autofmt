@@ -460,22 +460,19 @@ the caller will need to regenerate the cache."
     ;; Check header.
     (let ((cache-header (read (current-buffer))))
       (unless (listp cache-header)
-        (error
-          "Expected cache-header to be list, not %S"
+        (error "Expected cache-header to be list, not %S"
           (type-of cache-header)))
 
       (let ((version (assoc-default "version" cache-header)))
         (unless (string-equal version spell-fu--cache-version)
-          (error
-            "Require cache version %S, not %S"
+          (error "Require cache version %S, not %S"
             spell-fu--cache-version
             version))))
 
     ;; Read the contents.
     (let ((word-table (read (current-buffer))))
       (unless (hash-table-p word-table)
-        (error
-          "Expected cache to contain a hash-table, not %S"
+        (error "Expected cache to contain a hash-table, not %S"
           (type-of word-table)))
       word-table)))
 

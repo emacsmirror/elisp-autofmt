@@ -1561,8 +1561,7 @@ doing any other command before the next \\[cycle-spacing]."
                 ((functionp actual-action)
                   (funcall actual-action actual-n))
                 (t
-                  (error
-                    "Don't know how to handle action %S"
+                  (error "Don't know how to handle action %S"
                     action)))))
           (setf (plist-get cycle-spacing--context :last-action)
             action))))))
@@ -11766,8 +11765,7 @@ Returns the newly created indirect buffer."
   (interactive
     (progn
       (if (get major-mode 'no-clone-indirect)
-        (error
-          "Cannot indirectly clone a buffer in %s mode"
+        (error "Cannot indirectly clone a buffer in %s mode"
           mode-name))
       (list
         (if current-prefix-arg
@@ -11793,8 +11791,7 @@ Returns the newly created indirect buffer."
   (interactive
     (progn
       (if (get major-mode 'no-clone-indirect)
-        (error
-          "Cannot indirectly clone a buffer in %s mode"
+        (error "Cannot indirectly clone a buffer in %s mode"
           mode-name))
       (list
         (if current-prefix-arg
