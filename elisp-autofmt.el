@@ -783,7 +783,9 @@ Writes outputs to environment variable `ELISP_AUTOFMT_OUTPUT'."
 (defun elisp-autofmt--cache-api-ensure-cache-for-emacs (use-external-emacs)
   "Ensure cache exists.
 
-Call an external Emacs when USE-EXTERNAL-EMACS is non-nil."
+Call an external Emacs when USE-EXTERNAL-EMACS is non-nil.
+
+Return the cache name only (no directory)."
   (declare (important-return-value t))
   ;; Emacs binary location `filename'.
   (let* ((filename (expand-file-name invocation-name invocation-directory))
@@ -814,7 +816,10 @@ Call an external Emacs when USE-EXTERNAL-EMACS is non-nil."
 (defun elisp-autofmt--cache-api-ensure-cache-for-package (package-id skip-require)
   "Ensure cache for PACKAGE-ID is up to date in CACHE-DIR.
 
-When SKIP-REQUIRE is set, don't require the package."
+When SKIP-REQUIRE is set, don't require the package.
+
+Return the cache name only (no directory) or nil
+if the package could not be loaded."
   (declare (important-return-value t))
   (let ((package-sym (intern package-id)))
 
@@ -826,7 +831,7 @@ When SKIP-REQUIRE is set, don't require the package."
               t)
             t)
            (t
-            (message "Unable to load %s" package-id)
+            (message "elisp-autofmt: unable to load %s" package-id)
             nil))
 
       (let* ((filename (find-library-name package-id))
@@ -842,7 +847,9 @@ When SKIP-REQUIRE is set, don't require the package."
         filename-cache-name-only))))
 
 (defun elisp-autofmt--cache-api-ensure-cache-for-filepath (filepath)
-  "Generate cache for FILEPATH."
+  "Generate cache for FILEPATH.
+
+Return the cache name only (no directory)."
   (declare (important-return-value t))
   (let* ((filename-cache-name-only (elisp-autofmt--cache-api-encode-name-external filepath))
          (filename-cache-name-full
@@ -872,7 +879,9 @@ When SKIP-REQUIRE is set, don't require the package."
     filename-cache-name-only))
 
 (defun elisp-autofmt--cache-api-cache-update (buffer-directory)
-  "Ensure packages are up to date for `current-buffer' in BUFFER-DIRECTORY."
+  "Ensure packages are up to date for `current-buffer' in BUFFER-DIRECTORY.
+
+Return a list of cache names (no directory)."
   (declare (important-return-value t))
   (elisp-autofmt--cache-api-directory-ensure)
   (let ((cache-files (list)))
@@ -894,7 +903,12 @@ When SKIP-REQUIRE is set, don't require the package."
         (dolist (package-id packages-all)
           (cond
            ((stringp package-id)
-            (push (elisp-autofmt--cache-api-ensure-cache-for-package package-id t) cache-files))
+            (let ((filename-cache-name-only
+                   (elisp-autofmt--cache-api-ensure-cache-for-package package-id t)))
+              ;; May fail if the package could not be loaded.
+              ;; A warning message will have already been displayed.
+              (when filename-cache-name-only
+                (push filename-cache-name-only cache-files))))
            (t ; Unlikely, just helpful hint to users.
             (message "elisp-autofmt: skipping non-string feature reference %S" package-id)))))
 
