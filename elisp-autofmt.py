@@ -864,7 +864,7 @@ class Node:
         '''
         Function which must be overridden.
         '''
-        raise Exception('All subclasses must define this')
+        raise RuntimeError('All subclasses must define this')
 
     def __repr__(self) -> str:
         return 'force_newline={:d} line={:d}-{:d}'.format(
@@ -884,7 +884,7 @@ class Node:
         '''
         Format function which must be overridden.
         '''
-        raise Exception('All subclasses must define this')
+        raise RuntimeError('All subclasses must define this')
 
 
 # This is not enabled by default, hack for debugging only.
@@ -1213,6 +1213,7 @@ class NdSexp(Node):
 
                     if self.nodes_only_code[1].force_newline:
                         is_aligned = False
+                        # pylint: disable-next=possibly-used-before-assignment
                     elif fn_data and symbol_type == 'special':
                         # This is used for e.g.
                         #    (condition-case err
@@ -1223,6 +1224,7 @@ class NdSexp(Node):
                         is_aligned = False
                     elif (
                             fn_data is not None and
+                            # pylint: disable-next=possibly-used-before-assignment
                             (nargs_min <= indent) and
                             two_or_more_non_wrapped_args and
                             # fancy-compilation needs this.
@@ -1456,7 +1458,7 @@ class NdSexp(Node):
         :arg calc_score: When true, the return value is a score.
         '''
         if cfg.fill_column == 0:
-            raise Exception('internal error, this should not be called')
+            raise RuntimeError('internal error, this should not be called')
 
         # Simple optimization, don't calculate excess white-space.
         fill_column = cfg.fill_column - level
@@ -2473,7 +2475,7 @@ def fmt_solver_for_root_node(cfg: FmtConfig, node: NdSexp) -> None:
         fmt_solver_fill_column_unwrap_recursive(cfg, node, 0, 0, set())
     if USE_PARANOID_ASSERT:
         if node.flush_newlines_from_nodes_for_native_recursive():
-            raise Exception('this should be maintained while unwrapping!')
+            raise RuntimeError('this should be maintained while unwrapping!')
 
 
 def fmt_solver_for_root_node_multiprocessing(cfg: FmtConfig, node_group: Sequence[NdSexp]) -> Sequence[str]:
@@ -3270,7 +3272,7 @@ def main() -> None:
         line_range_args = args.fmt_line_range.partition(':')[0::2]
         try:
             line_range = int(line_range_args[0]) - 1, int(line_range_args[1]) - 1
-        except Exception as ex:
+        except ValueError as ex:
             sys.stderr.write(
                 'The argument \'--fmt-line-range\' could not interpret numbers ({!r})\n'.format(ex))
             sys.exit(1)
