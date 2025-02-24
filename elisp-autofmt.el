@@ -493,7 +493,7 @@ Return a cons cell comprised of the:
               (process-send-region proc-out (point-min) (point-max))
               (process-send-eof proc-out)
 
-              (while (not (eq sentinel-called sentinel-called-expect))
+              (while (/= sentinel-called sentinel-called-expect)
                 (accept-process-output))
 
               (let ((exit-code (process-exit-status proc-out))
@@ -1018,7 +1018,7 @@ Argument BUF-SRC is the buffer containing the formatted text."
 
           ;; Report if formatting was performed.
           (cond
-           ((not (eq (- end-dst-pos beg-dst-pos) (- end-src-pos beg-src-pos)))
+           ((/= (- end-dst-pos beg-dst-pos) (- end-src-pos beg-src-pos))
             (setq changed t))
            (t
             (let ((str-src (buffer-substring-no-properties beg-src-pos end-src-pos))
