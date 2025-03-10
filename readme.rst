@@ -306,6 +306,24 @@ Limitations
 - Currently only ``utf-8`` encoding is supported.
 
 
+Compatibility
+=============
+
+Since 30.1 ``use-package`` is built into emacs and re-structured.
+
+If you wish to auto-format your ``init.el`` file (or any files with ``use-pacakge``)
+``use-package-core`` must be included in ``elisp-autofmt-load-packages-local``.
+
+For example, this may be included at the bottom of your ``init.el``:
+
+.. code-block:: elisp
+
+   ;; Local variables:
+   ;; elisp-autofmt-load-packages-local: ("use-package" "use-package-core")
+   ;; end:
+
+
+
 TODO
 ====
 
