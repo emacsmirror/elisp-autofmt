@@ -7,10 +7,6 @@ import tempfile
 import unittest
 import shutil
 
-from typing import (
-    Tuple,
-)
-
 '''
 bash -c 'while true; do inotifywait -e close_write ./elisp-autofmt.el ./elisp-autofmt.py ./tests/test_unit.py; tput clear; python tests/test_unit.py CompareFormatSingleExpr; done'
 '''
@@ -35,7 +31,7 @@ def emacs_elisp_autofmt_str_as_str(
         input_str: str,
         fill_column: int,
         style: str,
-) -> Tuple[str, bytes, bytes]:
+) -> tuple[str, bytes, bytes]:
     """
     Take a path and return a string representing the formatted text.
     """
