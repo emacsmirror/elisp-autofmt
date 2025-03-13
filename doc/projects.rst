@@ -6,6 +6,7 @@ This is a list of projects using ``elisp-autofmt`` (currently projects I work on
 nevertheless, these are real-world examples of projects which are fully auto-formatted.
 
 - `bookmark-in-project <https://codeberg.org/ideasman42/emacs-bookmark-in-project>`__
+- `bray <https://codeberg.org/ideasman42/emacs-bray>`__
 - `buffer-name-relative <https://codeberg.org/ideasman42/emacs-buffer-name-relative>`__
 - `counsel-at-point <https://codeberg.org/ideasman42/emacs-counsel-at-point>`__
 - `cycle-at-point <https://codeberg.org/ideasman42/emacs-cycle-at-point>`__
@@ -29,6 +30,7 @@ nevertheless, these are real-world examples of projects which are fully auto-for
 - `run-stuff <https://codeberg.org/ideasman42/emacs-run-stuff>`__
 - `scroll-on-drag <https://codeberg.org/ideasman42/emacs-scroll-on-drag>`__
 - `scroll-on-jump <https://codeberg.org/ideasman42/emacs-scroll-on-jump>`__
+- `shift-number <https://codeberg.org/ideasman42/emacs-shift-number>`__
 - `sidecar-locals <https://codeberg.org/ideasman42/emacs-sidecar-locals>`__
 - `spatial-navigate <https://codeberg.org/ideasman42/emacs-spatial-navigate>`__
 - `spell-fu <https://codeberg.org/ideasman42/emacs-spell-fu>`__
