@@ -26,6 +26,7 @@ nevertheless, these are real-world examples of projects which are fully auto-for
 - `prog-face-refine <https://codeberg.org/ideasman42/emacs-prog-face-refine>`__
 - `py-autopep8 <https://codeberg.org/ideasman42/emacs-py-autopep8>`__
 - `recomplete <https://codeberg.org/ideasman42/emacs-recomplete>`__
+- `repeat-fu <https://codeberg.org/ideasman42/emacs-repeat-fu>`__
 - `revert-buffer-all <https://codeberg.org/ideasman42/emacs-revert-buffer-all>`__
 - `run-stuff <https://codeberg.org/ideasman42/emacs-run-stuff>`__
 - `scroll-on-drag <https://codeberg.org/ideasman42/emacs-scroll-on-drag>`__
