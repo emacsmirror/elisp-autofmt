@@ -804,6 +804,11 @@ Return the cache name only (no directory)."
           (elisp-autofmt--call-checked
            (list
             filename
+            ;; Site files can generate warnings, interfering with the batch operation.
+            ;; For example a warning about a header not including lexical-binding
+            ;; will cause the command to fail entirely.
+            "--no-site-file"
+            "--no-site-lisp"
             "--batch"
             "-l"
             elisp-autofmt--this-file
