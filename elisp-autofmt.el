@@ -1306,7 +1306,7 @@ where loading changes back into the buffer is not important."
 (defun elisp-autofmt-buffer ()
   "Auto format the current buffer."
   (declare (important-return-value nil))
-  (interactive)
+  (interactive "*")
   (let ((is-interactive (called-interactively-p 'interactive)))
     (elisp-autofmt--buffer-impl (current-buffer) nil nil is-interactive)))
 
@@ -1316,7 +1316,7 @@ where loading changes back into the buffer is not important."
 Optionally use BEG & END, otherwise an active region is required.
 Optionally pass in IS-INTERACTIVE to display a status message from formatting."
   (declare (important-return-value nil))
-  (interactive)
+  (interactive "*")
 
   (unless (and beg end)
     (unless (region-active-p)
@@ -1333,7 +1333,7 @@ Optionally pass in IS-INTERACTIVE to display a status message from formatting."
 When there is an active region, this is used,
 otherwise format the surrounding S-expression."
   (declare (important-return-value nil))
-  (interactive)
+  (interactive "*")
   (let ((is-interactive (called-interactively-p 'interactive)))
     (cond
      ((region-active-p)
