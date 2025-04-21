@@ -7,7 +7,7 @@
 
 ;; URL: https://codeberg.org/ideasman42/emacs-elisp-autofmt
 ;; Version: 0.1
-;; Package-Requires: ((emacs "28.1"))
+;; Package-Requires: ((emacs "29.1"))
 
 ;;; Commentary:
 
@@ -92,7 +92,7 @@ Each entry may be:
 This is intended to be set from file or directory locals and is marked safe."
   :type '(repeat string))
 ;;;###autoload
-(put 'elisp-autofmt-load-packages-local 'safe-local-variable #'elisp-autofmt-list-of-strings-p)
+(put 'elisp-autofmt-load-packages-local 'safe-local-variable #'list-of-strings-p)
 (make-variable-buffer-local 'elisp-autofmt-load-packages-local)
 
 (defcustom elisp-autofmt-ignore-autoload-packages
@@ -1355,14 +1355,6 @@ otherwise format the surrounding S-expression."
       (not (null (locate-dominating-file (file-name-directory filepath) ".elisp-autofmt"))))
      (t
       nil))))
-
-;; Auto load as this is a callback for `safe-local-variable'.
-;; NOTE: `list-of-strings-p' can be used once EMACS-29 is the minimum supported version.
-;;;###autoload
-(defun elisp-autofmt-list-of-strings-p (obj)
-  "Return t when OBJ is a list of strings."
-  (declare (important-return-value t))
-  (and (listp obj) (not (memq nil (mapcar #'stringp obj)))))
 
 ;;;###autoload
 (define-minor-mode elisp-autofmt-mode
