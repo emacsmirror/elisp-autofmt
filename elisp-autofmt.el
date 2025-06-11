@@ -90,10 +90,10 @@ Each entry may be:
   which is intended to support sharing definitions for multi-file packages.
 
 This is intended to be set from file or directory locals and is marked safe."
-  :type '(repeat string))
+  :type '(repeat string)
+  :local t)
 ;;;###autoload
 (put 'elisp-autofmt-load-packages-local 'safe-local-variable #'list-of-strings-p)
-(make-variable-buffer-local 'elisp-autofmt-load-packages-local)
 
 (defcustom elisp-autofmt-ignore-autoload-packages
   (list
