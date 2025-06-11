@@ -582,7 +582,8 @@ buffer causes automatic display of the corresponding source code location."
       (let ((compilation-context-lines nil))
         (setq compilation-current-error (point))
         (next-error-no-select 0))
-      (error t))))
+      (error
+        t))))
 
 (defun next-error-message-highlight (error-buffer)
   "Highlight the current error message in the ‘next-error’ buffer."
@@ -2705,7 +2706,8 @@ This function uses the `read-extended-command-predicate' user option."
                                   emacs-major-version)
                                 ;; If the obsoletion version isn't
                                 ;; valid, include the command.
-                                (error t)))))))
+                                (error
+                                  t)))))))
                     pred)))
               (complete-with-action action obarray string pred))))
         (lambda (sym)
@@ -3722,7 +3724,8 @@ Intended to be added to `minibuffer-setup-hook'."
               ;; Return point of the new search result
               (point))
             ;; Return nil when next(prev)-history-element fails
-            (error nil)))))))
+            (error
+              nil)))))))
 
 (defun minibuffer-history-isearch-message
   (&optional c-q-hack ellipsis)
@@ -7630,7 +7633,8 @@ If ARG is zero, move to the beginning of the current line."
                 (previous-overlay-change (point)))))
           (unless (bolp)
             (goto-char opoint)))))
-    ((beginning-of-buffer end-of-buffer) nil)))
+    ((beginning-of-buffer end-of-buffer)
+      nil)))
 
 (defun end-of-visible-line ()
   "Move to end of current visible line."
@@ -9660,7 +9664,8 @@ report errors as appropriate for this kind of usage."
   (if interactive
     (condition-case nil
       (transpose-sexps arg nil)
-      (scan-error (user-error "Not between two complete sexps")))
+      (scan-error
+        (user-error "Not between two complete sexps")))
     (transpose-subr
       (lambda (arg)
         ;; Here we should try to simulate the behavior of
@@ -10473,7 +10478,8 @@ The function should return non-nil if the two tokens do not match.")
                               1048576))))
                       (forward-char 1))
                     (point))
-                  (error nil))))))
+                  (error
+                    nil))))))
         (mismatch
           (funcall blink-matching-check-function blinkpos oldpos)))
       (cond
@@ -11722,7 +11728,8 @@ after it has been set up properly in other respects."
             (if (symbolp v)
               (makunbound (make-local-variable v))
               (set (make-local-variable (car v)) (cdr v)))
-            (setting-constant nil))) ;E.g. for enable-multibyte-characters.
+            (setting-constant
+              nil))) ;E.g. for enable-multibyte-characters.
         lvars)
 
       (setq mark-ring
@@ -12077,7 +12084,8 @@ warning using STRING as the message.")
           (and (stringp (setq symbol (symbol-value symbol)))
             (string-match-p (nth 2 list) symbol)))
         (display-warning package (nth 3 list) :warning)))
-    (error nil)))
+    (error
+      nil)))
 
 
 ;;; Generic dispatcher commands
