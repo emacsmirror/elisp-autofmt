@@ -576,6 +576,7 @@ def apply_rules_recursive(cfg: FmtConfig, node_parent: NdSexp) -> None:
             node_parent.index_wrap_hint = 1
             # NOTE: this also captures `-let` and `-when-let` which are defined by dash.
             if data_strip in {
+                    'and-let',  # Also: `and-let*`.
                     'cl-letf',  # Also: `cl-letf*`.
                     'if-let',  # Also: `if-let`.
                     'let',  # Also: `let*`.
