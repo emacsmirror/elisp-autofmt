@@ -640,6 +640,28 @@ def apply_rules_recursive(cfg: FmtConfig, node_parent: NdSexp) -> None:
                                 apply_relaxed_wrap_when_multiple_args(subnode, cfg.style)
                             subnode.hints["is_data"] = True
 
+            elif data_strip == 'pcase':
+                if cfg.use_wrap:
+                    # If the S-expression is data, don't attempt to evaluate it as a function call.
+                    # This applies to:
+                    #    (pcase var
+                    #      (symbol x))
+                    # In this case it's incorrect to wrap `symbol` as if it is a function with two arguments.
+                    # Instead, the first argument should be considered "data".
+                    for subnode in node_parent.nodes_only_code[2:]:
+                        # subnode.force_newline = True
+                        if isinstance(subnode, NdSexp):
+                            if len(subnode.nodes_only_code) >= 3:
+                                subnode.nodes_only_code[1].force_newline = True
+                                apply_relaxed_wrap_when_multiple_args(subnode, cfg.style)
+                            subnode.hints["is_data"] = True
+
+                    # Needed so the "value" is is not wrapped.
+                    node_parent.index_wrap_hint = 2
+                    # Needed so the body of the error cases is de-dented.
+                    node_parent.hints['indent'] = 1
+                    apply_relaxed_wrap(node_parent, cfg.style)
+
             elif node.data in {
                     'condition-case',
                     'condition-case-unless-debug',
@@ -664,7 +686,7 @@ def apply_rules_recursive(cfg: FmtConfig, node_parent: NdSexp) -> None:
 
                     # Needed so the "error" id is not indented.
                     node_parent.index_wrap_hint = 2
-                    # Needed so the body of the error cases is-de-dented.
+                    # Needed so the body of the error cases is de-dented.
                     node_parent.hints['indent'] = 2
                     apply_relaxed_wrap(node_parent, cfg.style)
             else:
