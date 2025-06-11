@@ -253,7 +253,9 @@ The following keyword arguments are supported:
       (pcase keyw
         (:prefix (setq prefix (pop body)))
         (:suffix (setq suffix (pop body)))
-        (_ (push keyw extra-keywords) (pop body))))
+        (_
+         (push keyw extra-keywords)
+         (pop body))))
     (when extra-keywords
       (error "Invalid keywords: %s" (mapconcat #'symbol-name extra-keywords " ")))
     (let ((prefix (or prefix ""))
