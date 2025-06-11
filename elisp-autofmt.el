@@ -1353,8 +1353,8 @@ otherwise format the surrounding S-expression."
   ;; Unlikely but possible this is nil.
   (let ((filepath buffer-file-name))
     (cond
-     (filepath
-      (not (null (locate-dominating-file (file-name-directory filepath) ".elisp-autofmt"))))
+     ((and filepath (locate-dominating-file (file-name-directory filepath) ".elisp-autofmt"))
+      t)
      (t
       nil))))
 
