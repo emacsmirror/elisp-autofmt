@@ -607,7 +607,7 @@ def apply_rules_recursive(cfg: FmtConfig, node_parent: NdSexp) -> None:
                             node_parent.nodes_only_code[2].force_newline = True
 
                     apply_relaxed_wrap(node_parent, cfg.style)
-            elif node.data == 'cond':
+            elif data_strip == 'cond':  # Also: `cond*`.
                 if cfg.use_wrap:
                     for subnode in node_parent.nodes_only_code[1:]:
                         subnode.force_newline = True
