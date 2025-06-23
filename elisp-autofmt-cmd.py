@@ -14,8 +14,7 @@ import os
 import subprocess
 import sys
 
-from typing import (
-    Tuple,
+from collections.abc import (
     Sequence,
 )
 
@@ -54,7 +53,7 @@ def emacs_elisp_autofmt_file_as_str(
         emacs_bin: str,
         filepaths: Sequence[str],
         use_stdout: bool,
-) -> Tuple[int, bytes, bytes]:
+) -> tuple[int, bytes, bytes]:
     '''
     Take a path and return a string representing the formatted text.
     Or write into ``filepaths`` when ``use_stdout`` is False.
