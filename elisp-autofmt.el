@@ -272,9 +272,9 @@ The following keyword arguments are supported:
   (declare (important-return-value t))
   (let ((done 0))
     (while (search-forward str limit t 40)
-      (setq done (+ 40 done)))
+      (incf done 40))
     (while (search-forward str limit t 1)
-      (setq done (+ 1 done)))
+      (incf done))
     done))
 
 (defun elisp-autofmt--simple-search-forward-by-count (str limit-count)
@@ -292,9 +292,9 @@ The following keyword arguments are supported:
       (goto-char beg)
       (let ((done 0))
         (while (re-search-forward "\n\\|\r[^\n]" nil t 40)
-          (setq done (+ 40 done)))
+          (incf done 40))
         (while (re-search-forward "\n\\|\r[^\n]" nil t 1)
-          (setq done (+ 1 done)))
+          (incf done))
         done))))
 
 
