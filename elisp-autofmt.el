@@ -480,8 +480,7 @@ Return a cons cell comprised of the:
                     :connection-type 'pipe
                     :command command-with-args
                     :coding (cons default-coding default-coding)
-                    :sentinel
-                    (lambda (_proc _msg) (setq sentinel-called (1+ sentinel-called)))))
+                    :sentinel (lambda (_proc _msg) (incf sentinel-called))))
                   (proc-err (get-buffer-process stderr-buffer)))
 
               ;; Unfortunately a separate process is set for the STDERR
@@ -489,8 +488,7 @@ Return a cons cell comprised of the:
               ;; Needed to override the "Process .. finished" message.
               (unless (eq proc-out proc-err)
                 (setq sentinel-called-expect 2)
-                (set-process-sentinel
-                 proc-err (lambda (_proc _msg) (setq sentinel-called (1+ sentinel-called)))))
+                (set-process-sentinel proc-err (lambda (_proc _msg) (incf sentinel-called))))
 
               (process-send-region proc-out (point-min) (point-max))
               (process-send-eof proc-out)
@@ -949,7 +947,7 @@ Argument BUF-SRC is the buffer containing the formatted text."
     ;; Note that we are not strict about the syntax, it's possible these
     ;; characters are inside comments or strings. The logic will still work.
     (while (and beg (memq (char-after beg) skip-chars))
-      (setq beg (1+ beg))
+      (incf beg)
       (unless (<= beg end)
         (setq beg nil)))
 
@@ -957,7 +955,7 @@ Argument BUF-SRC is the buffer containing the formatted text."
       (setq end nil))
 
     (while (and end (memq (char-before end) skip-chars))
-      (setq end (1- end))
+      (decf end)
       (unless (<= beg end)
         (setq end nil)))
 
