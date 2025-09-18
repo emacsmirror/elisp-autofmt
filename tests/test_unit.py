@@ -293,7 +293,7 @@ class CompareFormatExpectError(ELispAutoFormat):
             code_expect="\"\n",
             stderr_expect=(
                 b'elisp-autofmt: error code 1, output\n'
-                b'Error: parsing string at line 1\n'
+                b'Error: unterminated string literal at line 1\n'
                 b'\n'
             ),
         )
