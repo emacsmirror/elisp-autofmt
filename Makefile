@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-tests: FORCE  # Run the tests.
+test: FORCE  # Run the tests.
 	python tests/test_full_compare.py
 	python tests/test_generate_defs.py
 	python tests/test_unit.py
