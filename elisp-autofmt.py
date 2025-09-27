@@ -3320,9 +3320,11 @@ def main_generate_defs() -> bool:
         with open(file_output, 'w', encoding='utf-8') as fh:
             fh.write('{\n')
             fh.write('"functions": {\n')
-            is_first = False
+            is_first = True
             for key, val in defs.fn_arity.items():
                 if is_first:
+                    is_first = False
+                else:
                     fh.write(',\n')
                 symbol_type, nargs_min, nargs_max, hints = val
                 nargs_min_str = str(nargs_min) if isinstance(nargs_min, int) else '"{:s}"'.format(nargs_min)
@@ -3330,7 +3332,6 @@ def main_generate_defs() -> bool:
                 fh.write('"{:s}": ["{:s}", {:s}, {:s}, {:s}]'.format(
                     key, symbol_type, nargs_min_str, nargs_max_str, json.dumps(hints)
                 ))
-                is_first = True
             fh.write('')
             fh.write('}\n')  # 'functions'.
             fh.write('}\n')
