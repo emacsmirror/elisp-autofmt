@@ -98,7 +98,7 @@ def calc_over_long_line_score(data: str, fill_column: int, trailing_parens: int,
     # return a better (lower) score than a single line that overflows.
 
     # Step over `\n` characters instead of `data.split('\n')`
-    # so multiple characters are handled separately.
+    # so consecutive newlines can be handled separately.
     line_step = 0
     i = 0
 
@@ -141,6 +141,10 @@ def calc_over_long_line_score(data: str, fill_column: int, trailing_parens: int,
 def calc_over_long_line_length_test(data: str, fill_column: int, trailing_parens: int, line_terminate: int) -> int:
     '''
     Return zero when all lines are within the ``fill_column``, otherwise 1.
+
+    Even though this logically returns a boolean,
+    use an int type since this is used by logic that calculates a score,
+    and the return value from this function is part of that score.
     '''
 
     # Step over `\n` characters instead of `data.split('\n')`
@@ -283,7 +287,9 @@ def apply_relaxed_wrap(node_parent: NdSexp, style: FmtStyle) -> None:
             #       :keyword value
             #       :other other-value)
             #
-            # But only pairs, so multiple values each get their own line:
+            # But only pairs, so multiple non keyword values after the (keyword, value)
+            # split onto their own lines.
+            #
             #     (foo
             #       :keyword
             #       value
@@ -480,32 +486,32 @@ def apply_rules_from_comments(node_parent: NdSexp) -> None:
     do_next_line = False
     for node in node_parent.iter_nodes_recursive():
         if isinstance(node, NdComment):
-            autofmt_index = node.data.find(autofmt_text)
-            if autofmt_index != -1:
+            autofmt_text_index = node.data.find(autofmt_text)
+            if autofmt_text_index != -1:
                 comment = node.data
                 # Ensure there is only space or ';' beforehand.
                 ok = True
-                for index in range(autofmt_index):
+                for index in range(autofmt_text_index):
                     if comment[index] not in {';', ' ', '\t'}:
                         ok = False
                         break
                 if ok:
                     # After format either: `:` or `-next-line:` are expected.
-                    autofmt_index += len(autofmt_text)
-                    if comment[autofmt_index] == ':':
-                        autofmt_index += 1
+                    autofmt_text_index += len(autofmt_text)
+                    if comment[autofmt_text_index] == ':':
+                        autofmt_text_index += 1
                         do_next_line = False
-                    elif comment[autofmt_index:autofmt_index + len(autofmt_text_next)] == autofmt_text_next:
-                        autofmt_index += len(autofmt_text_next)
+                    elif comment[autofmt_text_index:autofmt_text_index + len(autofmt_text_next)] == autofmt_text_next:
+                        autofmt_text_index += len(autofmt_text_next)
                         do_next_line = True
                     else:
                         ok = False
 
                     if ok:
-                        while autofmt_index < len(comment) and comment[autofmt_index] in {' ', '\t'}:
-                            autofmt_index += 1
+                        while autofmt_text_index < len(comment) and comment[autofmt_text_index] in {' ', '\t'}:
+                            autofmt_text_index += 1
                         # Allow text after the boolean (use split method).
-                        bool_value = node.data[autofmt_index:autofmt_index + 4]
+                        bool_value = node.data[autofmt_text_index:autofmt_text_index + 4]
                         if bool_value.startswith('on'):
                             if bool_value[2:3] in punctuation_space_or_empty:
                                 if do_next_line:
@@ -1734,7 +1740,7 @@ class NdSexp(Node):
             if test:
                 # Use only for testing.
                 if node is test_node_terminate:
-                    # We could return however this misses trailing parenthesis on the same line.
+                    # We could return however this misses trailing parentheses on the same line.
                     assert ctx.line_terminate == -1
                     ctx.line_terminate = ctx.line
 
@@ -2252,7 +2258,7 @@ def fmt_solver_fill_column_unwrap_test_state_permutations(
                 (not node.wrap_all_or_nothing_hint) and
                 # It only makes sense to run this logic if there are multiple arguments to deal with.
                 (len(node.nodes_only_code) > 1) and
-                # At the moment are used interchangeably so mis-alignment is not supported.
+                # At the moment they are used interchangeably so mis-alignment is not supported.
                 (len(node.nodes_only_code) == len(node.nodes)) and
                 # Was on a single line (ignoring the first).
                 (True not in state_init[1:])
@@ -2474,7 +2480,7 @@ def fmt_solver_newline_constraints_apply(
         # Ensure colon prefixed arguments are on new-lines
         # if the block is multi-line.
         #
-        # When multi-line, don't do:
+        # When multi-line, don't use this formatting:
         #     (foo
         #       :keyword long-value-which-causes-next-line-to-wrap
         #       :other value :third value)
@@ -3048,8 +3054,8 @@ def format_file(
     if USE_EXTRACT_DEFS:
         parse_local_defs(cfg.defs, root)
 
-    # Has newline at file start?
-    # it will disable the settings such as lexical binding.
+    # Check for a newline at file start.
+    # If so, this will disable the settings such as lexical binding.
     # The intention of re-formatting is not to make any functional changes,
     # so it's important to add the blank line back.
     starts_with_bank_line = False
@@ -3069,7 +3075,8 @@ def format_file(
 
     apply_rules_from_comments(root)
 
-    # Redundant but needed for the assertion not to fail in the case when `len(root.nodes_only_code) == 1`.
+    # Without assertions this is redundant, however it's needed for
+    # the assertion to succeed when `len(root.nodes_only_code) == 1`.
     root.force_newline = True
 
     if USE_WRAP_LINES:
