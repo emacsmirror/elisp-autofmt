@@ -126,8 +126,10 @@ Otherwise you can set this to a user defined function."
   :type 'function)
 
 (defcustom elisp-autofmt-python-bin nil
-  "The Python binary to call to run the auto-formatting utility."
-  :type 'string)
+  "The Python binary to call to run the auto-formatting utility.
+
+When nil, the default Python command is used."
+  :type '(choice (const nil) string))
 
 (defcustom elisp-autofmt-cache-directory
   (locate-user-emacs-file "elisp-autofmt-cache" ".elisp-autofmt-cache")
@@ -187,6 +189,31 @@ Otherwise you can set this to a user defined function."
 
 ;; ---------------------------------------------------------------------------
 ;; Internal Utilities
+
+(defun elisp-autofmt--python-commands-or-empty ()
+  "Return the Python command an empty list.
+
+An empty list means the script will be executed directly,
+useful for systems that patch the SHEBANG for a custom Python location."
+  (cond
+   ((null elisp-autofmt-python-bin)
+    (cond
+     ((memq system-type (list 'ms-dos 'windows-nt))
+      ;; Use "python", from the PATH.
+      (list "python"))
+     (t
+      ;; Execute the script directly.
+      (list))))
+   (t
+    (list elisp-autofmt-python-bin))))
+
+(defun elisp-autofmt--python-env-prepend (env)
+  "Return a new environment prepended to ENV."
+  (cond
+   (elisp-autofmt-debug-mode
+    env)
+   (t
+    (cons "PYTHONOPTIMIZE=2" env))))
 
 (defmacro elisp-autofmt--with-advice (advice &rest body)
   "Execute BODY with ADVICE temporarily enabled.
@@ -857,6 +884,7 @@ if the package could not be loaded."
 
 Return the cache name only (no directory)."
   (declare (important-return-value t))
+
   (let* ((filename-cache-name-only (elisp-autofmt--cache-api-encode-name-external filepath))
          (filename-cache-name-full
           (file-name-concat elisp-autofmt-cache-directory filename-cache-name-only)))
@@ -866,21 +894,15 @@ Return the cache name only (no directory)."
 
       (let ((command-with-args
              (append
-              ;; Python command.
-              (list (or elisp-autofmt-python-bin "python"))
-              ;; Debug mode.
-              (cond
-               (elisp-autofmt-debug-mode
-                (list))
-               (t
-                (list "-OO")))
+              ;; Python command (or empty to directly execute the script)
+              (elisp-autofmt--python-commands-or-empty)
               ;; Main command.
               (list
                elisp-autofmt--bin
                "--gen-defs"
                filepath
-               (expand-file-name filename-cache-name-full)))))
-
+               (expand-file-name filename-cache-name-full))))
+            (process-environment (elisp-autofmt--python-env-prepend process-environment)))
         (elisp-autofmt--call-checked command-with-args)))
     filename-cache-name-only))
 
@@ -1139,13 +1161,7 @@ Argument IS-INTERACTIVE is set when running interactively."
          (command-with-args
           (append
            ;; Python command.
-           (list (or elisp-autofmt-python-bin "python"))
-           ;; Debug mode.
-           (cond
-            (elisp-autofmt-debug-mode
-             (list))
-            (t
-             (list "-OO")))
+           (elisp-autofmt--python-commands-or-empty)
            ;; Main command.
            (list
             elisp-autofmt--bin
@@ -1199,7 +1215,8 @@ Argument IS-INTERACTIVE is set when running interactively."
                              (list))))
                           path-separator))))
             (t
-             (list))))))
+             (list)))))
+         (process-environment (elisp-autofmt--python-env-prepend process-environment)))
 
     (when elisp-autofmt-debug-extra-info
       (message "elisp-autofmt: running piped process: %s"
