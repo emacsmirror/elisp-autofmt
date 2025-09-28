@@ -137,8 +137,8 @@ This may be preferred if you wish to batch format files without having to load e
 Requirements
 ------------
 
-- Emacs 28.1 (or newer).
-- Python 3.8 (or newer).
+- Emacs 29.1 (or newer).
+- Python 3.9 (or newer).
 
 
 Commands
