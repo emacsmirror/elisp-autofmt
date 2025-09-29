@@ -230,6 +230,10 @@ Customization (Integration)
 
 ``elisp-autofmt-cache-directory`` (``"~/.config/emacs/elisp-autofmt-cache"``)
    The directory where API cache is stored.
+``elisp-autofmt-use-diff-range`` nil
+   For whole buffer formatting, compute the changed region & only update that.
+
+   *Note that this may be useful for systems where the sub-process overhead is significant.*
 
 
 Customization (Parallel Computation)
