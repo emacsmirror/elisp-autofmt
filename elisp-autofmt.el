@@ -1274,7 +1274,11 @@ Argument IS-INTERACTIVE is set when running interactively."
                  (save-restriction
                    (widen)
                    (elisp-autofmt--replace-buffer-contents-fmt-region
-                    buf (car fmt-region-range) (cdr fmt-region-range)))))
+                    stdout-buffer (car fmt-region-range) (cdr fmt-region-range)))))
+            ;; Even though only a small region changed, use logic that re-writes the buffer.
+            (when changed
+              (elisp-autofmt--replace-region-contents-wrapper
+               (point-min) (point-max) stdout-buffer is-interactive))
             (when is-interactive
               (message "elisp-autofmt: %s"
                        (cond
