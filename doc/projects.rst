@@ -21,6 +21,7 @@ nevertheless, these are real-world examples of projects which are fully auto-for
 - `idle-highlight-mode <https://codeberg.org/ideasman42/emacs-idle-highlight-mode>`__
 - `jit-lock-stealth-progress <https://codeberg.org/ideasman42/emacs-jit-lock-stealth-progress>`__
 - `magit-commit-mark <https://codeberg.org/ideasman42/emacs-magit-commit-mark>`__
+- `meep <https://codeberg.org/ideasman42/emacs-meep>`__
 - `mode-line-idle <https://codeberg.org/ideasman42/emacs-mode-line-idle>`__
 - `mono-complete <https://codeberg.org/ideasman42/emacs-mono-complete>`__
 - `prog-face-refine <https://codeberg.org/ideasman42/emacs-prog-face-refine>`__
