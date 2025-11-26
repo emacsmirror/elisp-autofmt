@@ -563,7 +563,7 @@ Any `stderr' is output a message and is interpreted as failure."
 
           ;; Calling the process is completed.
           (cond
-           ((not (zerop exit-code))
+           ((null (zerop exit-code))
             (message "elisp-autofmt: Command %S failed with exit code %d!"
                      command-with-args
                      exit-code)
@@ -718,7 +718,8 @@ When INCLUDE-PRIVATE is nil, exclude functions with \"--\" in their names."
                           ;; Is it built-in? (speeds up accessing the file-path which is slow).
                           (subrp sym-fn)
                           (or (null auto-load-pkg)
-                              (not (member auto-load-pkg elisp-autofmt-ignore-autoload-packages))))
+                              (null
+                               (member auto-load-pkg elisp-autofmt-ignore-autoload-packages))))
                  ;; (autoload sym-id)
 
                  ;; Note that we could check for C-source only using.
@@ -826,7 +827,7 @@ Return the cache name only (no directory)."
          (filename-cache-name-only (elisp-autofmt--cache-api-encode-name filename))
          (filename-cache-name-full
           (file-name-concat elisp-autofmt-cache-directory filename-cache-name-only)))
-    (when (or (not (file-exists-p filename-cache-name-full))
+    (when (or (null (file-exists-p filename-cache-name-full))
               (elisp-autofmt--cache-api-file-is-older filename-cache-name-full filename))
 
       (cond
@@ -879,7 +880,7 @@ if the package could not be loaded."
               (file-name-concat elisp-autofmt-cache-directory filename-cache-name-only)))
 
         ;; Ensure the cache is newer than it's source.
-        (when (or (not (file-exists-p filename-cache-name-full))
+        (when (or (null (file-exists-p filename-cache-name-full))
                   (elisp-autofmt--cache-api-file-is-older filename-cache-name-full filename))
           (elisp-autofmt--cache-api-generate-for-package
            filename-cache-name-full package-id skip-require))
@@ -895,7 +896,7 @@ Return the cache name only (no directory)."
          (filename-cache-name-full
           (file-name-concat elisp-autofmt-cache-directory filename-cache-name-only)))
 
-    (when (or (not (file-exists-p filename-cache-name-full))
+    (when (or (null (file-exists-p filename-cache-name-full))
               (elisp-autofmt--cache-api-file-is-older filename-cache-name-full filepath))
 
       (let ((command-with-args
@@ -1254,7 +1255,7 @@ Argument IS-INTERACTIVE is set when running interactively."
 
       ;; Calling the process is completed.
       (cond
-       ((or (not (eq exit-code 2)) stderr-as-string)
+       ((or (null (eq exit-code 2)) stderr-as-string)
         (when stderr-as-string
           (cond
            (exit-code
