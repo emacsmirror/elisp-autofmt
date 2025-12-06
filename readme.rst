@@ -138,7 +138,7 @@ Requirements
 ------------
 
 - Emacs 29.1 (or newer).
-- Python 3.9 (or newer).
+- Python 3.10 (or newer).
 
 
 Commands
