@@ -1545,7 +1545,7 @@ class NdSexp(Node):
             if isinstance(node, NdSexp):
                 node.finalize_style(cfg)
 
-    def fmt_check_exceeds_colum_max(
+    def fmt_check_exceeds_column_max(
             self,
             cfg: FmtConfig,
             level: int,
@@ -1841,7 +1841,7 @@ def fmt_solver_fill_column_wrap_relaxed(
     Perform relaxed wrapping for blocks where any lines exceed the fill-column.
     '''
     # First be relaxed, then again if it fails.
-    if node_parent.fmt_check_exceeds_colum_max(cfg, level, trailing_parens, calc_score=False):
+    if node_parent.fmt_check_exceeds_column_max(cfg, level, trailing_parens, calc_score=False):
 
         if cfg.fill_column != 0:
             if not node_parent.wrap_all_or_nothing_hint:
@@ -1880,7 +1880,7 @@ def fmt_solver_fill_column_wrap_each_argument(
     assert i > 0
 
     node = node_parent.nodes_only_code[i]
-    score_init = node_parent.fmt_check_exceeds_colum_max(
+    score_init = node_parent.fmt_check_exceeds_column_max(
         cfg,
         level,
         trailing_parens,
@@ -1911,7 +1911,7 @@ def fmt_solver_fill_column_wrap_each_argument(
                 node_force_newline.append(node)
                 force_newline = True
 
-                if not node_parent.fmt_check_exceeds_colum_max(
+                if not node_parent.fmt_check_exceeds_column_max(
                     cfg,
                     level,
                     trailing_parens,
@@ -1939,7 +1939,7 @@ def fmt_solver_fill_column_wrap_each_argument(
 
         i = min(node_parent.index_wrap_hint, i_last)
         node = node_parent.nodes_only_code[i]
-        score_test = node_parent.fmt_check_exceeds_colum_max(
+        score_test = node_parent.fmt_check_exceeds_column_max(
             cfg,
             level,
             trailing_parens,
@@ -1963,7 +1963,7 @@ def fmt_solver_fill_column_wrap_each_argument(
     if cfg.style.use_native:
         node = node_parent.nodes_only_code[1]
         if not node.force_newline:
-            score_init = node_parent.fmt_check_exceeds_colum_max(
+            score_init = node_parent.fmt_check_exceeds_column_max(
                 cfg,
                 level,
                 trailing_parens,
@@ -1971,7 +1971,7 @@ def fmt_solver_fill_column_wrap_each_argument(
             )
             if score_init:
                 node.force_newline = True
-                score_test = node_parent.fmt_check_exceeds_colum_max(
+                score_test = node_parent.fmt_check_exceeds_column_max(
                     cfg,
                     level,
                     trailing_parens,
@@ -2077,7 +2077,7 @@ def fmt_solver_fill_column_unwrap_aggressive(
         # It's possible there are no new states worth testing.
         if nodes_recursive:
             # Calculate this before making the first change.
-            parent_score_curr = node_parent.fmt_check_exceeds_colum_max(
+            parent_score_curr = node_parent.fmt_check_exceeds_column_max(
                 cfg,
                 level,
                 trailing_parens,
@@ -2092,7 +2092,7 @@ def fmt_solver_fill_column_unwrap_aggressive(
                 node.newline_state_set(state_test)
 
             fmt_solver_newline_constraints_apply_recursive(node_parent, cfg, check_parent_multiline=True)
-            parent_score_test = node_parent.fmt_check_exceeds_colum_max(
+            parent_score_test = node_parent.fmt_check_exceeds_column_max(
                 cfg,
                 level,
                 trailing_parens,
@@ -2149,7 +2149,7 @@ def fmt_solver_fill_column_unwrap_test_state(
             node.newline_state_set(state_curr)
             return None
 
-    parent_score_test = node_parent.fmt_check_exceeds_colum_max(
+    parent_score_test = node_parent.fmt_check_exceeds_column_max(
         cfg,
         level,
         trailing_parens,
@@ -2411,7 +2411,7 @@ def fmt_solver_fill_column_unwrap_recursive(
 
             # Calculate the score to compare new states to.
             if parent_score_curr == -1:
-                parent_score_curr = node_parent.fmt_check_exceeds_colum_max(
+                parent_score_curr = node_parent.fmt_check_exceeds_column_max(
                     cfg,
                     level,
                     trailing_parens,
