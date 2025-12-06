@@ -2862,7 +2862,7 @@ def parse_file(fh: TextIO) -> tuple[str, NdSexp]:
                 line_has_contents = True
             case ')':  # Close S-expression.
                 if sexp_level == 0:
-                    raise FmtException('additional closing brackets, line {}'.format(line))
+                    raise FmtException('additional closing brackets, line {:d}'.format(line))
                 node = sexp_ctx.pop()
                 if node.brackets[0] != '(':
                     raise FmtException(
@@ -2875,7 +2875,7 @@ def parse_file(fh: TextIO) -> tuple[str, NdSexp]:
                 line_has_contents = True
             case ']':  # Close vector.
                 if sexp_level == 0:
-                    raise FmtException('additional closing brackets, line {}'.format(line))
+                    raise FmtException('additional closing brackets, line {:d}'.format(line))
                 node = sexp_ctx.pop()
                 if node.brackets[0] != '[':
                     raise FmtException(
@@ -2902,7 +2902,7 @@ def parse_file(fh: TextIO) -> tuple[str, NdSexp]:
                             line += 1
 
                 if not c:
-                    raise FmtException('unterminated string literal at line {}'.format(line))
+                    raise FmtException('unterminated string literal at line {:d}'.format(line))
 
                 sexp_ctx[sexp_level].nodes.append(NdString((line_beg, line), data.getvalue()))
                 del line_beg, data, is_slash, c
@@ -2981,7 +2981,7 @@ def parse_file(fh: TextIO) -> tuple[str, NdSexp]:
                 line_has_contents = True
 
     if sexp_level != 0:
-        raise FmtException('unbalanced S-expressions at file-end, found {} levels, expected 0'.format(sexp_level))
+        raise FmtException('unbalanced S-expressions at file-end, found {:d} levels, expected 0'.format(sexp_level))
 
     # Maybe unnecessary, do this for correctness.
     if root.original_lines[1] != line:
