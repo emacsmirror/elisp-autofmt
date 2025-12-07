@@ -1582,24 +1582,19 @@ class NdSexp(Node):
                     i = text.find('\n')
                     if i == -1:
                         line_length += len(text)
-                        if line_length > fill_column:
-                            score += 2 ** (line_length - fill_column)
                     else:
                         i_prev = 0
                         while True:
-                            if i == -1:
-                                line_length += len(text) - i_prev
-                                if line_length > fill_column:
-                                    score += 2 ** (line_length - fill_column)
-                                break
-
                             line_length += i - i_prev
                             if line_length > fill_column:
                                 score += 2 ** (line_length - fill_column)
 
                             i_prev = i + 1
+                            i = text.find('\n', i_prev)
+                            if i == -1:
+                                line_length = len(text) - i_prev
+                                break
                             line_length = 0
-                            i = text.find('\n', i + 1)
 
                 self.fmt_with_terminate_node(_ctx, write_fn_fast, level, test=True)
                 line_length += trailing_parens
@@ -1619,19 +1614,16 @@ class NdSexp(Node):
                     else:
                         i_prev = 0
                         while True:
-                            if i == -1:
-                                line_length += len(text) - i_prev
-                                if line_length > fill_column:
-                                    raise FmtExceptionEarlyExit
-                                break
-
                             line_length += i - i_prev
                             if line_length > fill_column:
                                 raise FmtExceptionEarlyExit
 
                             i_prev = i + 1
+                            i = text.find('\n', i_prev)
+                            if i == -1:
+                                line_length = len(text) - i_prev
+                                break
                             line_length = 0
-                            i = text.find('\n', i + 1)
 
                 try:
                     self.fmt_with_terminate_node(_ctx, write_fn_fast, level, test=True)
