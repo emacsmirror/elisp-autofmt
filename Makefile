@@ -1,9 +1,11 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
+PYTHON ?= python
+
 test: FORCE  # Run the tests.
-	python tests/test_full_compare.py
-	python tests/test_generate_defs.py
-	python tests/test_unit.py
+	$(PYTHON) tests/test_full_compare.py
+	$(PYTHON) tests/test_generate_defs.py
+	$(PYTHON) tests/test_unit.py
 
 check_mypy: FORCE
 	mypy --strict elisp-autofmt.py elisp-autofmt-cmd.py tests/*.py
