@@ -13,7 +13,7 @@
 
 ;; Auto format emacs-lisp code on save.
 
-;;; Usage
+;;; Usage:
 
 ;; (elisp-autofmt-buffer) ; Auto-format the current buffer.
 ;;
@@ -73,12 +73,12 @@ Otherwise existing line-breaks are kept and only indentation is performed."
 ;; Customization (API Definitions).
 
 (defcustom elisp-autofmt-use-function-defs t
-  "When non nil, generate function definitions for the auto-formatter to use."
+  "When non-nil, generate function definitions for the auto-formatter to use."
   :type 'boolean)
 
 
 (defcustom elisp-autofmt-use-default-override-defs t
-  "When non nil, make opinionated changes to how line breaks are handled."
+  "When non-nil, make opinionated changes to how line breaks are handled."
   :type 'boolean)
 
 (defcustom elisp-autofmt-load-packages-local nil
@@ -197,7 +197,7 @@ Note that this may be useful for systems where the sub-process overhead is signi
 ;; Internal Utilities
 
 (defun elisp-autofmt--python-commands-or-empty ()
-  "Return the Python command an empty list.
+  "Return the Python command or an empty list.
 
 An empty list means the script will be executed directly,
 useful for systems that patch the SHEBANG for a custom Python location."
@@ -518,7 +518,7 @@ Return a cons cell comprised of the:
                   (proc-err (get-buffer-process stderr-buffer)))
 
               ;; Unfortunately a separate process is set for the STDERR
-              ;; which uses it's own sentinel.
+              ;; which uses its own sentinel.
               ;; Needed to override the "Process .. finished" message.
               (unless (eq proc-out proc-err)
                 (setq sentinel-called-expect 2)
@@ -777,7 +777,7 @@ When SKIP-REQUIRE is non-nil, the package is not required."
             (message "Unable to load %s" package-id)
             nil))
 
-      ;; Ensure the cache is newer than it's source.
+      ;; Ensure the cache is newer than its source.
       (with-temp-buffer
         (insert "{\n")
         ;; Allow for other kinds of data in these files in the future.
@@ -802,7 +802,7 @@ Writes outputs to `ELISP_AUTOFMT_OUTPUT'."
     (elisp-autofmt--cache-api-generate-for-builtins output-path)))
 
 (defun elisp-autofmt--gen-package-defs ()
-  "Generate builtin definitions.
+  "Generate package definitions.
 
 Uses package from environment variable `ELISP_AUTOFMT_PACKAGE'.
 Writes outputs to environment variable `ELISP_AUTOFMT_OUTPUT'."
@@ -1338,7 +1338,7 @@ See `elisp-autofmt--region-impl' for TO-FILE and IS-INTERACTIVE doc-strings."
 (defun elisp-autofmt--buffer-format-for-save-hook ()
   "The hook to run on buffer saving to format the buffer."
   (declare (important-return-value t))
-  ;; Demote errors as this is user configurable, we can't be sure it wont error.
+  ;; Demote errors as this is user configurable, we can't be sure it won't error.
   (when (with-demoted-errors "elisp-autofmt: Error %S"
           (funcall elisp-autofmt-on-save-p))
     (elisp-autofmt-buffer))
@@ -1363,7 +1363,7 @@ See `elisp-autofmt--region-impl' for TO-FILE and IS-INTERACTIVE doc-strings."
 
 ;;;###autoload
 (defun elisp-autofmt-buffer-to-file ()
-  "Auto format the current buffer, writing it's output to a file.
+  "Auto format the current buffer, writing its output to a file.
 
 This is intended for use by batch processing scripts,
 where loading changes back into the buffer is not important."
