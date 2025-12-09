@@ -811,7 +811,7 @@ Writes outputs to environment variable `ELISP_AUTOFMT_OUTPUT'."
         (package-id (getenv "ELISP_AUTOFMT_PACKAGE")))
     (unless output-path
       (error "elisp-autofmt: $ELISP_AUTOFMT_OUTPUT was not set for package!"))
-    (unless output-path
+    (unless package-id
       (error "elisp-autofmt: $ELISP_AUTOFMT_PACKAGE was not set for package!"))
     (elisp-autofmt--cache-api-generate-for-package output-path package-id nil)))
 
